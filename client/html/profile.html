@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Perfil do usuário - Finance Dashboard">
+    <meta name="keywords" content="perfil, conta, segurança, assinatura, suporte, dados pessoais">
+    <meta name="author" content="Finance Dashboard">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Perfil - Finance Dashboard">
+    <meta property="og:description" content="Gerencie seu perfil e configurações de conta">
+    <meta property="og:type" content="website">
+    
+    <title>Perfil - Finance Dashboard</title>
+    
+    <!-- Preconnect para otimização -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/profile.css">
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body>
+
+    <!-- Sidebar (reused) -->
+    <aside class="sidebar" id="sidebar" role="complementary" aria-label="Menu de navegação lateral">
+        <div class="sidebar__inner">
+            <button id="sidebar-toggle" class="sidebar__toggle" aria-label="Alternar visibilidade da barra lateral" aria-expanded="true" aria-controls="sidebar">
+                <i data-lucide="chevrons-left" class="sidebar__toggle-icon" aria-hidden="true"></i>
+            </button>
+            <nav class="sidebar__nav" role="navigation" aria-label="Navegação principal">
+                <a href="index.html" class="sidebar__link">
+                    <i data-lucide="home" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Home</span>
+                </a>
+                <a href="dash.html" class="sidebar__link">
+                    <i data-lucide="bar-chart-2" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Finanças</span>
+                </a>
+                <a href="invest.html" class="sidebar__link">
+                    <i data-lucide="trending-up" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Investimentos</span>
+                </a>
+                <a href="profile.html" class="sidebar__link" aria-current="page">
+                    <i data-lucide="user" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Perfil</span>
+                </a>
+            </nav>
+        </div>
+    </aside>
+
+    <main class="app-content layout-container profile-page" role="main">
+        <section class="profile-grid">
+            <!-- Left column: profile card -->
+            <div class="card card--profile">
+                <div class="profile-card__inner">
+                    <div class="avatar-wrap">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128' viewBox='0 0 128 128'%3E%3Crect fill='%23111827' width='128' height='128'/%3E%3Ccircle cx='64' cy='50' r='24' fill='%2334d399' opacity='0.2'/%3E%3Cpath d='M64 74c-16 0-28 8-28 18v8h56v-8c0-10-12-18-28-18z' fill='%2334d399' opacity='0.2'/%3E%3C/svg%3E" alt="Avatar do usuário" id="profile-avatar" class="avatar" />
+                        <label for="avatar-input" class="avatar-upload">
+                            <input id="avatar-input" type="file" accept="image/*" hidden />
+                            <span class="avatar-upload__btn">Alterar</span>
+                        </label>
+                    </div>
+
+                    <div class="profile-meta">
+                        <h1 id="profile-name">João Silva</h1>
+                        <p class="meta-item" id="profile-profession">Engenheiro de Software</p>
+                        <p class="meta-item" id="profile-age">33 anos</p>
+                        <div class="net-worth">
+                            <span class="net-worth__label">Patrimônio total</span>
+                            <span class="net-worth__value" id="profile-networth">R$ 243.500</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right column: about + security -->
+            <div class="profile-actions">
+                <div class="card card--about">
+                    <header class="card__header">
+                        <h2>Sobre você</h2>
+                    </header>
+                    <div class="card__content">
+                        <form id="about-form" class="about-form">
+                            <div class="about-grid">
+                                <div class="form-group">
+                                    <label for="about-name">Nome</label>
+                                    <input id="about-name" type="text" placeholder="Seu nome" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="about-age">Idade</label>
+                                    <input id="about-age" type="number" min="0" placeholder="Ex: 33" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="about-profession">Profissão</label>
+                                    <input id="about-profession" type="text" placeholder="Sua profissão" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="about-has-children">Tem filhos?</label>
+                                    <div class="inline-controls">
+                                        <input id="about-has-children" type="checkbox" />
+                                        <label for="about-children-count" class="children-count-label">Quantidade</label>
+                                        <input id="about-children-count" type="number" min="0" value="0" disabled />
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="about-marital">Estado civil</label>
+                                    <select id="about-marital">
+                                        <option value="solteiro">Solteiro(a)</option>
+                                        <option value="casado">Casado(a)</option>
+                                        <option value="divorciado">Divorciado(a)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group fullwidth">
+                                <label for="about-description">Conte mais sobre você</label>
+                                <textarea id="about-description" placeholder="Fale um pouco sobre você..." maxlength="2000"></textarea>
+                            </div>
+
+                            <div class="card__actions">
+                                <button id="save-about" type="button" class="btn btn--primary">Salvar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card card--security">
+                    <header class="card__header">
+                        <h2>Segurança e Conta</h2>
+                    </header>
+                    <div class="card__content security-grid">
+                        <form id="change-password-form" class="change-password-form">
+                            <label>Senha atual</label>
+                            <input type="password" id="current-password" />
+                            <label>Nova senha</label>
+                            <input type="password" id="new-password" />
+                            <label>Confirmar nova senha</label>
+                            <input type="password" id="confirm-password" />
+                            <div class="card__actions">
+                                <button type="submit" class="btn btn--secondary">Mudar senha</button>
+                            </div>
+                        </form>
+
+                        <div class="support-actions">
+                            <h3>Suporte</h3>
+                            <p>Precisa de ajuda? Entre em contato com nossa equipe.</p>
+                            <a id="contact-support" class="btn btn--ghost" href="mailto:suporte@financedashboard.com?subject=Suporte%20Finance%20Dashboard">Falar com suporte</a>
+
+                            <hr />
+
+                            <h3>Assinatura</h3>
+                            <p>Gerencie sua assinatura da plataforma.</p>
+                            <button id="cancel-subscription" class="btn btn--danger">Cancelar Assinatura</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="../js/main.js"></script>
+    <script type="module" src="../js/profile.js"></script>
+</body>
+</html>

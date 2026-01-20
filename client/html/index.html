@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Dashboard interativo para gerenciamento financeiro pessoal com visualização de receitas, despesas e metas">
+    <meta name="keywords" content="finanças, dashboard, planejamento financeiro, metas, receitas, despesas">
+    <meta name="author" content="Finance Dashboard">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Finance Dashboard UI">
+    <meta property="og:description" content="Gerencie suas finanças de forma inteligente">
+    <meta property="og:type" content="website">
+    
+    <title>Finance Dashboard - Gerencie suas Finanças</title>
+    
+    <!-- Preconnect para otimização -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/login.css">
+    
+    <!-- Defer Lucide para não bloquear renderização -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body>
+
+    <!-- Sidebar (fixed left) -->
+    <aside class="sidebar" id="sidebar" role="complementary" aria-label="Menu de navegação lateral">
+        <div class="sidebar__inner">
+            <button id="sidebar-toggle" class="sidebar__toggle" aria-label="Alternar visibilidade da barra lateral" aria-expanded="true" aria-controls="sidebar">
+                <i data-lucide="chevrons-left" class="sidebar__toggle-icon" aria-hidden="true"></i>
+            </button>
+            <nav class="sidebar__nav" role="navigation" aria-label="Navegação principal">
+                <a href="index.html" class="sidebar__link" aria-current="page">
+                    <i data-lucide="home" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Home</span>
+                </a>
+                <a href="dash.html" class="sidebar__link">
+                    <i data-lucide="layout-dashboard" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Finanças</span>
+                </a>
+                <a href="invest.html" class="sidebar__link">
+                    <i data-lucide="trending-up" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Investimentos</span>
+                </a>
+                <a href="profile.html" class="sidebar__link">
+                    <i data-lucide="user" class="sidebar__link-icon" aria-hidden="true"></i>
+                    <span class="sidebar__link-label">Perfil</span>
+                </a>
+            </nav>
+            <button id="sidebar-logout" class="sidebar__logout" type="button" aria-label="Sair da plataforma">
+                <i data-lucide="log-out" class="sidebar__logout-icon" aria-hidden="true"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- App content (pushed by sidebar) -->
+    <div class="app-content layout-container" role="main">
+
+    <!-- Bento Box Grid Layout -->
+    <section class="bento-grid" aria-label="Painéis de finanças">
+        
+        <!-- Card 1: Finance Chart -->
+        <article class="card card--finance card--animated-1" aria-labelledby="finance-title">
+            <div class="card__header">
+                <div class="finance-header">
+                    <h2 id="finance-title" class="finance-title">Suas Finanças</h2>
+                    <div class="month-selector">
+                        <button id="analyze-toggle" class="badge badge--success month-toggle" aria-label="Analisar finanças" type="button">
+                            Analisar
+                        </button>
+                    </div>
+                </div>
+                <p class="typography-caption-uppercase">Receitas vs Despesas</p>
+            </div>
+            
+            <figure class="chart" role="img" aria-label="Gráfico de receitas versus despesas ao longo do ano">
+                <svg viewBox="0 0 200 100" class="chart-svg" aria-hidden="true">
+                    <!-- Income line gradient -->
+                    <defs>
+                        <linearGradient id="lineGradientGreen" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.3" />
+                            <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.3" />
+                            <stop offset="100%" style="stop-color:#10b981;stop-opacity:0" />
+                        </linearGradient>
+                        <linearGradient id="areaGradientRed" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#ef4444;stop-opacity:0.28" />
+                            <stop offset="100%" style="stop-color:#ef4444;stop-opacity:0" />
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- Area under line -->
+                    <path d="M0,80 L40,60 L80,70 L120,40 L160,50 L200,20 L200,100 L0,100 Z" fill="url(#areaGradient)" />
+                    
+                    <!-- Area under expenses line (red gradient) -->
+                    <path d="M0,90 L50,85 L100,60 L150,75 L200,55 L200,100 L0,100 Z" fill="url(#areaGradientRed)" />
+                    
+                    <!-- Main line -->
+                    <path class="chart__line" d="M0,80 L40,60 L80,70 L120,40 L160,50 L200,20" fill="none" stroke="url(#lineGradientGreen)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.5" />
+                    
+                    <!-- Data points -->
+                    <circle cx="40" cy="60" r="4" fill="#10b981" stroke="#0a0b0e" stroke-width="2" opacity="0.5" />
+                    <circle cx="120" cy="40" r="4" fill="#10b981" stroke="#0a0b0e" stroke-width="2" opacity="0.5" />
+                    
+                    <!-- Expenses line -->
+                    <path d="M0,90 L50,85 L100,60 L150,75 L200,55" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" opacity="0.5" />
+                </svg>
+            </figure>
+            
+            <div class="chart__labels">
+                <span class="chart-label-item">JAN</span>
+                <span class="chart-label-item">MAR</span>
+                <span class="chart-label-item">MAI</span>
+                <span class="chart-label-item">JUL</span>
+                <span class="chart-label-item">SET</span>
+                <span class="chart-label-item">NOV</span>
+            </div>
+            
+            <!-- Legend -->
+            <div class="chart__legend">
+                <div class="legend-item">
+                    <div class="legend-dot gradient-green"></div>
+                    <span class="legend-label">Receitas</span>
+                    <span class="legend-value">R$ 8.450</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot gradient-red"></div>
+                    <span class="legend-label">Despesas</span>
+                    <span class="legend-value">R$ 5.230</span>
+                </div>
+            </div>
+        </article>
+
+        <!-- Card 2: Goals & Planning -->
+        <article class="card card--planning card--animated-2" aria-labelledby="planning-title">
+            <div class="card__header">
+                <div class="planning-header">
+                    <h2 id="planning-title" class="planning-title">Planejamento</h2>
+                    <div class="month-selector">
+                        <button id="plan-toggle" class="badge badge--success month-toggle" aria-label="Planejar metas" type="button">
+                            Planejar
+                        </button>
+                    </div>
+                </div>
+                <p class="typography-caption-uppercase">Metas e Objetivos</p>
+            </div>
+            
+            <div class="card__content goals-container">
+                <!-- Goal 1 -->
+                <div class="goal">
+                    <div class="goal-header">
+                        <div class="goal-info">
+                            <div class="icon-badge icon-badge--blue goal-icon">
+                                <i data-lucide="home" class="icon-small"></i>
+                            </div>
+                            <div class="goal-details">
+                                <p class="goal-title">Comprar Casa</p>
+                                <p class="goal-subtitle">R$ 180.000 / R$ 300.000</p>
+                            </div>
+                        </div>
+                        <span class="goal-percentage goal-percentage--blue">60%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar__fill progress-bar__fill--blue" style="width: 60%; box-shadow: 0 0 16px rgba(59, 130, 246, 0.6);"></div>
+                    </div>
+                </div>
+
+                <!-- Goal 2 -->
+                <div class="goal">
+                    <div class="goal-header">
+                        <div class="goal-info">
+                            <div class="icon-badge gradient-orange goal-icon">
+                                <i data-lucide="car" class="icon-small"></i>
+                            </div>
+                            <div class="goal-details">
+                                <p class="goal-title">Carro Novo</p>
+                                <p class="goal-subtitle">R$ 35.000 / R$ 100.000</p>
+                            </div>
+                        </div>
+                        <span class="goal-percentage goal-percentage--orange">35%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar__fill progress-bar__fill--orange" style="width: 35%; box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);"></div>
+                    </div>
+                </div>
+
+                <!-- Goal 3 -->
+                <div class="goal">
+                    <div class="goal-header">
+                        <div class="goal-info">
+                            <div class="icon-badge icon-badge--green goal-icon">
+                                <i data-lucide="palmtree" class="icon-small"></i>
+                            </div>
+                            <div class="goal-details">
+                                <p class="goal-title">Viagem dos Sonhos</p>
+                                <p class="goal-subtitle">R$ 3.600 / R$ 30.000</p>
+                            </div>
+                        </div>
+                        <span class="goal-percentage goal-percentage--green">12%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar__fill progress-bar__fill--green" style="width: 12%; box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);"></div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <!-- Card 3: Calendar & Upcoming -->
+        <article class="card card--calendar card--animated-3" aria-labelledby="calendar-title">
+            <header class="calendar-header">
+                <h2 id="calendar-title" class="typography-caption-uppercase calendar-title">Próximas Transações</h2>
+                <div class="calendar-controls">
+                    <div class="month-selector">
+                        <button id="month-toggle" class="badge badge--success month-toggle" aria-haspopup="listbox" aria-expanded="false" type="button">
+                            <!-- month text injected by JS -->
+                        </button>
+                        <ul id="month-list" class="month-list" role="listbox" aria-label="Selecione o mês" hidden>
+                            <li role="option" data-month="0" tabindex="0">JAN</li>
+                            <li role="option" data-month="1" tabindex="0">FEV</li>
+                            <li role="option" data-month="2" tabindex="0">MAR</li>
+                            <li role="option" data-month="3" tabindex="0">ABR</li>
+                            <li role="option" data-month="4" tabindex="0">MAI</li>
+                            <li role="option" data-month="5" tabindex="0">JUN</li>
+                            <li role="option" data-month="6" tabindex="0">JUL</li>
+                            <li role="option" data-month="7" tabindex="0">AGO</li>
+                            <li role="option" data-month="8" tabindex="0">SET</li>
+                            <li role="option" data-month="9" tabindex="0">OUT</li>
+                            <li role="option" data-month="10" tabindex="0">NOV</li>
+                            <li role="option" data-month="11" tabindex="0">DEZ</li>
+                        </ul>
+                    </div>
+                    <button id="calendar-nav-prev" class="calendar-nav-btn" aria-label="Dia anterior" type="button">
+                        <i data-lucide="chevron-left" class="nav-icon" aria-hidden="true"></i>
+                    </button>
+                    <button id="calendar-nav-next" class="calendar-nav-btn" aria-label="Próximo dia" type="button">
+                        <i data-lucide="chevron-right" class="nav-icon" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div id="calendar-grid" class="calendar__grid">
+                <!-- Days generated via JS -->
+            </div>
+            
+            <!-- Upcoming charge -->
+            <article class="transaction" data-month="0">
+                <div class="transaction-info">
+                    <div class="icon-badge icon-badge--purple transaction-icon" aria-hidden="true">
+                        <i data-lucide="twitch" class="icon-medium"></i>
+                    </div>
+                    <div class="transaction-details">
+                        <h3 class="transaction-name">Twitch Prime</h3>
+                        <time class="transaction-date" datetime="2026-01-17">Vence em 2 dias</time>
+                    </div>
+                </div>
+                <data class="transaction-amount" value="14.99">$14.99</data>
+            </article>
+
+            <!-- Upcoming charge (duplicate for demo) -->
+            <article class="transaction" data-month="1">
+                <div class="transaction-info">
+                    <div class="icon-badge icon-badge--purple transaction-icon" aria-hidden="true">
+                        <i data-lucide="twitch" class="icon-medium"></i>
+                    </div>
+                    <div class="transaction-details">
+                        <h3 class="transaction-name">Twitch Prime</h3>
+                        <time class="transaction-date" datetime="2026-02-17">Vence em 2 dias</time>
+                    </div>
+                </div>
+                <data class="transaction-amount" value="14.99">$14.99</data>
+            </article>
+        </article>
+    </section>
+    </div> <!-- .app-content -->
+
+    <!-- Message input with extra stat cards (Patrimônio / Dívidas) -->
+    <div class="message-wrapper card--animated-4">
+        <!-- New left-most stat: Portfolio (hidden until user types) -->
+        <article class="card card--stat card--stat--portfolio" aria-label="Portfolio" hidden>
+            <header class="stat-card__header">
+                <div class="stat-card__title">Portfolio</div>
+            </header>
+            <div class="stat-card__inner">
+                <div class="stat-card__trend stat-card__trend--up" aria-hidden="true">
+                    <i data-lucide="trending-up" class="stat-icon"></i>
+                    <span class="stat-trend__label">+12%</span>
+                </div>
+                <div class="stat-card__meta">Média rendimento anual 8%</div>
+            </div>
+        </article>
+        <!-- Left stat: Patrimônio (hidden until user types) -->
+        <article class="card card--stat card--stat--patrimonio" aria-label="Patrimônio" hidden>
+            <header class="stat-card__header">
+                <div class="stat-card__title">Patrimônio</div>
+            </header>
+            <div class="stat-card__inner">
+                <div class="stat-card__value">R$ 245.300</div>
+                <div class="stat-card__trend stat-card__trend--up" aria-hidden="true">
+                    <i data-lucide="trending-up" class="stat-icon"></i>
+                    <span class="stat-trend__label">+8%</span>
+                </div>
+            </div>
+        </article>
+
+        <form class="card card--message" id="message-form" aria-label="Formulário de mensagem">
+            <label for="message-input" class="visually-hidden">Pergunte sobre suas finanças</label>
+            <textarea
+                id="message-input"
+                placeholder="Pergunte sobre suas finanças"
+                class="input-message"
+                rows="3"
+                aria-label="Campo de mensagem"
+                maxlength="5000"
+            ></textarea>
+            <div class="chat-actions" role="group" aria-label="Ações do chat">
+                <button type="submit" class="send-button" aria-label="Enviar mensagem">
+                    <i data-lucide="send" class="send-icon" aria-hidden="true"></i>
+                </button>
+
+                <div class="chat-quick-group" aria-hidden="false">
+                    <button class="chat-quick-btn chat-quick-btn--new" type="button" aria-label="Novo chat" data-tooltip="Novo chat">
+                        <i data-lucide="plus-circle" aria-hidden="true"></i>
+                    </button>
+
+                    <button class="chat-quick-btn chat-quick-btn--history" type="button" aria-label="Histórico do chat" data-tooltip="Histórico">
+                        <i data-lucide="clock" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Right stat: Dívidas (hidden until user types) -->
+        <article class="card card--stat card--stat--dividas" aria-label="Dívidas" hidden>
+            <header class="stat-card__header">
+                <div class="stat-card__title">Dívidas</div>
+            </header>
+            <div class="stat-card__inner">
+                <div class="stat-card__value">R$ 54.120</div>
+                <div class="stat-card__trend stat-card__trend--down" aria-hidden="true">
+                    <i data-lucide="trending-down" class="stat-icon"></i>
+                    <span class="stat-trend__label">-9%</span>
+                </div>
+            </div>
+        </article>
+
+        <!-- New right-most stat: Insights (hidden until user types) -->
+        <article class="card card--stat card--stat--insights" aria-label="Insights" hidden>
+            <header class="stat-card__header">
+                <div class="stat-card__title">Insights</div>
+            </header>
+            <div class="stat-card__inner">
+                <div class="insights-text" aria-live="polite">Reduza seus gastos em 20%</div>
+                <button class="insights-button" type="button" aria-label="Entenda">Entenda</button>
+            </div>
+        </article>
+    </div>
+
+    <!-- Modal de Autenticação -->
+    <div id="auth-modal" class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+        <div class="auth-modal__overlay"></div>
+        <div class="auth-modal__container">
+            <!-- Cabeçalho do Modal -->
+            <header class="auth-modal__header">
+                <h2 id="auth-modal-title" class="auth-modal__title">Bem-vindo</h2>
+                <p class="auth-modal__subtitle">Entre ou crie sua conta para continuar</p>
+            </header>
+
+            <!-- Abas de navegação -->
+            <div class="auth-tabs" role="tablist" aria-label="Opções de autenticação">
+                <button 
+                    class="auth-tab auth-tab--active" 
+                    role="tab" 
+                    aria-selected="true" 
+                    aria-controls="login-panel"
+                    id="login-tab"
+                    data-tab="login">
+                    Login
+                </button>
+                <button 
+                    class="auth-tab" 
+                    role="tab" 
+                    aria-selected="false" 
+                    aria-controls="register-panel"
+                    id="register-tab"
+                    data-tab="register">
+                    Cadastro
+                </button>
+            </div>
+
+            <!-- Painéis de conteúdo -->
+            <div class="auth-panels">
+                <!-- Painel de Login -->
+                <div 
+                    class="auth-panel auth-panel--active" 
+                    role="tabpanel" 
+                    id="login-panel" 
+                    aria-labelledby="login-tab">
+                    <form id="login-form" class="auth-form" novalidate>
+                        <div class="form-group">
+                            <label for="login-username" class="form-label">
+                                Usuário ou Email
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i data-lucide="user" class="form-icon" aria-hidden="true"></i>
+                                <input 
+                                    type="text" 
+                                    id="login-username" 
+                                    name="usernameOrEmail"
+                                    class="form-input" 
+                                    placeholder="Digite seu usuário ou email"
+                                    required
+                                    autocomplete="username">
+                            </div>
+                            <span class="form-error" id="login-username-error" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="login-password" class="form-label">
+                                Senha
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i data-lucide="lock" class="form-icon" aria-hidden="true"></i>
+                                <input 
+                                    type="password" 
+                                    id="login-password" 
+                                    name="password"
+                                    class="form-input" 
+                                    placeholder="Digite sua senha"
+                                    required
+                                    autocomplete="current-password">
+                                <button 
+                                    type="button" 
+                                    class="password-toggle" 
+                                    aria-label="Mostrar senha"
+                                    data-target="login-password">
+                                    <i data-lucide="eye" class="password-toggle-icon" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <span class="form-error" id="login-password-error" role="alert"></span>
+                        </div>
+
+                        <button type="submit" class="auth-submit-btn">
+                            <span class="auth-submit-text">Entrar</span>
+                            <div class="auth-submit-loader" hidden>
+                                <div class="spinner"></div>
+                            </div>
+                        </button>
+
+                        <div class="form-message" id="login-message" role="alert" aria-live="polite"></div>
+                    </form>
+                </div>
+
+                <!-- Painel de Cadastro -->
+                <div 
+                    class="auth-panel" 
+                    role="tabpanel" 
+                    id="register-panel" 
+                    aria-labelledby="register-tab"
+                    hidden>
+                    <form id="register-form" class="auth-form" novalidate>
+                        <div class="form-group">
+                            <label for="register-username" class="form-label">
+                                Nome de Usuário
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i data-lucide="user" class="form-icon" aria-hidden="true"></i>
+                                <input 
+                                    type="text" 
+                                    id="register-username" 
+                                    name="username"
+                                    class="form-input" 
+                                    placeholder="Escolha um nome de usuário"
+                                    required
+                                    autocomplete="username"
+                                    minlength="3"
+                                    maxlength="30">
+                            </div>
+                            <span class="form-error" id="register-username-error" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="register-email" class="form-label">
+                                Email
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i data-lucide="mail" class="form-icon" aria-hidden="true"></i>
+                                <input 
+                                    type="email" 
+                                    id="register-email" 
+                                    name="email"
+                                    class="form-input" 
+                                    placeholder="Digite seu email"
+                                    required
+                                    autocomplete="email">
+                            </div>
+                            <span class="form-error" id="register-email-error" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="register-password" class="form-label">
+                                Senha
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i data-lucide="lock" class="form-icon" aria-hidden="true"></i>
+                                <input 
+                                    type="password" 
+                                    id="register-password" 
+                                    name="password"
+                                    class="form-input" 
+                                    placeholder="Crie uma senha"
+                                    required
+                                    autocomplete="new-password"
+                                    minlength="6">
+                                <button 
+                                    type="button" 
+                                    class="password-toggle" 
+                                    aria-label="Mostrar senha"
+                                    data-target="register-password">
+                                    <i data-lucide="eye" class="password-toggle-icon" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <span class="form-error" id="register-password-error" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="register-confirm-password" class="form-label">
+                                Confirmar Senha
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i data-lucide="lock" class="form-icon" aria-hidden="true"></i>
+                                <input 
+                                    type="password" 
+                                    id="register-confirm-password" 
+                                    name="confirmPassword"
+                                    class="form-input" 
+                                    placeholder="Confirme sua senha"
+                                    required
+                                    autocomplete="new-password"
+                                    minlength="6">
+                                <button 
+                                    type="button" 
+                                    class="password-toggle" 
+                                    aria-label="Mostrar senha"
+                                    data-target="register-confirm-password">
+                                    <i data-lucide="eye" class="password-toggle-icon" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <span class="form-error" id="register-confirm-password-error" role="alert"></span>
+                        </div>
+
+                        <button type="submit" class="auth-submit-btn">
+                            <span class="auth-submit-text">Criar Conta</span>
+                            <div class="auth-submit-loader" hidden>
+                                <div class="spinner"></div>
+                            </div>
+                        </button>
+
+                        <div class="form-message" id="register-message" role="alert" aria-live="polite"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="../js/main.js"></script>
+    <script type="module" src="../js/auth.js"></script>
+</body>
+</html>

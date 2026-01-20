@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Dashboard interativo para gerenciamento financeiro pessoal com visualização de receitas, despesas e metas">
+  <meta name="theme-color" content="#000000">
+  <title>Finanças</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/dash.css">
+</head>
+<body>
+  <!-- Sidebar (shared) -->
+  <aside class="sidebar" id="sidebar" role="complementary" aria-label="Menu de navegação lateral">
+    <div class="sidebar__inner">
+      <button id="sidebar-toggle" class="sidebar__toggle" aria-label="Alternar visibilidade da barra lateral" aria-expanded="true" aria-controls="sidebar">
+        <i data-lucide="chevrons-left" class="sidebar__toggle-icon" aria-hidden="true"></i>
+      </button>
+      <nav class="sidebar__nav" role="navigation" aria-label="Navegação principal">
+        <a href="index.html" class="sidebar__link">
+          <i data-lucide="home" class="sidebar__link-icon" aria-hidden="true"></i>
+          <span class="sidebar__link-label">Home</span>
+        </a>
+        <a href="dash.html" class="sidebar__link" aria-current="page">
+          <i data-lucide="layout-dashboard" class="sidebar__link-icon" aria-hidden="true"></i>
+          <span class="sidebar__link-label">Finanças</span>
+        </a>
+        <a href="invest.html" class="sidebar__link">
+          <i data-lucide="trending-up" class="sidebar__link-icon" aria-hidden="true"></i>
+          <span class="sidebar__link-label">Investimentos</span>
+        </a>
+        <a href="profile.html" class="sidebar__link">
+          <i data-lucide="user" class="sidebar__link-icon" aria-hidden="true"></i>
+          <span class="sidebar__link-label">Perfil</span>
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- App content (pushed by sidebar) -->
+  <div class="app-content layout-container" role="main">
+
+  <main class="dashboard">
+    <aside class="chat" aria-label="Chat lateral">
+      <header class="chat-header">
+        <h2>Chat</h2>
+      </header>
+      <div class="chat-messages" id="chatMessages" aria-live="polite">
+        <div class="message received"><span class="meta">Sistema • agora</span><p>Bem-vindo ao painel — use o chat para testes.</p></div>
+        <div class="message sent"><span class="meta">Você • 2m</span><p>Olá! Está funcionando.</p></div>
+      </div>
+      <form id="chatForm" class="chat-form" autocomplete="off">
+        <textarea id="chatInput" rows="1" placeholder="Digite uma mensagem..." aria-label="Mensagem" required></textarea>
+        <button type="submit" aria-label="Enviar">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
+          </svg>
+        </button>
+      </form>
+    </aside>
+
+    <section class="main-panel">
+      <div class="cards-row top">
+        <article class="card stat receitas">
+          <h3>Receitas</h3>
+          <p class="value">R$ 12.450,00</p>
+        </article>
+
+        <article class="card stat despesas">
+          <h3>Despesas</h3>
+          <p class="value">R$ 6.120,50</p>
+        </article>
+
+        <article class="card stat saldo">
+          <h3>Saldo</h3>
+          <p class="value">R$ 6.329,50</p>
+        </article>
+        
+        <article class="card stat filtro" aria-label="Filtro de mês">
+          <div class="filter-controls">
+            <button id="monthPickerBtn" class="month-picker-btn" aria-haspopup="true" aria-expanded="false">-</button>
+            <div id="monthGrid" class="month-grid" role="dialog" aria-hidden="true">
+              <!-- JS will populate month buttons in 4x3 grid -->
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="carousel-container">
+        <div class="carousel-nav">
+            <button class="carousel-arrow carousel-prev" aria-label="Anterior">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+
+            <div class="carousel-title" aria-hidden="true">SUAS FINANÇAS</div>
+
+            <button class="carousel-arrow carousel-next" aria-label="Próximo">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+        
+        <div class="carousel-wrapper">
+          <div class="cards-carousel" id="cardsCarousel">
+            <!-- Card 1: Últimas Transações -->
+            <article class="card carousel-card transactions" id="latestTx">
+              <h3>Últimas transações</h3>
+              <ul class="tx-list" id="txList">
+                <!-- JS will populate 5 latest transactions -->
+              </ul>
+            </article>
+
+            <!-- Card 2: Receitas (agora com alternância Receitas / Despesas) -->
+            <article class="card carousel-card incomes" id="incomesCard">
+              <div class="card-title-row">
+                <h3>Extrato</h3>
+                <div class="toggle-group" role="tablist" aria-label="Alternar Receitas e Despesas">
+                  <button id="toggleIncomes" class="toggle-btn active" aria-pressed="true">Receitas</button>
+                  <button id="toggleExpenses" class="toggle-btn" aria-pressed="false">Despesas</button>
+                </div>
+              </div>
+
+              <ul class="income-list" id="incomeList" aria-hidden="false">
+                <!-- JS will populate incomes -->
+              </ul>
+
+              <ul class="expense-list" id="expenseList" aria-hidden="true">
+                <!-- Exemplo de lançamentos de despesa; o JS pode popular dinamicamente -->
+                <li class="expense-item">
+                  <div>
+                    <div class="tx-desc">Supermercado</div>
+                    <div class="tx-meta">Cartão • 3 dias</div>
+                  </div>
+                  <div class="tx-amount outcome">R$ 280,45</div>
+                </li>
+                <li class="expense-item">
+                  <div>
+                    <div class="tx-desc">Conta de luz</div>
+                    <div class="tx-meta">Venc. 10 Fev</div>
+                  </div>
+                  <div class="tx-amount outcome">R$ 129,90</div>
+                </li>
+              </ul>
+            </article>
+
+            <!-- Card 3: Contas (A receber / A pagar) -->
+            <article class="card carousel-card contas" id="contasCard">
+              <div class="card-title-row">
+                <h3>Contas Futuras</h3>
+                <div class="toggle-group" role="tablist" aria-label="Alternar A receber e A pagar">
+                  <button id="toggleRecv" class="toggle-btn active" aria-pressed="true">A receber</button>
+                  <button id="togglePay" class="toggle-btn" aria-pressed="false">A pagar</button>
+                </div>
+              </div>
+
+              <ul class="receivable-list" id="receivableList" aria-hidden="false">
+                <!-- Exemplo de lançamentos a receber -->
+                <li class="receivable-item">
+                  <div>
+                    <div class="tx-desc">Pagamento Cliente A</div>
+                    <div class="tx-meta">Venc. 05 Fev</div>
+                  </div>
+                  <div class="tx-amount income">R$ 1.200,00</div>
+                </li>
+                <li class="receivable-item">
+                  <div>
+                    <div class="tx-desc">Serviço B</div>
+                    <div class="tx-meta">A vencer</div>
+                  </div>
+                  <div class="tx-amount income">R$ 650,00</div>
+                </li>
+              </ul>
+
+              <ul class="payable-list" id="payableList" aria-hidden="true">
+                <!-- Exemplo de contas a pagar -->
+                <li class="payable-item">
+                  <div>
+                    <div class="tx-desc">Fornecedor X</div>
+                    <div class="tx-meta">Venc. 02 Fev</div>
+                  </div>
+                  <div class="tx-amount outcome">R$ 2.340,00</div>
+                </li>
+                <li class="payable-item">
+                  <div>
+                    <div class="tx-desc">Internet</div>
+                    <div class="tx-meta">Venc. 12 Fev</div>
+                  </div>
+                  <div class="tx-amount outcome">R$ 129,00</div>
+                </li>
+              </ul>
+            </article>
+
+            <!-- Card 3: Cartão de Crédito -->
+            <article class="card carousel-card credit-card">
+              <h3>Cartão de Crédito</h3>
+              <div class="card-content">
+                <div class="info-group">
+                  <span class="info-label">Valor utilizado</span>
+                  <span class="info-value credit-used">R$ 2.850,00</span>
+                </div>
+                <div class="info-group">
+                  <span class="info-label">Limite disponível</span>
+                  <span class="info-value credit-available">R$ 7.150,00</span>
+                </div>
+                <div class="credit-bar-container">
+                  <div class="credit-bar">
+                    <div class="credit-bar-fill" style="width: 28.5%;"></div>
+                  </div>
+                  <span class="credit-percentage">28.5% utilizado</span>
+                </div>
+                <div class="info-group">
+                  <span class="info-label">Fatura atual</span>
+                  <span class="info-value credit-bill">R$ 2.850,00</span>
+                </div>
+                <div class="info-group">
+                  <span class="info-label">Vencimento</span>
+                  <span class="info-value credit-due">25 Jan 2026</span>
+                </div>
+              </div>
+            </article>
+
+            <!-- Card 4: Dívidas -->
+            <article class="card carousel-card debts">
+              <h3>Dívidas</h3>
+              <div class="card-content">
+                <div class="info-group highlighted">
+                  <span class="info-label">Total pendente</span>
+                  <span class="info-value debt-total">R$ 8.450,00</span>
+                </div>
+                <ul class="debt-list">
+                  <li class="debt-item">
+                    <div>
+                      <div class="debt-name">Financiamento Veículo</div>
+                      <div class="debt-meta">18 parcelas restantes</div>
+                    </div>
+                    <div class="debt-amount">R$ 5.200,00</div>
+                  </li>
+                  <li class="debt-item">
+                    <div>
+                      <div class="debt-name">Empréstimo Pessoal</div>
+                      <div class="debt-meta">8 parcelas restantes</div>
+                    </div>
+                    <div class="debt-amount">R$ 2.100,00</div>
+                  </li>
+                  <li class="debt-item">
+                    <div>
+                      <div class="debt-name">Cartão de Crédito (anterior)</div>
+                      <div class="debt-meta">Parcelamento 6x</div>
+                    </div>
+                    <div class="debt-amount">R$ 1.150,00</div>
+                  </li>
+                </ul>
+              </div>
+            </article>
+
+            <!-- Card 5: Patrimônio -->
+            <article class="card carousel-card patrimony">
+              <h3>Patrimônio</h3>
+              <div class="card-content">
+                <div class="info-group highlighted">
+                  <span class="info-label">Patrimônio total</span>
+                  <span class="info-value patrimony-total">R$ 45.320,00</span>
+                </div>
+                <div class="patrimony-breakdown">
+                  <div class="patrimony-item">
+                    <div class="patrimony-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                        <line x1="1" y1="10" x2="23" y2="10"></line>
+                      </svg>
+                    </div>
+                    <div class="patrimony-info">
+                      <div class="patrimony-label">Saldo em contas</div>
+                      <div class="patrimony-value">R$ 6.329,50</div>
+                    </div>
+                  </div>
+                  <div class="patrimony-item">
+                    <div class="patrimony-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="patrimony-info">
+                      <div class="patrimony-label">Investimentos</div>
+                      <div class="patrimony-value">R$ 28.500,00</div>
+                    </div>
+                  </div>
+                  <div class="patrimony-item">
+                    <div class="patrimony-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                      </svg>
+                    </div>
+                    <div class="patrimony-info">
+                      <div class="patrimony-label">Bens</div>
+                      <div class="patrimony-value">R$ 10.490,50</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+        
+        <div class="carousel-indicators" id="carouselIndicators">
+          <!-- JS will populate indicators -->
+        </div>
+      </div>
+    </section>
+    </main>
+  </div> <!-- .app-content -->
+
+  <!-- Modal: Editar Cartão de Crédito -->
+  <div id="editModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="editModalTitle">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2 id="editModalTitle">Editar Cartão de Crédito</h2>
+        <button id="modalClose" class="modal-close" aria-label="Fechar" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+      <form id="editCardForm" class="modal-form">
+        <div class="form-group">
+          <label for="cardNameInput">Nome do Cartão</label>
+          <input type="text" id="cardNameInput" required>
+        </div>
+        <div class="form-group">
+          <label for="cardLimitInput">Limite Total</label>
+          <div class="spinner-group">
+            <input type="text" id="cardLimitInput" required>
+            <div class="spinner-buttons">
+              <button type="button" class="spinner-up" aria-label="Aumentar">▲</button>
+              <button type="button" class="spinner-down" aria-label="Diminuir">▼</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="renewalDayInput">Dia de Renovação (1-31)</label>
+          <input type="number" id="renewalDayInput" min="1" max="31" placeholder="Ex: 15">
+        </div>
+        <div class="form-group">
+          <label for="dueDayInput">Dia de Vencimento (1-31)</label>
+          <input type="number" id="dueDayInput" min="1" max="31" placeholder="Ex: 10">
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="modalCancel" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Adicionar Dívida -->
+  <div id="addDebtModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="addDebtModalTitle">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2 id="addDebtModalTitle">Adicionar Nova Dívida</h2>
+        <button id="addDebtModalClose" class="modal-close" aria-label="Fechar" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+      <form id="addDebtForm" class="modal-form">
+        <div class="form-group">
+          <label for="debtDescInput">Descrição</label>
+          <input type="text" id="debtDescInput" required placeholder="Ex: Financiamento Veículo">
+        </div>
+        <div class="form-group">
+          <label for="debtInstInput">Instituição</label>
+          <input type="text" id="debtInstInput" required placeholder="Ex: Banco do Brasil">
+        </div>
+        <div class="form-group">
+          <label for="debtDateInput">Data de Início</label>
+          <input type="date" id="debtDateInput" required>
+        </div>
+        <div class="form-group">
+          <label for="debtValueInput">Valor Total</label>
+          <input type="text" id="debtValueInput" required placeholder="R$ 0,00">
+        </div>
+        <div class="form-group">
+          <label for="debtInstallmentsInput">Número de Parcelas</label>
+          <input type="number" id="debtInstallmentsInput" min="1" required placeholder="Ex: 24">
+        </div>
+        <div class="form-group">
+          <label for="debtFirstPaymentInput">Data do Primeiro Pagamento</label>
+          <input type="date" id="debtFirstPaymentInput" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="addDebtCancel" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Adicionar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Detalhes da Dívida -->
+  <div id="debtDetailsModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="debtDetailsTitle">
+    <div class="modal-content modal-large">
+      <header class="modal-header">
+        <h2 id="debtDetailsTitle">Detalhes da Dívida</h2>
+        <button id="debtDetailsClose" class="modal-close" aria-label="Fechar" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </header>
+      <div class="debt-summary">
+        <div class="summary-item">
+          <span class="summary-label">Próximo Pagamento:</span>
+          <span id="debtNextPayment" class="summary-value">-</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Valor Pago:</span>
+          <span id="debtPaidAmount" class="summary-value">R$ 0,00</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Progresso:</span>
+          <span id="debtPaidPercent" class="summary-value">0%</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Término Previsto:</span>
+          <span id="debtEndDate" class="summary-value">-</span>
+        </div>
+      </div>
+      <div class="debt-tabs">
+        <button id="tabPending" class="debt-tab active" type="button">Pendentes</button>
+        <button id="tabPaid" class="debt-tab" type="button">Pagas</button>
+      </div>
+      <div id="pendingContent" class="tab-content active">
+        <ul id="pendingInstallments" class="installments-list">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
+      <div id="paidContent" class="tab-content">
+        <ul id="paidInstallments" class="installments-list">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botões flutuantes (para abrir modais) -->
+  <button id="editCardBtn" class="fab" aria-label="Editar Cartão" style="display: none;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+    </svg>
+  </button>
+  <button id="addDebtBtn" class="fab fab-secondary" aria-label="Adicionar Dívida" style="display: none;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="../js/main.js"></script>
+  <script src="../js/dataService.js"></script>
+  <script src="../js/dash-data.js"></script>
+  <script src="../js/dash.js"></script>
+  <!-- Script de testes (remover em produção) -->
+  <script src="../js/teste-card-extrato.js"></script>
+  
+</body>
+</html>

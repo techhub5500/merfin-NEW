@@ -1,0 +1,191 @@
+# Integração do Frontend `dash.html` com MongoDB — Explicação
+
+Este documento descreve como o frontend do dashboard funciona (arquivos: [client/js/dash-data.js](client/js/dash-data.js) e [client/js/dash.js](client/js/dash.js)), quais dados aparecem em cada card (topo e carrossel) e como o seletor de datas (filtro por mês) interage com o sistema. No final há um resumo conciso.
+
+**Arquivos Principais**:
+- **`client/js/dash-data.js`**: contém os dados de exemplo (`sampleTx`, `debtsData`), utilitários de formatação (`formatAmount`, `parseCurrencyBR`, `formatDate`, `escapeHtml`) e todas as funções de renderização e cálculos (ex.: `renderTransactions`, `updateStats`, `renderCreditCard`, `renderDebtsCard`, `renderPatrimonyCard`, `renderAccountsCard`, `renderPendingInstallments`, `renderPaidInstallments`).
+- **`client/js/dash.js`**: contém a lógica de interação da UI (chat, carrossel, month picker, toggles, modais). Liga elementos do DOM com as funções de `dash-data.js` e coordena eventos do usuário. Funções chave: `initDashboard`, `initMonthPicker`, `applyFilter`, `initCarousel`, `initToggles`, `initEditModal`, `initAddDebtModal`, `initDebtDetailsModal`, `initChat`.
+
+**Fluxo geral de dados (alto nível)**:
+- Dados de exemplo residem em `dash-data.js` nas variáveis globais `sampleTx` (transações) e `debtsData` (dívidas).
+- A interface (eventos em `dash.js`) chama `applyFilter(monthKey)`, que por sua vez invoca funções de `dash-data.js` para renderizar e atualizar todos os componentes relevantes (cards do topo, listas e cards do carrossel).
+- Para a integração com MongoDB (próximo passo), o servidor deve fornecer endpoints que retornem os dados do usuário (transações, dívidas, configurações do cartão). Esses dados substituirão `sampleTx` e `debtsData` no carregamento (ou via fetch/WS) e então `applyFilter` será chamado para re-renderizar a UI.
+
+**Cards do Topo (linha superior)**
+- `Receitas` (`.stat.receitas`): valor total de receitas calculado por `updateStats` a partir da lista filtrada. Soma `amount` de transações com `type === 'income'`.
+- `Despesas` (`.stat.despesas`): valor total de despesas calculado por `updateStats`. Soma `amount` de transações com `type === 'outcome'`.
+- `Saldo` (`.stat.saldo`): diferença entre receitas e despesas calculada em `updateStats`.
+- Observação: `updateStats` recebe a lista de transações já filtrada por `applyFilter`, portanto esses valores sempre refletem o período selecionado.
+
+**Cards do Carrossel — conteúdo e origem dos dados**
+- Card: `Últimas transações` (`#latestTx`, função `renderTransactions`)
+  - Fonte: lista passada por `applyFilter` (normalmente `sampleTx` filtrado por `monthKey`).
+  - Exibe até 5 lançamentos mais recentes (função faz um `slice().reverse().slice(0,5)`). Cada item mostra `desc`, `date` formatada e `amount` via `formatAmount`.
+
+- Card: `Extrato` / alternância `Receitas` ↔ `Despesas` (`#incomesCard`, funções `renderIncomes` e `renderExpensesList`)
+  - Fonte: lista filtrada por mês. `renderIncomes` mostra transações com `type === 'income'`. `renderExpensesList` mostra `type === 'outcome'` para o `monthKey` atual.
+  - O `toggle` (em `dash.js`) controla visibilidade entre `#incomeList` e `#expenseList`.
+
+- Card: `Contas Futuras` / alternância `A receber` ↔ `A pagar` (`#contasCard`, função `renderAccountsCard`)
+  - Fonte: lista filtrada por mês; separa `income` → contas a receber e `outcome` → contas a pagar.
+  - Renderiza entradas com `desc`, `date` e `amount`.
+
+- Card: `Cartão de Crédito` (`.credit-card`, função `renderCreditCard`)
+  - Fonte: calcula `txForMonth` a partir do `monthKey` (filtra `sampleTx`), soma saídas como `creditUsed` (no código atual soma `outcome` como gasto de cartão).
+  - `creditAvailable` atualmente é um valor padrão (`defaultAvailable = 7150` no código). `creditBarFill` e `creditPercentageEl` mostram porcentagem usada calculada como `creditUsed / (creditUsed + creditAvailable)`.
+  - `creditBill` mostrado como soma de despesas do mês (`creditUsed`), e `creditDue` é preenchido com `-` por padrão (ou atualizado no modal de edição do cartão quando usuário salva dias de vencimento/renovação).
+
+- Card: `Dívidas` (`.debts`, função `renderDebtsCard`)
+  - Fonte: `debtsData` (array de dívidas). Exibe apenas dívidas com `paidInstallments.length < installments` (ou seja, ainda não finalizadas).
+  - `totalPending` é calculado somando o valor restante de cada dívida via `calculateDebtRemainingValue` (instalmentValue * parcelas restantes).
+  - Cada item lista `description`, meta (parcelas e pagas) e percentuais. Clicar em uma dívida chama `openDebtDetailsModal(debt.id)` que mostra parcelas pendentes/pagas (`renderPendingInstallments` / `renderPaidInstallments`).
+
+- Card: `Patrimônio` (`.patrimony`, função `renderPatrimonyCard`)
+  - Fonte: conteúdo estático condicional por `monthKey` no código (ex.: se `monthKey === '2026-01'` mostra valores e breakdown). Atualmente é mock/dado estático — para produção, deve ser calculado/fornecido pelo servidor (saldo em contas, investimentos, bens).
+
+**Seletor de mês (Month Picker) e sistema de filtros**
+- Elementos: botão `#monthPickerBtn` e painel `#monthGrid` (populado por `initMonthPicker` em `dash.js`).
+- `populateMonthGrid()` monta os botões de mês (chaves no formato `YYYY-MM`) e define o mês inicial (baseado em `new Date()`; se ano igual a 2026, escolhe o mês atual, senão janeiro).
+- Quando o usuário seleciona um mês, `applyFilter(monthKey)` é chamado. `applyFilter` filtra `sampleTx` por `getMonthKey(t.date) === monthKey` (ou `all` para não filtrar) e então chama, nessa ordem:
+  - `updateStats(filtered)` — atualiza os cards do topo;
+  - `renderTransactions(filtered)` — atualiza lista de últimas transações;
+  - `renderIncomes(filtered)` — preenche lista de receitas;
+  - `renderCreditCard(monthKey)`, `renderDebtsCard(monthKey)`, `renderPatrimonyCard(monthKey)`, `renderAccountsCard(monthKey)`, `renderExpensesList(monthKey)` — atualizam os cards do carrossel que dependem do mês.
+- Ou seja: o seletor altera uma única fonte de verdade (a lista filtrada) e depois todas as renderizações são chamadas para manter a UI consistente.
+
+**Interações adicionais relevantes**
+- `initCarousel()` gerencia navegação (setas, indicadores, swipe e teclado). A posição atual é traduzida em `transform: translateX(...)` sobre o container `.cards-carousel`.
+- `initToggles()` cria comportamentos de alternância entre visões (Receitas/Despesas, A receber/A pagar) que apenas mudam classes e atributos `aria-pressed` e `aria-hidden` para ocultar/mostrar listas.
+- Modais (`initEditModal`, `initAddDebtModal`, `initDebtDetailsModal`) têm lógica para abrir/fechar, validar inputs e atualizar DOM; por exemplo, editar cartão atualiza `creditAvailableEl`, `creditBarFill`, etc., localmente.
+- Chat (`initChat`) é um componente UI independente que faz auto-resize de textarea e insere mensagens no DOM (ex.: para testes, não persiste mensagens).
+
+**Pontos importantes para a integração com MongoDB (próximos passos)**
+- Em vez de `sampleTx` e `debtsData` locais, o frontend deve buscar os dados do servidor via `fetch` em endpoints autenticados (ex.: `GET /api/transactions?userId=...&month=YYYY-MM` e `GET /api/debts?userId=...`).
+- O servidor (Node/Express em `server/`) consultará MongoDB e retornará JSON com as transações e dívidas do usuário logado.
+- Após receber os dados do servidor, atualizar as variáveis `sampleTx` e `debtsData` (ou melhor: passar os arrays recebidos diretamente para as funções de render) e chamar `applyFilter(currentMonthKey)` para re-renderizar a UI.
+- Para dados em tempo real, considerar WebSocket/Server-Sent Events para receber atualizações sem recarregar a página.
+- Mapear e garantir formatos: `date` ISO (`YYYY-MM-DD`), `amount` numérico, `type` string (`income`/`outcome`), `paidInstallments` array de inteiros.
+
+**Boas práticas para migração**
+- Centralizar fetchs em `main.js` ou criar `dataService` que retorna promessas (ex.: `fetchTransactions(monthKey)`), mantendo `dash-data.js` apenas como camada de renderização e utilitários.
+- Evitar mutar estruturas globais diretamente; ao receber dados do servidor, atribuir a variáveis locais e chamar funções de renderização.
+- Tratar casos sem dados (listas vazias já contempladas no código com mensagens amigáveis).
+
+**Resumo final**
+- `dash-data.js` = dados de exemplo + utilitários + renderers.
+- `dash.js` = ligação UI ↔ renderers: eventos, modais, carrossel e o `applyFilter` que harmoniza tudo.
+- Top cards (Receitas/Despesas/Saldo) mostram agregados calculados por `updateStats` a partir da lista filtrada.
+- Cada card do carrossel puxa dados da lista filtrada (`monthKey`) ou de `debtsData`/dados estáticos e possui funções dedicadas para renderização e cálculos.
+- O seletor de mês define `monthKey` e dispara `applyFilter(monthKey)`, que atualiza toda a UI de forma consistente—este é o ponto central para integrar dados do MongoDB: ao receber dados do servidor, atualize as fontes e chame `applyFilter`.
+
+
+
+
+Pequeno resumo: O frontend separa renderização (`dash-data.js`) e controles/ux (`dash.js`). O `monthKey` é a chave que conecta filtros e atualizações; substituindo os mocks por endpoints MongoDB e chamando `applyFilter`, a UI exibirá os dados corretos de cada usuário.
+
+**O que deve ser considerado para tornar todos os dados dos cards totalmente dinâmicos**
+
+- **Endpoints por recurso:** implementar endpoints claros para `transactions`, `debts`, `patrimony`, `accounts` e `credit` (ex.: `GET /api/transactions?month=YYYY-MM`, `GET /api/debts`, `GET /api/patrimony`). Fornecer também endpoints de estatísticas agregadas (ex.: `GET /api/stats?month=YYYY-MM`).
+- **Escopo por usuário e autenticação:** usar autenticação (por exemplo JWT) e sempre filtrar dados por `userId` no servidor — nunca confiar no cliente para essa separação.
+- **Contrato e formato dos dados:** padronizar entradas/saídas: `date` em ISO (`YYYY-MM-DD`), `amount` numérico, `type` como `'income'|'outcome'`, identificadores únicos (`_id`). Para dívidas, incluir `installments`, `firstPayment`, `totalValue` e `paidInstallments` (array de inteiros).
+- **Cálculos no servidor:** computar agregados (receitas, despesas, saldo, creditUsed, creditAvailable, totalPending) via agregações MongoDB e expor resultados prontos, reduzindo trabalho do cliente e assegurando consistência.
+- **Timezone e agrupamento por mês:** definir política de timezone (armazenar em UTC e converter pelo timezone do usuário) para que `monthKey` e agrupamentos por mês coincidam entre frontend e backend.
+- **Validação e sanitização no servidor:** validar datas, números e textos; sanitizar campos de entrada e saída; retornar erros claros para que o frontend trate e mostre mensagens amigáveis.
+- **Paginação e limites:** suportar `page`/`perPage` nas listas de transações; fornecer endpoints para últimas N transações para o card resumido.
+- **Atualizações em tempo real:** considerar WebSocket/SSE para eventos (nova transação, parcela paga) para atualizar cards e listas sem reload.
+- **Indexação e performance:** indexar `userId` e `date` no MongoDB; usar pipelines de agregação para métricas e cachear respostas pesadas quando apropriado.
+- **Consistência e transações:** usar transações MongoDB para operações multi-documento (ex.: marcar parcela como paga e ajustar saldo) para evitar inconsistência.
+- **Segurança e privacidade:** HTTPS, rate limiting, proteção contra exposição de dados de outros usuários e logs seguros.
+- **Migração e retrocompatibilidade:** preparar scripts para migrar dados atuais ao novo esquema (datas, valores), e manter versões de API se necessário.
+- **Contratos e testes:** documentar APIs (OpenAPI/Swagger) e criar testes de integração que validem o contrato entre backend e frontend.
+
+Seguindo esses pontos você terá um caminho claro para substituir os mocks por dados reais do MongoDB e garantir que todos os cards exibam informações dinâmicas, corretas e seguras para cada usuário.
+
+---
+
+**Análise dos Schemas do servidor e requisitos para integração (resumo técnico)**
+
+Visão geral: revisei os arquivos de schema e utilitários em `server/src/database/schemas` e módulos relacionados (`account-transactions.js`, `transactions/README.md`). A maior parte das estruturas necessárias já existe, mas há pontos de atenção e adaptações necessárias para que o frontend (`dash.html`, `client/js/dash-data.js`, `client/js/dash.js`) consuma dados corretos por usuário e por período.
+
+1) Mapeamento principal entre frontend e schemas
+- `transactions` (frontend `sampleTx`) → `transactions` collection (`transactions-schema.js`): possui `userId`, `type`/`section`, `amount`, `date` — é compatível. Assegure que `type` use os valores esperados (`income`/`expense`/`outcome`) ou normalize no backend.
+- `debtsData` (frontend) → `debt` collection (`debt-schema.js` / `Debt`): o schema do servidor usa estruturas mais ricas (array de `installments` com `dueDate`, `isPaid`). Será preciso transformar/serializar para o formato esperado pelo frontend, ou adaptar o frontend para consumir o formato do servidor (recomendado).
+- `credit card` (frontend) → `CreditCard` (`credit-card-schema.js`): o schema contém `creditLimit`, `billingCycleRenewalDay`, `billingDueDay`. O frontend precisa também de `utilizedAmount` e `currentBill` — esses devem ser calculados pelo backend a partir de `transactions` (section `credit_card`) ou providos por endpoint específico (`getCreditCardUtilization`).
+- `accounts` / `patrimony` → `Account` (`accounts-schema.js`) e possíveis `asset`/`investments` nos `transactions` ou coleção própria: usar os saldos e assets para compor o card `Patrimônio`.
+
+2) Endpoints e serviços necessários (prioritários)
+- GET /api/transactions?month=YYYY-MM (filtrado por `userId`) — retorna lista paginada + opção `limit` para últimos N registros.
+- GET /api/transactions/summary?month=YYYY-MM (ou GET /api/stats) — retorna `{ incomeTotal, outcomeTotal, balance }` já agregados pelo backend.
+- GET /api/debts — retorna dívidas do usuário no formato amigável para frontend (com `id`, `description`, `institution`, `startDate`, `totalValue`, `installments`, `firstPayment`, `paidInstallments` ou com `installments[]` contendo `isPaid`).
+- POST /api/debts/:id/pay-installment — marcar parcela paga (usar transação MongoDB e audit log).
+- GET /api/credit-cards — retorna cartões do usuário + utilização (ou GET /api/credit-cards/:id/utilization).
+- GET /api/accounts (saldo por conta) e GET /api/patrimony (agregado patrimonial).
+
+3) Mapeamentos e transformações recomendadas
+- Padronizar nomes entre backend e frontend (ex.: `installments` vs `installmentCount`, `firstPayment` vs `firstPaymentDate`). Definir uma camada DTO no servidor que converta schemas para a forma consumida pelo frontend.
+- Para dívidas: o backend já tem `installments` como array com `dueDate` e `isPaid` — envie ao frontend tanto a lista completa quanto um resumo (`paidInstallments` array ou `paidCount`) para evitar cálculos duplicados cliente/servidor.
+
+4) Pontos críticos e de atenção
+- Timezone / MonthKey: frontend usa `getMonthKey(new Date(date))` para agrupar por mês. Garanta que o backend também agrupe por timezone do usuário (ou sempre use UTC e converta no cliente) para evitar diferenças no filtro mensal.
+- Consistência numérica: `amount` deve ser number (não string). Sempre retornar números com precisão adequada (2 casas) e evitar enviar formatos localizados (ex.: não enviar "R$ 1.000,00"). O frontend formata com `formatAmount`.
+- Autenticação/autorização: todas as rotas devem validar `userId` a partir do token e filtrar os resultados — nunca confiar em `userId` fornecido pelo cliente.
+- Agregações vs. cliente: preferir endpoints de agregação (server-side) para top-cards (`receitas`, `despesas`, `saldo`) por performance e segurança.
+- Transações/atomicidade: usar `transaction-manager` e `account-transactions` para operações que modificam saldos, dívidas ou marcam parcelas como pagas — evitar inconsistências.
+- Audit log: todas as mudanças relevantes (pagamento de parcela, transferência, alteração de limite) devem criar entradas no `audit_log` (o schema já suporta append-only hooks).
+
+5) Coisas possivelmente faltando no servidor (implementação / documentação)
+- Endpoints REST/GraphQL explícitos e documentados para todos os recursos usados pelo frontend (transactions, stats, debts, credit-cards, accounts, patrimony). Há notas (ex.: `credit-card-schema.js` cita `DataAgent`), mas faltam rotas HTTP expostas no `server/src/api` para consumo direto pelo frontend.
+- Conversores/DTOs que retornem formatos compatíveis com o frontend atual (ou adaptação do frontend para consumir o formato canônico do backend).
+- Endpoints para operações do usuário via UI: editar cartão (PUT /api/credit-cards/:id), adicionar dívida (POST /api/debts), marcar parcela como paga (POST /api/debts/:id/pay).
+- Implementação de `getCreditCardUtilization` (endpoint/pipeline de agregação) para retornar `utilizedAmount` por ciclo e `availableCredit` diretamente.
+- Testes de integração e contratos (OpenAPI) — os README dos schemas documentam muitos detalhes, mas falta um contrato máquina-legível para equipes frontend/back-end.
+
+6) Recomendações práticas de integração (passos sugeridos)
+- Criar um `dataService` no frontend (`client/js/dataService.js`) com funções: `fetchTransactions(monthKey, page, perPage)`, `fetchStats(monthKey)`, `fetchDebts()`, `fetchCreditCards()`, `fetchAccounts()`.
+- No backend, implementar controllers que retornem precisely shaped JSON; incluir parâmetros `month`, `page`, `perPage`, e `fields` quando necessário.
+- Implementar agregações MongoDB para `fetchStats` e `getCreditCardUtilization` (pipeline por `userId` e intervalo de datas do ciclo de cobrança).
+- Mapear e documentar a transformação entre `debtSchema.installments` e o formato usado por `renderPendingInstallments`/`renderPaidInstallments` do frontend.
+- Garantir índices (`userId`, `date`, `status`) já existentes — isso está presente nos schemas, bom.
+- Implementar testes que validem que o frontend recebe: arrays de transações com `date` ISO e `amount` numérico; dívidas com `installments` ou `paidInstallments`; cartões com `creditLimit` e `billingCycleRenewalDay`/`billingDueDay`.
+
+7) Segurança e qualidade
+- Forçar HTTPS, validar tokens JWT, aplicar rate-limiting, e usar `AuditLog.record()` para todas as mudanças críticas.
+- Sanitizar entradas e evitar exposição de campos sensíveis (não retornar `userId` de outros usuários, nem dados de cartão além do necessário — `lastFourDigits` é aceitável).
+
+Conclusão: os schemas e utilitários fornecem uma base robusta (transações, accounts, audit-log, debt/credit-card schemas e gerenciador de transações). Para integrar o frontend com sucesso é necessário implementar endpoints HTTP/GraphQL completos, definir e publicar contratos/DTOs, criar pipelines de agregação para métricas e fornecer endpoints que retornem dados no formato esperado pelo `dash` (ou adaptar o frontend para os formatos canônicos). Também é crítico garantir escopo por `userId`, timezone consistente e operações atômicas para alterações que afetam saldos/parcelas.
+
+Observação: revisei esta seção duas vezes para precisão técnica e consistência com os schemas presentes. Pequenas correções de termos e padronizações aplicadas.
+
+---
+
+**Análise do servidor de agentes / acesso ao banco (serverAgent.js)**
+
+Resumo: `serverAgent.js` é um servidor Express separado, dedicado a executar agentes (DataAgent e futuros). Ele já implementa boas práticas (Helmet, CORS configurável, limites de body, validação de requisições, ToolContext, SSE, health checks, cache invalidation e graceful shutdown). Abaixo seguem observações, lacunas e recomendações para garantir integração segura e confiável entre frontend, agentes e MongoDB.
+
+O que já existe
+- Roteamento dinâmico de agentes via `agents` map e handler genérico `/agent/execute` que valida o payload e executa `agent.run(request)`.
+- Endpoints de utilidade: health checks (`/api/agent/health`, `/health`), cache invalidate, cache stats, listagem de agentes, e SSE `/stream/agents/:sessionId` para streaming.
+- Conexão MongoDB com `MONGO_URI` e shutdown gracioso — bom para produção.
+
+Riscos e pontos de atenção
+- Falta de autenticação/authorization explícita no handler de agentes: é crítico exigir e validar tokens, scopes e roles antes de permitir execução de ações que podem afetar dados.
+- Expor o endpoint genérico `/agent/execute` ao frontend é arriscado; prefira endpoints REST/HTTP específicos (controllers) ou um proxy controlado que exponha apenas ações seguras.
+- CORS: garantir que `process.env.CORS_ORIGIN` esteja corretamente configurado em produção; não permita origens amplas em produção.
+- SSE: confirmar que listeners são removidos corretamente ao desconectar para evitar leaks; auditar `streaming` para segurança/isolamento por `sessionId`.
+- Ausência de rate-limiting e de logs estruturados/metrics: necessário para proteger e monitorar uso dos agentes.
+
+Recomendações práticas (prioridade)
+- Proteger `executeAgentHandler` com autenticação (JWT) e validar scopes/roles; rejeitar requisições sem token válido.
+- Implementar rate-limiting por IP/token e limites de payload por rota.
+- Expor endpoints REST seguros para recursos do `dash` (`/api/transactions`, `/api/debts`, `/api/credit-cards`, `/api/accounts`) implementados no servidor principal ou via DataAgent com controllers HTTP; evitar dar controle direto do cliente sobre execução genérica de agentes.
+- Adicionar logs estruturados (winston/pino) e métricas (tempo de requisição, taxas de erro) para monitoramento; integrar health endpoints como readiness/liveness probes em orquestradores.
+- Revisar opções de conexão do Mongoose para produção (poolSize, socketTimeoutMS, retryWrites) e monitorar reconnect/backoff.
+
+Segurança e operações críticas
+- Validar `user_id` a partir do token em todas as rotas que acessam o DB — nunca confiar no `user_id` presente no corpo da requisição.
+- Usar transações MongoDB para operações multi-documento (a arquitetura já conta com `transaction-manager` e `account-transactions`). Garantir que controllers que marcam parcelas pagas usam essas transações.
+- Registrar todas as mudanças críticas no `audit_log` (usar `AuditLog.record()`), e assegurar append-only conforme o schema.
+
+Conclusão: `serverAgent.js` fornece uma base sólida para execução de agentes e integração com MongoDB, mas para integrar com segurança e eficiência ao frontend você deve: proteger e restringir o uso de `agent/execute`, expor APIs REST/GraphQL seguras para os recursos do dashboard, adicionar rate-limiting, logs e métricas, e garantir autenticação/authorization estrita. Com essas ações, os agentes e o servidor poderão fornecer os dados dinâmicos necessários ao `dash` de forma confiável.
+
+Observação: revisei essa seção duas vezes para precisão e recomendações práticas.

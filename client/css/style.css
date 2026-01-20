@@ -1,0 +1,1464 @@
+/* ================================================
+   FINANCE DASHBOARD - CSS PURO (SEM TAILWIND)
+   Identidade Visual: Dark Mode + Glassmorphism
+   Nomenclatura: BEM simplificado + Kebab-case
+   Sincronizado com dash.css para consistência total
+   ================================================ */
+
+/* === RESET BÁSICO === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* === 1. TYPOGRAPHY SYSTEM === */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #000000;
+    background: linear-gradient(180deg, #000000 0%, #050505 100%);
+    color: #e5e7eb;
+    min-height: 100vh;
+}
+
+.typography-heading-primary {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.typography-heading-secondary {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+
+.typography-caption-uppercase {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.typography-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+/* === 2. COLOR PALETTE & DESIGN TOKENS === */
+:root {
+    /* Color Palette */
+    --color-primary: #60a5fa;
+    --color-secondary: #a78bfa;
+    --color-success: #34d399;
+    --color-chart-green: #10b981;
+    --color-chart-green-rgb: 16, 185, 129;
+    --color-warning: #fbbf24;
+    --color-danger: #f87171;
+    --color-danger-rgb: 248, 113, 113;
+    --color-primary-rgb: 96, 165, 250; /* blue */
+    --color-warning-rgb: 251, 191, 36; /* yellow */
+    --color-surface: rgba(15, 16, 20, 0.88);
+    --color-surface-elevated: rgba(30, 32, 40, 0.92);
+    
+    /* Border Colors */
+    --card-border: rgba(255, 255, 255, 0.06);
+    --card-border-strong: rgba(255, 255, 255, 0.12);
+    
+    /* Text Colors */
+    --card-text-rgb: 229, 231, 235;
+    --card-text-alpha: 0.9;
+    --text-muted: #9ca3af;
+    --text-secondary: #d1d5db;
+    --text-primary: #e5e7eb;
+    
+    /* Spacing & Sizing */
+    --sidebar-expanded-width: 180px;
+    --sidebar-collapsed-width: 60px;
+    --sidebar-item-gap: 12px;
+    --card-padding: 1.5rem;
+    --border-radius: 24px;
+    --border-radius-sm: 8px;
+    
+    /* Sidebar Styles */
+    --sidebar-bg: rgba(15, 16, 20, 0.5);
+    --sidebar-border: rgba(255, 255, 255, 0.04);
+    
+    /* Animation Timing */
+    --transition-default: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: 0.18s ease;
+}
+
+/* === 3. CARD COMPONENT === */
+.card {
+    background: rgba(15, 16, 20, 0.32);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 0.5px solid rgba(255, 255, 255, 0.11);
+    color: rgba(var(--card-text-rgb), var(--card-text-alpha));
+    border-radius: var(--border-radius);
+    box-shadow:
+        0 12px 10px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: all var(--transition-default);
+    display: flex;
+    flex-direction: column;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 20px 20px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-color: var(--card-border-strong);
+}
+
+/* Prevent the message card from moving when hovering/focusing the input */
+.card--message:hover,
+.card--message:focus-within {
+    transform: none;
+    box-shadow: 0 12px 10px rgba(0, 0, 0, 0.55);
+    border-color: var(--card-border);
+}
+
+/* Card variants */
+.card--finance {
+    padding: calc(2rem * 0.68);
+    height: 382px;
+}
+
+.card--planning {
+    padding: calc(2rem * 0.765);
+    height: 382px;
+}
+
+.card--calendar {
+    padding: calc(1.5rem * 1.105);
+    height: 382px;
+}
+
+.card--message {
+    background: rgba(15, 16, 20, 0.32);
+    padding: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    padding-left: 1.0rem;
+    padding-right: 1.0rem;
+}
+
+/* Card sub-elements */
+.card__header {
+    margin-bottom: 1rem;
+}
+
+.card__content {
+    padding: 0.85rem 0;
+}
+
+/* === 4. FINANCE CARD ESPECÍFICO === */
+.finance-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.375rem;
+}
+
+.finance-title {
+    color: rgba(255,255,255,var(--card-text-alpha));
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* === 5. CHART COMPONENT === */
+.chart {
+    flex-grow: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    position: relative;
+    border-left: 1px solid rgba(107, 114, 128, 0.4);
+    border-bottom: 1px solid rgba(107, 114, 128, 0.4);
+    padding-bottom: 0.625rem;
+    padding-left: 0.625rem;
+}
+
+.chart-svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Y-axis labels positioned left of the chart */
+.chart__ylabels {
+    position: absolute;
+    left: -56px;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 10px;
+    color: #9ca3af;
+    padding-right: 8px;
+    pointer-events: none;
+}
+
+.chart__line {
+    filter: drop-shadow(0 4px 12px rgba(52, 211, 153, 0.4));
+}
+
+.chart__labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+    font-size: 10px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.chart-label-item {
+    min-width: 1ch;
+    transition: color 0.3s;
+    cursor: pointer;
+}
+
+.chart-label-item:hover {
+    color: #d1d5db;
+}
+
+/* Legend */
+.chart__legend {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(31, 41, 55, 0.5);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+}
+
+.legend-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.legend-value {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: white;
+    margin-left: 0.5rem;
+}
+
+/* === 6. PLANNING CARD ESPECÍFICO === */
+.planning-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.375rem;
+}
+
+.planning-title {
+    color: white;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.goals-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* === 7. GOAL COMPONENT === */
+.goal {
+    padding: 0.875rem;
+    border-radius: 1rem;
+    transition: all 0.3s ease;
+}
+
+.goal:hover {
+    background: rgba(255, 255, 255, 0.01);
+    transform: translateX(4px);
+}
+
+.goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.goal-info {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.goal-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Car icon (planning card): translucent background and matching border */
+.card--planning .goal .icon-badge.gradient-orange {
+    background: rgba(251, 191, 36, 0.18); /* #fbbf24 @ 0.18 */
+    border: 1px solid rgba(251, 191, 36, 0.3); /* same color @ 0.3 */
+}
+.card--planning .goal .icon-badge.gradient-orange .icon-small {
+    color: rgba(251, 191, 36, 1);
+}
+
+/* House icon (planning card): translucent background and matching border */
+.card--planning .goal .icon-badge.icon-badge--blue {
+    background: rgba(96, 165, 250, 0.18); /* #60a5fa @ 0.18 */
+    border: 1px solid rgba(96, 165, 250, 0.13); /* same color @ 0.13 */
+}
+.card--planning .goal .icon-badge.icon-badge--blue .icon-small {
+    color: rgba(96, 165, 250, 1);
+}
+
+/* Travel icon (planning card): translucent background and matching border */
+.card--planning .goal .icon-badge.icon-badge--green {
+    background: rgba(52, 211, 153, 0.18); /* #34d399 @ 0.18 */
+    border: 1px solid rgba(52, 211, 153, 0.13); /* same color @ 0.13 */
+}
+.card--planning .goal .icon-badge.icon-badge--green .icon-small {
+    color: rgba(52, 211, 153, 1);
+}
+
+.goal-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.goal-title {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+}
+
+.goal-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 0.125rem;
+}
+
+.goal-percentage {
+    font-size: 0.90rem;
+    font-weight: 400;
+}
+
+.goal-percentage--blue {
+    color: #60a5fa;
+}
+
+.goal-percentage--orange {
+    color: #fb923c;
+}
+
+.goal-percentage--green {
+    color: #34d399;
+}
+
+/* === 8. PROGRESS BAR COMPONENT === */
+.progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar__fill {
+    height: 100%;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-bar__fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+/* Progress bar color variants */
+.progress-bar__fill--blue {
+    background: linear-gradient(135deg, rgba(96,165,250,0.25) 0%, rgba(37,99,235,0.25) 100%);
+}
+
+.progress-bar__fill--green {
+    background: linear-gradient(135deg, rgba(52,211,153,0.25) 0%, rgba(5,150,105,0.25) 100%);
+}
+
+.progress-bar__fill--orange {
+    background: linear-gradient(135deg, rgba(251,191,36,0.25) 0%, rgba(217,119,6,0.25) 100%);
+}
+
+/* === 9. CALENDAR CARD ESPECÍFICO === */
+.calendar-header {
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.calendar-title {
+    color: rgba(255,255,255,var(--card-text-alpha));
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none; /* override uppercase helper if present */
+}
+
+.calendar-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Month selector dropdown */
+.month-selector {
+    position: relative;
+}
+
+.month-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.month-toggle {
+    cursor: pointer;
+}
+
+/* Button "Planejar": aumentar fonte em 20% e padding maior */
+#plan-toggle {
+    font-size: 0.8em; /* 20% maior que o valor base */
+    padding: 0.3rem 0.9rem; /* aumentado ~20% (vertical horizontal) */
+}
+
+/* Button "Analisar": same sizing as Planejar */
+#analyze-toggle {
+    font-size: 0.8em;
+    padding: 0.3rem 0.9rem;
+}
+
+/* Hover leve para os botões Planejar e Analisar */
+#plan-toggle,
+#analyze-toggle {
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+#plan-toggle:hover,
+#analyze-toggle:hover,
+.month-toggle:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(16, 185, 129, 0.07);
+}
+
+.month-list {
+    position: absolute;
+    /* alinhar dropdown à borda esquerda do card */
+    left: 0;
+    top: calc(100% + 8px);
+    background: rgba(var(--color-chart-green-rgb), 0.08);
+    border: 1px solid rgba(var(--color-chart-green-rgb), 0.18);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    padding: 8px;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    min-width: 140px;
+    z-index: 20;
+}
+
+/* ensure hidden attribute actually hides the dropdown */
+.month-list[hidden] {
+    display: none !important;
+}
+
+.month-list li {
+    padding: 6px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #e5e7eb;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.7rem; /* reduce font size by ~30% */
+}
+
+.month-list li:hover {
+    background: rgba(var(--color-chart-green-rgb), 0.06);
+}
+
+.calendar-nav-btn {
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.calendar-nav-btn:hover {
+    transform: scale(1.02);
+}
+
+.calendar-nav-btn:active {
+    transform: scale(0.98);
+}
+
+.nav-icon {
+    width: 1rem;
+    height: 1rem;
+    color: #d1d5db;
+}
+
+.calendar__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.375rem;
+    text-align: center;
+    margin-bottom: auto;
+}
+
+/* Today's highlight: subtle, harmonic diagonal stripes (static) */
+.calendar__day.is-today {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(96,165,250,0.10);
+    /* soft, harmonic tint with a subtle inner glow */
+    background: linear-gradient(180deg, rgba(96,165,250,0.03), rgba(16,185,129,0.02));
+    box-shadow: 0 6px 20px rgba(16,185,129,0.04), inset 0 1px 0 rgba(255,255,255,0.02);
+    transform-origin: center;
+    transition: transform 220ms var(--transition-fast), box-shadow 220ms var(--transition-fast), border-color 220ms var(--transition-fast);
+}
+.calendar__day.is-today::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    /* a very soft diagonal highlight to add harmonic texture */
+    background-image: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(96,165,250,0.03));
+    opacity: 0.95;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+}
+/* accent dot removed per request: subtle highlight remains via ::before */
+
+.calendar__day.is-today:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(16,185,129,0.06);
+    border-color: rgba(16,185,129,0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .calendar__day.is-today,
+    .calendar__day.is-today::before,
+    .calendar__day.is-today::after {
+        transition: none;
+        animation: none;
+    }
+}
+.calendar__day.is-selected {
+    box-shadow: inset 0 0 0 2px rgba(96,165,250,0.12);
+}
+
+.calendar__day {
+    /* increased by 20% from 62px */
+    height: 76px;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0.375rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.calendar__day:hover:not(.is-disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.05);
+    border-color: var(--card-border-strong);
+}
+
+/* Calendar weekday headers */
+.calendar__grid > div:nth-child(-n+7) {
+    font-size: 10px;
+    color: #9ca3af;
+    padding-bottom: 0.5rem;
+    font-weight: 600;
+    height: auto;
+    border: none;
+}
+
+/* === 10. TRANSACTION COMPONENT === */
+.transaction {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.01);
+    border-radius: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all var(--transition-default);
+}
+
+.transaction:hover {
+    background: rgba(255, 255, 255, 0.02);
+    transform: scale(1.02);
+}
+
+.transaction:active {
+    transform: scale(0.98);
+}
+
+.transaction-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.transaction-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.transaction-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.transaction-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.transaction-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 0.125rem;
+}
+
+.transaction-amount {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--text-primary);
+}
+
+/* === 11. ICON BADGE COMPONENT === */
+.icon-badge {
+    transition: all var(--transition-default);
+}
+
+.icon-badge:hover {
+    transform: rotate(10deg) scale(1.1);
+}
+
+.icon-badge--small {
+    padding: 0.25rem;
+    border-radius: 0.6rem;
+}
+
+.icon-badge--medium {
+    padding: 0.375rem;
+    border-radius: 0.2rem;
+}
+
+/* Icon sizes */
+.icon-small {
+    width: 14px;
+    height: 14px;
+    color: white;
+}
+
+.icon-medium {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: white;
+}
+
+/* Icon badge color variants */
+.icon-badge--blue {
+    background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+}
+
+.icon-badge--purple {
+    background: linear-gradient(135deg, #c084fc 0%, #7c3aed 100%);
+}
+
+/* Transaction icon specifically: translucent background and subtle border */
+.transaction .icon-badge.icon-badge--purple {
+    background: rgba(192,132,252,0.18); /* #c084fc @ 0.18 */
+    border: 1px solid rgba(192,132,252,0.13); /* same hue @ 0.13 */
+}
+.transaction .icon-badge.icon-badge--purple .icon-medium {
+    color: rgba(192,132,252,1);
+}
+
+.icon-badge--green {
+    background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+}
+
+/* === 12. BADGE COMPONENT === */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+}
+
+.badge--success {
+    background: rgba(var(--color-chart-green-rgb), 0.18);
+    color: var(--color-chart-green);
+    border: 1px solid rgba(var(--color-chart-green-rgb), 0.3);
+}
+
+/* === MESSAGE INPUT === */
+.message-wrapper {
+    position: fixed;
+    bottom: 20px;
+    left: var(--sidebar-expanded);
+    width: calc(100% - var(--sidebar-expanded));
+    max-width: 87.5rem;
+    z-index: 100;
+    opacity: 1;
+    display: flex;
+    flex-direction: row; /* left stat, message, right stat */
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1rem;
+}
+
+/* When sidebar is collapsed, align message wrapper accordingly */
+body.sidebar-collapsed .message-wrapper {
+    left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed));
+}
+
+/* Narrow the message card and center it (desktop), full width on small screens */
+.card--message {
+    /* increased by 20% from previous 42% */
+    width: 48%;
+    max-width: 48%;
+    background: #000000;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 1rem;
+    padding-left: 1.0rem;
+    padding-right: 2.5rem;
+
+    position: relative; /* needed for the pseudo-element shimmer */
+    overflow: hidden;
+    isolation: isolate; /* prevent pseudo-element blend from affecting sibling cards */
+}
+
+@media (max-width: 768px) {
+    .card--message {
+        max-width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+    }
+
+    /* Stack stats vertically on small screens and hide them to keep UI compact */
+    .message-wrapper {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card--stat { display: none !important; }
+    }
+
+/* === STAT CARDS (Patrimônio / Dívidas) === */
+.card--stat {
+    width: 9.2rem; /* reduced an additional ~15% from 10.8rem */
+    min-width: 9.2rem;
+    min-height: 6.5rem; /* fixed height for all stat cards */
+    background: rgba(15, 16, 20, 0.12); /* subtle fallback */
+    /* reduce top padding to compensate header height while keeping overall card height */
+    padding: 0.4rem 0.72rem 0.6rem; /* top right bottom */
+    display: flex;
+    align-items: center; /* center content vertically */
+    justify-content: center; /* center content horizontally */
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35); /* reduced shadow to prevent spill */
+    border-radius: 12px;
+    flex-direction: column;
+    gap: 0.375rem;
+    /* Override .card:hover inherited effects */
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+/* Disable aggressive .card:hover transform/shadow on stat cards */
+.card--stat:hover {
+    transform: translateY(-2px) !important; /* subtle lift only */
+    box-shadow: 0 10px 24px rgba(0,0,0,0.4) !important; /* contained shadow */
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.card--stat[hidden] { display: none !important; }
+
+.stat-card__title {
+    /* compact title for stat cards (in header) */
+    font-size: 0.7rem;
+    color: rgba(var(--card-text-rgb), 0.99);
+    font-weight: 400;
+    /* increase letter spacing by ~10% for clearer hierarchy */
+    letter-spacing: 0.04em;
+}
+
+.stat-card__value {
+    font-size: 1.05rem;
+    font-weight: 400; /* changed to 400 as requested */
+    color: var(--text-primary);
+}
+
+.stat-card__trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.stat-card__trend .stat-icon { width: 16px; height: 16px; }
+
+.stat-card__trend--up { color: rgba(var(--color-chart-green-rgb), 0.9); }
+.stat-card__trend--down { color: rgba(var(--color-danger-rgb), 0.9); }
+
+/* Patrimônio specific coloring */
+.card--stat--patrimonio {
+    background: rgba(var(--color-chart-green-rgb), 0.05);
+    border: 1px solid rgba(var(--color-chart-green-rgb), 0.15);
+}
+.card--stat--patrimonio .stat-card__title { color: rgba(var(--color-chart-green-rgb), 0.99); }
+.card--stat--patrimonio .stat-card__value { color: rgba(var(--color-chart-green-rgb), 0.9); }
+
+/* Dívidas specific coloring */
+.card--stat--dividas {
+    background: rgba(var(--color-danger-rgb), 0.05);
+    border: 1px solid rgba(var(--color-danger-rgb), 0.15);
+}
+.card--stat--dividas .stat-card__title { color: rgba(var(--color-danger-rgb), 0.99); }
+.card--stat--dividas .stat-card__value { color: rgba(var(--color-danger-rgb), 0.9); }
+
+/* Portfolio (left) - blue */
+.card--stat--portfolio {
+    background: rgba(var(--color-primary-rgb), 0.05);
+    border: 1px solid rgba(var(--color-primary-rgb), 0.15);
+}
+.card--stat--portfolio .stat-card__title { color: rgba(var(--color-primary-rgb), 0.99); }
+.card--stat--portfolio .stat-card__trend--up { color: rgba(var(--color-primary-rgb), 0.9); }
+.card--stat--portfolio .stat-card__meta { font-size: 0.75rem; color: rgba(var(--color-primary-rgb), 0.6); }
+
+/* Insights (right) - yellow */
+.card--stat--insights {
+    background: rgba(var(--color-warning-rgb), 0.05);
+    border: 1px solid rgba(var(--color-warning-rgb), 0.15);
+}
+.card--stat--insights .stat-card__title { color: rgba(var(--color-warning-rgb), 0.99); }
+.insights-text { font-size: 0.7225rem; color: rgba(var(--color-warning-rgb), 0.7); transition: opacity 600ms ease; max-width: 12.2rem; }
+.insights-text.hidden { opacity: 0; }
+
+.insights-button {
+    margin-top: 0.5rem;
+    background: rgba(var(--color-warning-rgb), 0.05);
+    border: 1px solid rgba(var(--color-warning-rgb), 0.15);
+    color: rgba(var(--color-warning-rgb), 0.9);
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    font-weight: 300; /* reduced to 300 */
+    font-size: 0.72rem; /* reduced ~10% from 0.8rem */
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.insights-button:hover { transform: translateY(-2px); }
+
+.stat-trend__label { opacity: 0.95; }
+
+/* Header strip that visually integrates with the card (full-width, not inset) */
+.stat-card__header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.5rem;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+/* Ensure inner content doesn't sit under header */
+.stat-card__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding-top: 0.2rem;
+}
+
+/* Header colors matching card identity at 0.3 opacity */
+.card--stat--portfolio .stat-card__header { background: rgba(var(--color-primary-rgb), 0.04); }
+.card--stat--patrimonio .stat-card__header { background: rgba(var(--color-chart-green-rgb), 0.04); }
+.card--stat--dividas .stat-card__header { background: rgba(var(--color-danger-rgb), 0.04); }
+.card--stat--insights .stat-card__header { background: rgba(var(--color-warning-rgb), 0.04); }
+
+/* Micro-interaction: subtle header emphasis on hover */
+.card--stat:hover .stat-card__header { filter: brightness(1.03); transition: filter 160ms ease; }
+
+
+.input-message {
+    /* occupy 93% of the card--message width so placeholder fits comfortably */
+    flex: 0 0 93%;
+    width: 100%;
+    display: block;
+    background: transparent;
+    appearance: none;
+    padding: 1rem 0.6rem; /* vertical padding increased to better center placeholder */
+    border-radius: 14px;
+    border: none;
+    color: var(--text-primary);
+    box-shadow: none;
+    height: 105px; /* reduced 15% from 124px */
+    min-height: 105px;
+    line-height: 1.2;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    resize: vertical;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Placeholder styling: match card's visual tone (subtle, legible) and limit width */
+.input-message::placeholder {
+    color: rgba(255, 255, 255, 0.56); /* subtle, readable on black */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: inline-block;
+    max-width: 96%;
+    font-size: 1.1rem; /* ~10% larger */
+    font-weight: 100; /* decreased by 100 */
+    line-height: 1.2;
+}
+
+.input-message:focus,
+.input-message:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: rgba(255, 255, 255, 0.03);
+}
+
+.input-message:-webkit-autofill,
+.input-message:-webkit-autofill:focus,
+.input-message:-webkit-autofill:hover {
+    -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.02) inset;
+    box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.02) inset;
+    -webkit-text-fill-color: var(--text-primary);
+}
+
+.send-button {
+    flex: 0 0 auto;
+    padding: 0.83rem; /* ~10% larger */
+    border-radius: 0.825rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    transform: rotate(-40deg); /* rotate total 40deg left */
+    margin-right: 25px;
+}
+
+.send-icon {
+    width: 1.575rem; /* 10% larger */
+    height: 1.575rem; /* 10% larger */
+    color: var(--text-muted);
+    transition: color 0.2s, transform var(--transition-fast);
+    will-change: transform;
+}
+
+/* Remove colored button hover; apply hover to the icon itself */
+.send-button:hover {
+    background: transparent;
+    box-shadow: none;
+}
+
+/* Hover effect applied to the icon for a subtle, identity-friendly interaction */
+.send-icon:hover {
+    color: var(--text-primary);
+    transform: translateY(-2px) scale(1.08);
+    filter: drop-shadow(0 6px 14px rgba(96, 165, 250, 0.12));
+}
+
+/* Ensure rotation stays consistent on hover and focus */
+.send-button:hover,
+.send-button:focus {
+    transform: rotate(-40deg) scale(1.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .send-button,
+    .send-button:hover,
+    .send-button:focus,
+    .send-icon:hover {
+        transform: none;
+        transition: none;
+    }
+}
+
+/* === Textarea scrollbar (harmonized with visual identity) === */
+.input-message {
+    overflow: auto;
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgba(65, 65, 65, 0.85) transparent;
+}
+
+/* WebKit browsers */
+.input-message::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.input-message::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: var(--border-radius-sm);
+}
+
+.input-message::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(96, 165, 250, 0.85), rgba(16, 185, 129, 0.9));
+    border-radius: var(--border-radius-sm);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.input-message::-webkit-scrollbar-thumb:hover {
+    filter: brightness(1.06);
+}
+
+/* === ANIMATIONS === */
+@keyframes shimmer {
+    to {
+        left: 100%;
+    }
+}
+
+/* Background-position shimmer used by .card--message */
+@keyframes shimmer-bg {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes fadeInUp {
+    from { 
+        opacity: 0; 
+        transform: translateY(15px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+.card {
+    animation: fadeInUp 0.5s ease backwards;
+}
+
+.card--animated-1 { animation-delay: 0.1s; }
+.card--animated-2 { animation-delay: 0.2s; }
+.card--animated-3 { animation-delay: 0.3s; }
+.card--animated-4 { 
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation-delay: 0.4s; 
+}
+
+/* === UTILITY CLASSES === */
+
+/* Visually hidden but accessible for screen readers */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* === 15. LAYOUT === */
+.layout-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+/* === 16. BENTO GRID LAYOUT === */
+.bento-grid {
+    width: 100%;
+    max-width: 87.5rem;
+    display: grid;
+    grid-template-columns: 4fr 3.6fr 3.9fr;
+    gap: 24px;
+}
+
+@media (max-width: 1280px) {
+    .bento-grid {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+}
+
+/* === 17. UTILITY GRADIENTS === */
+.gradient-green {
+    background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+}
+
+.gradient-orange {
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+}
+
+.gradient-red {
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+}
+
+/* Legend-dot overrides: translucent background and subtle border */
+.legend-dot.gradient-green {
+    background: rgba(52,211,153,0.4); /* #34d399 @ 0.18 */
+    border: 1px solid rgba(52,211,153,0.13);
+}
+.legend-dot.gradient-red {
+    background: rgba(248,113,113,0.4); /* #f87171 @ 0.18 */
+    border: 1px solid rgba(248,113,113,0.13);
+}
+
+/* === SIDEBAR (FIXED LEFT) === */
+/* The sidebar is fixed and the page content shifts via body padding-left */
+:root {
+    /* fallback mapping so root variables are available if overwritten above */
+    --sidebar-expanded: var(--sidebar-expanded-width, 180px);
+    --sidebar-collapsed: var(--sidebar-collapsed-width, 60px);
+}
+
+/* App content wrapper is shifted by the sidebar width to avoid overlap */
+.app-content {
+    margin-left: var(--sidebar-expanded);
+    width: calc(100% - var(--sidebar-expanded));
+    transition: margin-left var(--transition-fast), width var(--transition-fast);
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: var(--sidebar-expanded);
+    background: rgba(34, 33, 33, 0.15);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: flex-start;
+    z-index: 3;
+    padding: 16px 12px;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.55);
+    transition: width var(--transition-fast), background 0.12s ease;
+}
+
+.sidebar__inner {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sidebar-item-gap);
+}
+
+.sidebar__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-primary);
+    text-decoration: none;
+    padding: 10px;
+    border-radius: var(--border-radius-sm);
+    transition: background 0.12s ease, transform 0.12s ease;
+    height: 40px;
+}
+
+.sidebar__link:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar__link[aria-current="page"] {
+    background: none !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border-left: 3px solid var(--color-chart-green);
+}
+
+.sidebar__link-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+    flex: 0 0 auto;
+}
+
+.sidebar__link-label {
+    font-size: 0.95rem;
+    font-weight: 400;
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+}
+
+/* shimmer overlay via pseudo-element so child elements are not affected */
+.card--message::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.00) 0%, rgba(255, 255, 255, 0.045) 50%, rgba(255, 255, 255, 0.00) 100%);
+    background-size: 200% 100%;
+    /* reduce visual spill and isolate blending to this element only */
+    opacity: 0.18;
+    mix-blend-mode: overlay;
+    animation: shimmer-bg 2.2s linear infinite;
+    z-index: 0;
+}
+
+.sidebar__toggle {
+    justify-content: center;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.sidebar__toggle:hover { 
+    background: rgba(255, 255, 255, 0.02); 
+}
+
+.sidebar__toggle-icon { 
+    width: 18px; 
+    height: 18px; 
+    color: var(--text-muted); 
+    transition: transform var(--transition-fast); 
+}
+
+/* Logout button placed at the end of the sidebar */
+.sidebar__logout {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.9rem 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background var(--transition-default), transform var(--transition-fast);
+}
+
+.sidebar__logout:hover,
+.sidebar__logout:focus {
+    background: rgba(var(--color-primary-rgb), 0.04);
+    transform: translateY(-2px);
+}
+
+.sidebar__logout:focus {
+    outline: 2px solid rgba(var(--color-primary-rgb), 0.12);
+    outline-offset: 2px;
+}
+
+.sidebar__logout-icon { width: 20px; height: 20px; color: inherit; display: block; }
+
+/* Collapsed state */
+body.sidebar-collapsed .sidebar { 
+    width: var(--sidebar-collapsed); 
+}
+
+body.sidebar-collapsed .app-content { 
+    margin-left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed)); 
+}
+
+body.sidebar-collapsed .sidebar__link-label { 
+    opacity: 0; 
+    transform: translateX(-6px); 
+    pointer-events: none; 
+}
+
+body.sidebar-collapsed .sidebar__toggle-icon { 
+    transform: rotate(180deg); 
+}
+
+@media (max-width: 768px) {
+    /* keep sidebar compact on small screens */
+    .app-content { 
+        margin-left: var(--sidebar-collapsed);
+        width: calc(100% - var(--sidebar-collapsed)); 
+    }
+    
+    .sidebar { 
+        width: var(--sidebar-collapsed); 
+    }
+    
+    .sidebar__link-label { 
+        opacity: 0; 
+        transform: translateX(-6px); 
+        pointer-events: none; 
+    }
+}
+
+/* Chat actions container: vertical stack around the send button */
+.chat-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-left: 0.5rem;
+    z-index: 10; /* above shimmer pseudo-element */
+}
+
+.chat-quick-btn {
+    --size: calc(20px);
+    width: var(--size);
+    height: var(--size);
+    min-width: var(--size);
+    min-height: var(--size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 160ms ease, background 120ms ease, color 120ms ease;
+    padding: 0;
+    margin-right: 25px;
+    position: relative; /* needed so tooltip is positioned relative to the button */
+}
+
+/* When quick buttons are grouped, place them in a row and remove the large right margins */
+.chat-quick-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 0;
+}
+
+/* ensure history button has no extra right margin specifically */
+.chat-quick-btn--history {
+    margin-right: 8px;
+    position: relative;
+    left: -35%; /* desloca 30% para a esquerda */
+}
+
+.chat-quick-btn i { width: 12px; height: 12px; color: inherit; }
+
+.chat-quick-btn:hover,
+.chat-quick-btn:focus {
+    transform: translateY(-2px);
+    background: rgba(var(--color-primary-rgb), 0.06);
+    color: var(--text-primary);
+    box-shadow: 0 8px 20px rgba(var(--color-primary-rgb), 0.06);
+    outline: none;
+}
+
+/* Tooltip using data-tooltip attribute - appears on hover/focus */
+.chat-quick-btn::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%) translateX(6px);
+    background: var(--color-surface-elevated);
+    color: var(--text-primary);
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    font-weight: 400;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.chat-quick-btn:hover::after,
+.chat-quick-btn:focus::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
+/* keep send-button appearance consistent when inside the vertical stack */
+.chat-actions .send-button {
+    transform: rotate(-40deg);
+}
+
+/* Hide quick actions on small screens to avoid clutter */
+@media (max-width: 768px) {
+    .chat-actions { display: none; }
+}
