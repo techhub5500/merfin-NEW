@@ -520,6 +520,346 @@ async function createStatementTransaction(transactionData) {
 }
 
 // ============================================================================
+// CONTAS FUTURAS (A RECEBER / A PAGAR)
+// ============================================================================
+
+/**
+ * Busca todas as contas futuras (scheduled) do mês
+ * @param {string} monthKey - Formato 'YYYY-MM'
+ * @returns {Promise<{receivables: Array, payables: Array}>}
+ */
+async function fetchFutureAccounts(monthKey) {
+	const userId = getUserId();
+
+	const params = {
+		user_id: userId,
+		month: monthKey
+	};
+
+	const response = await executeAgent('DataAgent', 'fetchTransactions', params);
+
+	if (response.status !== 'success' || !response.data || !response.data.transactions) {
+		return { receivables: [], payables: [] };
+	}
+
+	// Filtra apenas transações scheduled (contas futuras)
+	const scheduled = response.data.transactions.filter(tx => tx.section === 'scheduled');
+
+	// Separa por tipo
+	const receivables = scheduled.filter(tx => 
+		tx.scheduled?.scheduledType === 'receivable'
+	);
+
+	const payables = scheduled.filter(tx => 
+		tx.scheduled?.scheduledType === 'payable'
+	);
+
+	return { receivables, payables };
+}
+
+/**
+ * Busca apenas contas a receber do mês
+ * @param {string} monthKey - Formato 'YYYY-MM'
+ * @returns {Promise<Array>}
+ */
+async function fetchReceivables(monthKey) {
+	const { receivables } = await fetchFutureAccounts(monthKey);
+	return receivables;
+}
+
+/**
+ * Busca apenas contas a pagar do mês
+ * @param {string} monthKey - Formato 'YYYY-MM'
+ * @returns {Promise<Array>}
+ */
+async function fetchPayables(monthKey) {
+	const { payables } = await fetchFutureAccounts(monthKey);
+	return payables;
+}
+
+/**
+ * Cria uma nova conta futura (a receber ou a pagar)
+ * @param {object} accountData - Dados da conta
+ * @returns {Promise<object>}
+ */
+async function createFutureAccount(accountData) {
+	const userId = getUserId();
+
+	const params = {
+		userId,
+		section: 'scheduled',
+		type: accountData.type, // 'income' ou 'expense'
+		amount: accountData.amount,
+		description: accountData.description,
+		date: accountData.date || new Date().toISOString(),
+		category: accountData.category || 'Geral',
+		status: 'pending',
+		scheduled: {
+			scheduledType: accountData.scheduledType, // 'receivable' ou 'payable'
+			dueDate: accountData.dueDate || accountData.date,
+			frequency: accountData.frequency || 'once'
+		}
+	};
+
+	const response = await executeAgent('DataAgent', 'createTransaction', params);
+
+	return {
+		success: response.status === 'success',
+		transaction: response.data?.transaction || null
+	};
+}
+
+// ============================================================================
+// CARTÃO DE CRÉDITO
+// ============================================================================
+
+/**
+ * Busca todos os cartões de crédito do usuário
+ * @returns {Promise<Array>}
+ */
+async function fetchCreditCards() {
+	const userId = getUserId();
+
+	const params = {
+		userId,
+		status: 'active'
+	};
+
+	const response = await executeAgent('DataAgent', 'getCreditCards', params);
+
+	if (response.status !== 'success' || !response.data) {
+		return [];
+	}
+
+	return response.data.cards || [];
+}
+
+/**
+ * Busca utilização do cartão (fatura atual, limite, etc)
+ * @param {string} cardId - ID do cartão
+ * @returns {Promise<object>}
+ */
+async function fetchCreditCardUtilization(cardId) {
+	const userId = getUserId();
+
+	const params = {
+		cardId,
+		userId
+	};
+
+	const response = await executeAgent('DataAgent', 'getCreditCardUtilization', params);
+
+	if (response.status !== 'success' || !response.data) {
+		return {
+			cardId,
+			cardName: '',
+			creditLimit: 0,
+			utilizedAmount: 0,
+			availableCredit: 0,
+			utilizationPercentage: 0,
+			currentBill: 0,
+			billingCycle: null
+		};
+	}
+
+	return response.data;
+}
+
+/**
+ * Cria um novo cartão de crédito
+ * @param {object} cardData - Dados do cartão
+ * @returns {Promise<object>}
+ */
+async function createCreditCard(cardData) {
+	const userId = getUserId();
+
+	const params = {
+		userId,
+		cardName: cardData.cardName,
+		creditLimit: cardData.creditLimit,
+		billingCycleRenewalDay: cardData.billingCycleRenewalDay,
+		billingDueDay: cardData.billingDueDay,
+		brand: cardData.brand || 'other',
+		lastFourDigits: cardData.lastFourDigits || null
+	};
+
+	const response = await executeAgent('DataAgent', 'createCreditCard', params);
+
+	return {
+		success: response.status === 'success',
+		card: response.data?.card || null
+	};
+}
+
+/**
+ * Atualiza dados de um cartão de crédito
+ * @param {string} cardId - ID do cartão
+ * @param {object} updates - Campos a atualizar
+ * @returns {Promise<object>}
+ */
+async function updateCreditCard(cardId, updates) {
+	const userId = getUserId();
+
+	const params = {
+		cardId,
+		userId,
+		updates
+	};
+
+	const response = await executeAgent('DataAgent', 'updateCreditCard', params);
+
+	return {
+		success: response.status === 'success',
+		card: response.data?.card || null
+	};
+}
+
+/**
+ * Busca o cartão principal do usuário (primeiro ativo)
+ * @returns {Promise<object|null>}
+ */
+async function fetchPrimaryCreditCard() {
+	const cards = await fetchCreditCards();
+	return cards.length > 0 ? cards[0] : null;
+}
+
+// ============================================================================
+// DÍVIDAS
+// ============================================================================
+
+/**
+ * Busca todas as dívidas do usuário
+ * @param {string} status - Status da dívida ('active', 'paid', 'cancelled', 'overdue') - opcional
+ * @returns {Promise<object>} { debts: Array, count: number, totalPending: number }
+ */
+async function fetchDebts(status = null) {
+	const userId = getUserId();
+
+	const params = {
+		userId
+	};
+
+	if (status) {
+		params.status = status;
+	}
+
+	const response = await executeAgent('DataAgent', 'getDebts', params);
+
+	if (response.status !== 'success' || !response.data) {
+		return { debts: [], count: 0, totalPending: 0 };
+	}
+
+	return {
+		debts: response.data.debts || [],
+		count: response.data.count || 0,
+		totalPending: response.data.totalPending || 0
+	};
+}
+
+/**
+ * Busca detalhes de uma dívida específica (incluindo parcelas)
+ * @param {string} debtId - ID da dívida
+ * @returns {Promise<object>}
+ */
+async function fetchDebtDetails(debtId) {
+	const userId = getUserId();
+
+	const params = {
+		debtId,
+		userId
+	};
+
+	const response = await executeAgent('DataAgent', 'getDebtDetails', params);
+
+	if (response.status !== 'success' || !response.data) {
+		throw new Error('Erro ao buscar detalhes da dívida');
+	}
+
+	return response.data;
+}
+
+/**
+ * Cria uma nova dívida
+ * @param {object} debtData - Dados da dívida
+ * @returns {Promise<object>}
+ */
+async function createDebtEntry(debtData) {
+	const userId = getUserId();
+
+	const params = {
+		userId,
+		description: debtData.description,
+		institution: debtData.institution,
+		debtDate: debtData.debtDate || new Date().toISOString(),
+		totalValue: parseFloat(debtData.totalValue),
+		installmentCount: parseInt(debtData.installmentCount),
+		firstPaymentDate: debtData.firstPaymentDate,
+		debtType: debtData.debtType || 'other',
+		interestRate: debtData.interestRate || 0,
+		notes: debtData.notes || ''
+	};
+
+	const response = await executeAgent('DataAgent', 'createDebt', params);
+
+	return {
+		success: response.status === 'success',
+		debt: response.data?.debt || null
+	};
+}
+
+/**
+ * Paga uma parcela da dívida
+ * @param {string} debtId - ID da dívida
+ * @param {number} installmentNumber - Número da parcela
+ * @param {number} paidAmount - Valor pago (opcional)
+ * @returns {Promise<object>}
+ */
+async function payDebtInstallment(debtId, installmentNumber, paidAmount = null) {
+	const userId = getUserId();
+
+	const params = {
+		debtId,
+		userId,
+		installmentNumber
+	};
+
+	if (paidAmount !== null) {
+		params.paidAmount = parseFloat(paidAmount);
+	}
+
+	const response = await executeAgent('DataAgent', 'payInstallment', params);
+
+	return {
+		success: response.status === 'success',
+		debt: response.data?.debt || null,
+		installmentPaid: response.data?.installmentPaid || null
+	};
+}
+
+/**
+ * Atualiza dados de uma dívida
+ * @param {string} debtId - ID da dívida
+ * @param {object} updates - Campos a atualizar
+ * @returns {Promise<object>}
+ */
+async function updateDebtEntry(debtId, updates) {
+	const userId = getUserId();
+
+	const params = {
+		debtId,
+		userId,
+		updates
+	};
+
+	const response = await executeAgent('DataAgent', 'updateDebt', params);
+
+	return {
+		success: response.status === 'success',
+		debt: response.data?.debt || null
+	};
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -546,12 +886,31 @@ window.DataService = {
 	fetchTransactionsSummary,
 	createStatementTransaction,
 	
-	// Credit Cards
+	// Future Accounts (A receber / A pagar)
+	fetchFutureAccounts,
+	fetchReceivables,
+	fetchPayables,
+	createFutureAccount,
+	
+	// Credit Cards (NEW)
+	fetchCreditCards,
+	fetchCreditCardUtilization,
+	createCreditCard,
+	updateCreditCard,
+	fetchPrimaryCreditCard,
+	
+	// Credit Cards (OLD - mantido para compatibilidade)
 	getCreditCards,
 	getCreditCardUtilization,
-	updateCreditCard,
 	
-	// Debts
+	// Debts (NEW)
+	fetchDebts,
+	fetchDebtDetails,
+	createDebtEntry,
+	payDebtInstallment,
+	updateDebtEntry,
+	
+	// Debts (OLD - mantido para compatibilidade)
 	getDebts,
 	getDebtDetails,
 	createDebt,

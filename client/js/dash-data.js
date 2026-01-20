@@ -261,6 +261,136 @@ async function updateStatsFromAPI(monthKey) {
 }
 
 // ============================================================================
+// FUNÇÕES DE RENDERIZAÇÃO - CONTAS FUTURAS (A RECEBER / A PAGAR)
+// ============================================================================
+
+/**
+ * Renderiza lista de contas a receber
+ * Busca dados reais da API
+ * @param {string} monthKey - Mês no formato 'YYYY-MM'
+ */
+async function renderReceivablesFromAPI(monthKey) {
+  const receivableListEl = document.getElementById('receivableList');
+  if (!receivableListEl) return;
+
+  try {
+    // Mostra loading
+    receivableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted);">Carregando...</li>';
+
+    // Busca contas a receber da API
+    const receivables = await DataService.fetchReceivables(monthKey);
+
+    if (receivables.length === 0) {
+      receivableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma conta a receber neste período</li>';
+      return;
+    }
+
+    receivableListEl.innerHTML = '';
+    
+    // Ordena por data de vencimento (mais próximas primeiro)
+    receivables.sort((a, b) => {
+      const dateA = new Date(a.scheduled?.dueDate || a.date);
+      const dateB = new Date(b.scheduled?.dueDate || b.date);
+      return dateA - dateB;
+    });
+
+    receivables.forEach(tx => {
+      const li = document.createElement('li');
+      li.className = 'receivable-item';
+      
+      const dueDate = tx.scheduled?.dueDate || tx.date;
+      const leftDiv = document.createElement('div');
+      
+      const descDiv = document.createElement('div');
+      descDiv.className = 'tx-desc';
+      descDiv.textContent = tx.description || 'A receber';
+      
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'tx-meta';
+      metaDiv.textContent = `Venc. ${formatDate(dueDate)}`;
+      
+      leftDiv.appendChild(descDiv);
+      leftDiv.appendChild(metaDiv);
+      
+      const amountDiv = document.createElement('div');
+      amountDiv.className = 'tx-amount income';
+      amountDiv.textContent = formatAmount(tx.amount);
+      
+      li.appendChild(leftDiv);
+      li.appendChild(amountDiv);
+      receivableListEl.appendChild(li);
+    });
+
+  } catch (error) {
+    console.error('[renderReceivablesFromAPI] Erro:', error);
+    receivableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: #e74c3c;">Erro ao carregar contas a receber. Tente novamente.</li>';
+  }
+}
+
+/**
+ * Renderiza lista de contas a pagar
+ * Busca dados reais da API
+ * @param {string} monthKey - Mês no formato 'YYYY-MM'
+ */
+async function renderPayablesFromAPI(monthKey) {
+  const payableListEl = document.getElementById('payableList');
+  if (!payableListEl) return;
+
+  try {
+    // Mostra loading
+    payableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted);">Carregando...</li>';
+
+    // Busca contas a pagar da API
+    const payables = await DataService.fetchPayables(monthKey);
+
+    if (payables.length === 0) {
+      payableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma conta a pagar neste período</li>';
+      return;
+    }
+
+    payableListEl.innerHTML = '';
+    
+    // Ordena por data de vencimento (mais próximas primeiro)
+    payables.sort((a, b) => {
+      const dateA = new Date(a.scheduled?.dueDate || a.date);
+      const dateB = new Date(b.scheduled?.dueDate || b.date);
+      return dateA - dateB;
+    });
+
+    payables.forEach(tx => {
+      const li = document.createElement('li');
+      li.className = 'payable-item';
+      
+      const dueDate = tx.scheduled?.dueDate || tx.date;
+      const leftDiv = document.createElement('div');
+      
+      const descDiv = document.createElement('div');
+      descDiv.className = 'tx-desc';
+      descDiv.textContent = tx.description || 'A pagar';
+      
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'tx-meta';
+      metaDiv.textContent = `Venc. ${formatDate(dueDate)}`;
+      
+      leftDiv.appendChild(descDiv);
+      leftDiv.appendChild(metaDiv);
+      
+      const amountDiv = document.createElement('div');
+      amountDiv.className = 'tx-amount outcome';
+      amountDiv.textContent = formatAmount(tx.amount);
+      
+      li.appendChild(leftDiv);
+      li.appendChild(amountDiv);
+      payableListEl.appendChild(li);
+    });
+
+  } catch (error) {
+    console.error('[renderPayablesFromAPI] Erro:', error);
+    payableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: #e74c3c;">Erro ao carregar contas a pagar. Tente novamente.</li>';
+  }
+}
+
+// ============================================================================
 // FUNÇÕES DE RENDERIZAÇÃO (VERSÃO ANTIGA - mantida para outros cards)
 // ============================================================================
 
@@ -315,7 +445,15 @@ function updateStats(list){
   console.warn('[updateStats] Função depreciada. Use updateStatsFromAPI(monthKey)');
 }
 
-function renderCreditCard(monthKey){
+// ============================================================================
+// FUNÇÕES DE RENDERIZAÇÃO - CARTÃO DE CRÉDITO
+// ============================================================================
+
+/**
+ * Renderiza card de cartão de crédito com dados da API
+ * @param {string} monthKey - Mês no formato 'YYYY-MM' (não usado, mas mantido para consistência)
+ */
+async function renderCreditCardFromAPI(monthKey) {
   const creditUsedEl = document.querySelector('.credit-used');
   const creditAvailableEl = document.querySelector('.credit-available');
   const creditBillEl = document.querySelector('.credit-bill');
@@ -323,75 +461,167 @@ function renderCreditCard(monthKey){
   const creditBarFill = document.querySelector('.credit-bar-fill');
   const creditPercentageEl = document.querySelector('.credit-percentage');
 
-  const txForMonth = sampleTx.filter(t => getMonthKey(t.date) === monthKey);
-  const creditUsed = txForMonth.reduce((s, t) => t.type === 'outcome' ? s + t.amount : s, 0);
-  const defaultAvailable = 7150;
-  const creditAvailable = Math.max(0, defaultAvailable);
-  const creditBill = creditUsed;
-  const pct = (creditUsed + creditAvailable) > 0 ? (creditUsed / (creditUsed + creditAvailable)) * 100 : 0;
+  if (!creditUsedEl || !creditAvailableEl || !creditBillEl) return;
 
-  if(creditUsedEl) creditUsedEl.textContent = formatAmount(creditUsed);
-  if(creditAvailableEl) creditAvailableEl.textContent = formatAmount(creditAvailable);
-  if(creditBillEl) creditBillEl.textContent = formatAmount(creditBill);
-  if(creditDueEl) creditDueEl.textContent = '-';
-  if(creditBarFill) creditBarFill.style.width = pct.toFixed(1) + '%';
-  if(creditPercentageEl) creditPercentageEl.textContent = pct.toFixed(1) + '% utilizado';
+  try {
+    // Mostra loading
+    if (creditUsedEl) creditUsedEl.textContent = '...';
+    if (creditAvailableEl) creditAvailableEl.textContent = '...';
+    if (creditBillEl) creditBillEl.textContent = '...';
+
+    // Busca cartão principal do usuário
+    const card = await DataService.fetchPrimaryCreditCard();
+
+    if (!card) {
+      // Nenhum cartão cadastrado
+      if (creditUsedEl) creditUsedEl.textContent = 'R$ 0,00';
+      if (creditAvailableEl) creditAvailableEl.textContent = 'R$ 0,00';
+      if (creditBillEl) creditBillEl.textContent = 'R$ 0,00';
+      if (creditDueEl) creditDueEl.textContent = '-';
+      if (creditBarFill) creditBarFill.style.width = '0%';
+      if (creditPercentageEl) creditPercentageEl.textContent = '0% utilizado';
+      
+      console.log('[renderCreditCardFromAPI] Nenhum cartão cadastrado');
+      return;
+    }
+
+    // Busca utilização do cartão (fatura atual)
+    const utilization = await DataService.fetchCreditCardUtilization(card._id);
+
+    // Atualiza valores
+    if (creditUsedEl) creditUsedEl.textContent = formatAmount(utilization.utilizedAmount);
+    if (creditAvailableEl) creditAvailableEl.textContent = formatAmount(utilization.availableCredit);
+    if (creditBillEl) creditBillEl.textContent = formatAmount(utilization.currentBill);
+    
+    // Formata data de vencimento
+    if (creditDueEl && utilization.billingCycle) {
+      const dueDay = utilization.billingCycle.dueDay;
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      // Se já passou o dia de vencimento, próximo vencimento é no próximo mês
+      let dueMonth = currentMonth;
+      let dueYear = currentYear;
+      if (now.getDate() > dueDay) {
+        dueMonth++;
+        if (dueMonth > 11) {
+          dueMonth = 0;
+          dueYear++;
+        }
+      }
+      
+      const dueDate = new Date(dueYear, dueMonth, dueDay);
+      creditDueEl.textContent = formatDate(dueDate.toISOString().split('T')[0]);
+    }
+
+    // Atualiza barra de progresso
+    const percentage = utilization.utilizationPercentage;
+    if (creditBarFill) creditBarFill.style.width = percentage.toFixed(1) + '%';
+    if (creditPercentageEl) creditPercentageEl.textContent = percentage.toFixed(1) + '% utilizado';
+
+    // Armazena dados do cartão para uso no modal de edição
+    window.currentCreditCard = card;
+
+  } catch (error) {
+    console.error('[renderCreditCardFromAPI] Erro:', error);
+    if (creditUsedEl) creditUsedEl.textContent = 'R$ 0,00';
+    if (creditAvailableEl) creditAvailableEl.textContent = 'R$ 0,00';
+    if (creditBillEl) creditBillEl.textContent = 'R$ 0,00';
+    if (creditDueEl) creditDueEl.textContent = '-';
+    if (creditBarFill) creditBarFill.style.width = '0%';
+    if (creditPercentageEl) creditPercentageEl.textContent = '0% utilizado';
+  }
 }
 
-function renderDebtsCard(monthKey){
+function renderCreditCard(monthKey){
+  // Esta função agora é substituída por renderCreditCardFromAPI
+  // Mantida apenas para compatibilidade com outras partes do código
+  // Use renderCreditCardFromAPI(monthKey) ao invés
+  console.warn('[renderCreditCard] Função depreciada. Use renderCreditCardFromAPI(monthKey)');
+}
+
+// ============================================================================
+// FUNÇÕES DE RENDERIZAÇÃO - DÍVIDAS
+// ============================================================================
+
+/**
+ * Renderiza card de dívidas com dados da API
+ * @param {string} monthKey - Mês no formato 'YYYY-MM' (não usado para dívidas, mas mantido para consistência)
+ */
+async function renderDebtsCardFromAPI(monthKey) {
   const debtTotalEl = document.querySelector('.debt-total');
   const debtListEl = document.querySelector('.debt-list');
   
-  console.log('[renderDebtsCard] monthKey:', monthKey);
-  console.log('[renderDebtsCard] debtsData:', debtsData);
-  
-  if(!debtListEl) {
-    console.log('[renderDebtsCard] ERROR: debtListEl not found');
-    return;
-  }
-  
-  const visibleDebts = debtsData.filter(d => d.paidInstallments.length < d.installments);
-  console.log('[renderDebtsCard] visibleDebts (not fully paid):', visibleDebts);
-
-  if(visibleDebts.length === 0){
-    if(debtTotalEl) debtTotalEl.textContent = 'R$ 0,00';
-    debtListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma dívida neste período</li>';
+  if (!debtListEl) {
+    console.error('[renderDebtsCardFromAPI] ERROR: debtListEl not found');
     return;
   }
 
-  const totalPending = visibleDebts.reduce((sum, debt) => {
-    return sum + calculateDebtRemainingValue(debt);
-  }, 0);
-  if(debtTotalEl) debtTotalEl.textContent = formatAmount(totalPending);
+  try {
+    // Mostra loading
+    debtListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted);">Carregando...</li>';
+    if (debtTotalEl) debtTotalEl.textContent = '...';
 
-  debtListEl.innerHTML = '';
-  visibleDebts.forEach(debt => {
-    const remaining = calculateDebtRemaining(debt);
-    const paidPercent = calculateDebtPaidPercent(debt);
+    // Busca dívidas ativas da API
+    const { debts, totalPending } = await DataService.fetchDebts('active');
 
-    const li = document.createElement('li');
-    li.className = 'debt-item';
-    li.setAttribute('data-debt-id', debt.id);
-    li.style.cursor = 'pointer';
+    console.log('[renderDebtsCardFromAPI] Dívidas recebidas:', debts);
+    console.log('[renderDebtsCardFromAPI] Total pendente:', totalPending);
 
-    const metaText = `${debt.installments} - ${debt.paidInstallments.length} parcelas`;
+    // Atualiza total pendente
+    if (debtTotalEl) {
+      debtTotalEl.textContent = formatAmount(totalPending);
+    }
 
-    li.innerHTML = `
-      <div>
-        <div class="debt-name">${escapeHtml(debt.description)}</div>
-        <div class="debt-meta">${metaText}</div>
-      </div>
-      <div class="debt-amount">${paidPercent}%</div>
-    `;
+    // Se não há dívidas
+    if (!debts || debts.length === 0) {
+      debtListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma dívida ativa</li>';
+      return;
+    }
 
-    li.addEventListener('click', () => {
-      if(typeof openDebtDetailsModal === 'function') {
-        openDebtDetailsModal(debt.id);
-      }
+    // Renderiza lista de dívidas
+    debtListEl.innerHTML = '';
+    
+    debts.forEach(debt => {
+      const li = document.createElement('li');
+      li.className = 'debt-item';
+      li.setAttribute('data-debt-id', debt._id);
+      li.style.cursor = 'pointer';
+
+      // Formata texto das parcelas
+      const metaText = `${debt.remainingInstallmentsCount} de ${debt.installmentCount} parcelas restantes`;
+
+      li.innerHTML = `
+        <div>
+          <div class="debt-name">${escapeHtml(debt.description)}</div>
+          <div class="debt-meta">${metaText}</div>
+        </div>
+        <div class="debt-amount">${formatAmount(debt.remainingValue)}</div>
+      `;
+
+      // Adiciona evento de clique para abrir modal de detalhes
+      li.addEventListener('click', async () => {
+        if (typeof openDebtDetailsModal === 'function') {
+          await openDebtDetailsModal(debt._id);
+        }
+      });
+
+      debtListEl.appendChild(li);
     });
 
-    debtListEl.appendChild(li);
-  });
+  } catch (error) {
+    console.error('[renderDebtsCardFromAPI] Erro ao carregar dívidas:', error);
+    debtListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: #e74c3c;">Erro ao carregar dívidas. Tente novamente.</li>';
+    if (debtTotalEl) debtTotalEl.textContent = 'R$ 0,00';
+  }
+}
+
+function renderDebtsCard(monthKey){
+  // Esta função agora é substituída por renderDebtsCardFromAPI
+  // Mantida apenas para compatibilidade com outras partes do código
+  // Use renderDebtsCardFromAPI(monthKey) ao invés
+  console.warn('[renderDebtsCard] Função depreciada. Use renderDebtsCardFromAPI(monthKey)');
 }
 
 function renderPatrimonyCard(monthKey){
@@ -445,37 +675,10 @@ function renderPatrimonyCard(monthKey){
 }
 
 function renderAccountsCard(monthKey){
-  const receivableListEl = document.getElementById('receivableList');
-  const payableListEl = document.getElementById('payableList');
-  
-  if(!receivableListEl || !payableListEl) return;
-  const txForMonth = sampleTx.filter(t => getMonthKey(t.date) === monthKey);
-  const incomes = txForMonth.filter(t => t.type === 'income');
-  const outcomes = txForMonth.filter(t => t.type === 'outcome');
-
-  if(incomes.length === 0){
-    receivableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma conta a receber</li>';
-  } else {
-    receivableListEl.innerHTML = '';
-    incomes.forEach(tx => {
-      const li = document.createElement('li');
-      li.className = 'receivable-item';
-      li.innerHTML = `<div><div class="tx-desc">${escapeHtml(tx.desc)}</div><div class="tx-meta">${formatDate(tx.date)}</div></div><div class="tx-amount income">${formatAmount(tx.amount)}</div>`;
-      receivableListEl.appendChild(li);
-    });
-  }
-
-  if(outcomes.length === 0){
-    payableListEl.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma conta a pagar</li>';
-  } else {
-    payableListEl.innerHTML = '';
-    outcomes.forEach(tx => {
-      const li = document.createElement('li');
-      li.className = 'payable-item';
-      li.innerHTML = `<div><div class="tx-desc">${escapeHtml(tx.desc)}</div><div class="tx-meta">${formatDate(tx.date)}</div></div><div class="tx-amount outcome">${formatAmount(tx.amount)}</div>`;
-      payableListEl.appendChild(li);
-    });
-  }
+  // Esta função agora é substituída por renderReceivablesFromAPI e renderPayablesFromAPI
+  // Mantida apenas para compatibilidade com outras partes do código
+  // Use renderReceivablesFromAPI(monthKey) e renderPayablesFromAPI(monthKey) ao invés
+  console.warn('[renderAccountsCard] Função depreciada. Use renderReceivablesFromAPI(monthKey) e renderPayablesFromAPI(monthKey)');
 }
 
 function renderPendingInstallments(debt) {

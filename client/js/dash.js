@@ -131,6 +131,44 @@ function initCarousel(){
 
     prevBtn.disabled = currentIndex === 0;
     nextBtn.disabled = currentIndex === maxIndex;
+    
+    // Controla visibilidade dos FABs baseado nos cards visíveis
+    updateFabVisibility();
+  }
+  
+  function updateFabVisibility() {
+    const editCardBtn = document.getElementById('editCardBtn');
+    const addDebtBtn = document.getElementById('addDebtBtn');
+    
+    if (!editCardBtn && !addDebtBtn) {
+      console.warn('FAB buttons not found');
+      return;
+    }
+    
+    // Verifica quais cards estão visíveis na viewport
+    const visibleCards = [];
+    for (let i = currentIndex; i < Math.min(currentIndex + cardsPerView, totalCards); i++) {
+      visibleCards.push(cards[i]);
+    }
+    
+    // Debug
+    console.log('Current index:', currentIndex);
+    console.log('Visible cards:', visibleCards.map(c => c.className));
+    
+    // Mostra botão de editar cartão se o card credit-card estiver visível
+    const creditCardVisible = visibleCards.some(card => card.classList.contains('credit-card'));
+    console.log('Credit card visible:', creditCardVisible);
+    
+    if (editCardBtn) {
+      editCardBtn.style.display = creditCardVisible ? 'flex' : 'none';
+      console.log('Edit button display:', editCardBtn.style.display);
+    }
+    
+    // Mostra botão de adicionar dívida se o card debts estiver visível
+    const debtsCardVisible = visibleCards.some(card => card.classList.contains('debts'));
+    if (addDebtBtn) {
+      addDebtBtn.style.display = debtsCardVisible ? 'flex' : 'none';
+    }
   }
 
   function goToSlide(index) {
@@ -316,11 +354,18 @@ function applyFilter(monthKey){
   renderIncomesFromAPI(monthKey);
   renderExpensesFromAPI(monthKey);
   
+  // Card Contas Futuras (A receber / A pagar) - via API
+  renderReceivablesFromAPI(monthKey);
+  renderPayablesFromAPI(monthKey);
+  
+  // Card Cartão de Crédito - via API
+  renderCreditCardFromAPI(monthKey);
+  
+  // Card Dívidas - via API (não depende do mês)
+  renderDebtsCardFromAPI(monthKey);
+  
   // Outros cards do carrossel (ainda usando dados locais - serão atualizados depois)
-  renderCreditCard(monthKey);
-  renderDebtsCard(monthKey);
   renderPatrimonyCard(monthKey);
-  renderAccountsCard(monthKey);
   
   // Renderizar transações (ainda não convertido - próxima etapa)
   let filtered = sampleTx.slice();
@@ -421,16 +466,22 @@ function initEditModal(){
   }
 
   function openModal(){
-    const used = parseCurrencyBR(creditUsedEl.textContent);
-    const avail = parseCurrencyBR(creditAvailableEl.textContent);
-    const total = used + avail;
-    nameInput.value = 'Cartão de Crédito';
-    setLimitInputValue(limitInput, total || 0);
+    // Carrega dados do cartão armazenado
+    const card = window.currentCreditCard;
     
-    const prevRenew = limitInput.getAttribute('data-renewal');
-    const prevDue = limitInput.getAttribute('data-due');
-    if(prevRenew) document.getElementById('renewalDayInput').value = prevRenew;
-    if(prevDue) document.getElementById('dueDayInput').value = prevDue;
+    if (card) {
+      // Preenche com dados existentes
+      nameInput.value = card.cardName || 'Cartão de Crédito';
+      setLimitInputValue(limitInput, card.creditLimit || 0);
+      document.getElementById('renewalDayInput').value = card.billingCycleRenewalDay || '';
+      document.getElementById('dueDayInput').value = card.billingDueDay || '';
+    } else {
+      // Valores padrão para novo cartão
+      nameInput.value = 'Meu Cartão';
+      setLimitInputValue(limitInput, 0);
+      document.getElementById('renewalDayInput').value = '';
+      document.getElementById('dueDayInput').value = '';
+    }
     
     modal.classList.add('open');
     modal.setAttribute('aria-hidden','false');
@@ -474,60 +525,81 @@ function initEditModal(){
     limitInput.value = v ? String(v.toFixed(2)) : '';
   });
 
-  editForm.addEventListener('submit', function(e){
+  editForm.addEventListener('submit', async function(e){
     e.preventDefault();
+    
+    const cardName = nameInput.value.trim();
     const limitVal = getLimitInputNumber(limitInput);
     if(!Number.isFinite(limitVal) || limitVal < 0){ limitInput.focus(); return; }
 
     const renewalDay = parseInt(document.getElementById('renewalDayInput').value, 10);
     const dueDay = parseInt(document.getElementById('dueDayInput').value, 10);
-    if(Number.isFinite(renewalDay)) limitInput.setAttribute('data-renewal', String(renewalDay));
-    if(Number.isFinite(dueDay)) limitInput.setAttribute('data-due', String(dueDay));
-
-    const used = parseCurrencyBR(creditUsedEl.textContent);
-    const available = Math.max(0, limitVal - used);
-
-    creditAvailableEl.textContent = formatAmount(available);
-
-    let pct = 0;
-    if(limitVal > 0) pct = Math.min(100, (used / limitVal) * 100);
-    if(creditBarFill) creditBarFill.style.width = pct + '%';
-    if(creditPercentageEl) creditPercentageEl.textContent = pct.toFixed(1) + '% utilizado';
-
-    if(Number.isFinite(renewalDay) && renewalDay >= 1 && renewalDay <= 31 && Array.isArray(sampleTx)){
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const cutoffDay = renewalDay - 1;
-      const billAmount = sampleTx.reduce((acc, tx)=>{
-        try{
-          const d = new Date(tx.date);
-          if(d.getFullYear() === year && d.getMonth() === month){
-            const day = d.getDate();
-            if(day <= cutoffDay && tx.type === 'outcome') acc += tx.amount;
-          }
-        }catch(e){}
-        return acc;
-      }, 0);
-      if(creditBillEl) creditBillEl.textContent = formatAmount(billAmount);
+    
+    if (!cardName) {
+      alert('Por favor, insira o nome do cartão');
+      nameInput.focus();
+      return;
+    }
+    
+    if (!Number.isFinite(renewalDay) || renewalDay < 1 || renewalDay > 31) {
+      alert('Dia de renovação deve estar entre 1 e 31');
+      return;
+    }
+    
+    if (!Number.isFinite(dueDay) || dueDay < 1 || dueDay > 31) {
+      alert('Dia de vencimento deve estar entre 1 e 31');
+      return;
     }
 
-    if(Number.isFinite(dueDay) && creditDueEl){
-      const today = new Date();
-      let year = today.getFullYear();
-      let month = today.getMonth();
-      if(dueDay < today.getDate()){
-        month += 1;
-        if(month > 11){ month = 0; year += 1; }
+    try {
+      // Verifica se já existe um cartão (para update ou create)
+      const existingCard = window.currentCreditCard;
+      
+      if (existingCard && existingCard._id) {
+        // Atualizar cartão existente
+        const updates = {
+          cardName,
+          creditLimit: limitVal,
+          billingCycleRenewalDay: renewalDay,
+          billingDueDay: dueDay
+        };
+        
+        const result = await DataService.updateCreditCard(existingCard._id, updates);
+        
+        if (result.success) {
+          console.log('✅ Cartão atualizado com sucesso!');
+        } else {
+          throw new Error('Falha ao atualizar cartão');
+        }
+      } else {
+        // Criar novo cartão
+        const cardData = {
+          cardName,
+          creditLimit: limitVal,
+          billingCycleRenewalDay: renewalDay,
+          billingDueDay: dueDay
+        };
+        
+        const result = await DataService.createCreditCard(cardData);
+        
+        if (result.success) {
+          console.log('✅ Cartão criado com sucesso!');
+          window.currentCreditCard = result.card;
+        } else {
+          throw new Error('Falha ao criar cartão');
+        }
       }
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const day = Math.min(Math.max(1, dueDay), daysInMonth);
-      const dueDate = new Date(year, month, day);
-      const display = `${dueDate.getDate()}/${dueDate.getMonth()+1}/${dueDate.getFullYear()}`;
-      creditDueEl.textContent = display;
+      
+      // Atualiza a visualização do card
+      const currentMonthKey = document.getElementById('monthPickerBtn')?.textContent?.trim() || '';
+      await renderCreditCardFromAPI(currentMonthKey);
+      
+      closeModal();
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar cartão:', error);
+      alert('Erro ao salvar cartão. Verifique o console para mais detalhes.');
     }
-
-    closeModal();
   });
 }
 
@@ -584,45 +656,50 @@ function initAddDebtModal() {
     });
   }
 
-  addForm.addEventListener('submit', function(e){
+  addForm.addEventListener('submit', async function(e){
     e.preventDefault();
     
     const description = document.getElementById('debtDescInput').value.trim();
     const institution = document.getElementById('debtInstInput').value.trim();
-    const startDate = document.getElementById('debtDateInput').value;
+    const debtDate = document.getElementById('debtDateInput').value;
     const totalValue = parseCurrencyBR(document.getElementById('debtValueInput').value);
-    const installments = parseInt(document.getElementById('debtInstallmentsInput').value, 10);
-    const firstPayment = document.getElementById('debtFirstPaymentInput').value;
+    const installmentCount = parseInt(document.getElementById('debtInstallmentsInput').value, 10);
+    const firstPaymentDate = document.getElementById('debtFirstPaymentInput').value;
 
-    if(!description || !institution || !startDate || totalValue <= 0 || !installments || !firstPayment) {
+    if(!description || !institution || !debtDate || totalValue <= 0 || !installmentCount || !firstPaymentDate) {
       alert('Por favor, preencha todos os campos corretamente.');
       return;
     }
 
-    const newId = debtsData.length > 0 ? Math.max(...debtsData.map(d => d.id)) + 1 : 1;
+    try {
+      // Salva no backend
+      const result = await DataService.createDebtEntry({
+        description,
+        institution,
+        debtDate,
+        totalValue,
+        installmentCount,
+        firstPaymentDate,
+        debtType: 'other',
+        notes: ''
+      });
 
-    debtsData.push({
-      id: newId,
-      description,
-      institution,
-      startDate,
-      totalValue,
-      installments,
-      firstPayment,
-      paidInstallments: []
-    });
-    
-    console.log('[addDebtForm] New debt added:', debtsData[debtsData.length - 1]);
-    
-    if(document.activeElement && modal.contains(document.activeElement)){
-      if(addBtn) addBtn.focus();
+      if (result.success) {
+        console.log('[addDebtForm] Dívida criada:', result.debt);
+        
+        closeModal();
+        
+        // Atualiza card
+        setTimeout(async () => {
+          await renderDebtsCardFromAPI(currentMonthKey);
+        }, 100);
+      } else {
+        alert('Erro ao criar dívida. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('[addDebtForm] Erro:', error);
+      alert('Erro ao criar dívida. Tente novamente.');
     }
-    
-    closeModal();
-    
-    setTimeout(() => {
-      renderDebtsCard(currentMonthKey);
-    }, 50);
   });
 }
 
@@ -630,73 +707,162 @@ function initAddDebtModal() {
 // MODAL: DETALHES DA DÍVIDA
 // ============================================================================
 
-function openDebtDetailsModal(debtId) {
-  const debt = debtsData.find(d => d.id === debtId);
-  if(!debt) return;
-
+async function openDebtDetailsModal(debtId) {
   const modal = document.getElementById('debtDetailsModal');
-  if(!modal) return;
+  if (!modal) return;
 
-  const title = document.getElementById('debtDetailsTitle');
-  if(title) title.textContent = `${debt.description} - ${debt.institution}`;
+  try {
+    // Busca detalhes da API
+    const debt = await DataService.fetchDebtDetails(debtId);
 
-  const installmentValue = debt.totalValue / debt.installments;
+    const title = document.getElementById('debtDetailsTitle');
+    if (title) title.textContent = `${debt.description} - ${debt.institution}`;
 
-  const today = new Date();
-  let nextPaymentDate = null;
-  let nextPaymentNumber = null;
-  
-  for(let i = 1; i <= debt.installments; i++) {
-    if(!debt.paidInstallments.includes(i)) {
-      const paymentDate = calculateInstallmentDate(debt.firstPayment, i - 1);
-      nextPaymentDate = paymentDate;
-      nextPaymentNumber = i;
-      break;
+    // Atualiza resumo
+    const nextPaymentEl = document.getElementById('debtNextPayment');
+    const paidAmountEl = document.getElementById('debtPaidAmount');
+    const paidPercentEl = document.getElementById('debtPaidPercent');
+    const endDateEl = document.getElementById('debtEndDate');
+
+    if (debt.summary.nextPayment) {
+      const nextDate = new Date(debt.summary.nextPayment.dueDate);
+      nextPaymentEl.textContent = `Parcela ${debt.summary.nextPayment.installmentNumber} - ${formatDate(nextDate.toISOString().split('T')[0])}`;
+    } else {
+      nextPaymentEl.textContent = 'Todas pagas';
     }
+
+    paidAmountEl.textContent = formatAmount(debt.summary.totalPaid);
+    paidPercentEl.textContent = `${debt.summary.paidPercentage.toFixed(1)}%`;
+
+    if (debt.summary.endDate) {
+      const endDate = new Date(debt.summary.endDate);
+      endDateEl.textContent = formatDate(endDate.toISOString().split('T')[0]);
+    }
+
+    // Renderiza listas de parcelas
+    renderPendingInstallmentsFromAPI(debt);
+    renderPaidInstallmentsFromAPI(debt);
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  } catch (error) {
+    console.error('[openDebtDetailsModal] Erro:', error);
+    alert('Erro ao carregar detalhes da dívida');
   }
-
-  const paidAmount = debt.paidInstallments.length * installmentValue;
-  const paidPercent = calculateDebtPaidPercent(debt);
-
-  const endDate = calculateInstallmentDate(debt.firstPayment, debt.installments - 1);
-
-  document.getElementById('debtNextPayment').textContent = nextPaymentDate 
-    ? `Parcela ${nextPaymentNumber} - ${formatDate(nextPaymentDate.toISOString().split('T')[0])}`
-    : 'Todas pagas';
-  document.getElementById('debtPaidAmount').textContent = formatAmount(paidAmount);
-  document.getElementById('debtPaidPercent').textContent = `${paidPercent}%`;
-  document.getElementById('debtEndDate').textContent = formatDate(endDate.toISOString().split('T')[0]);
-
-  renderPendingInstallments(debt);
-  renderPaidInstallments(debt);
-
-  modal.classList.add('open');
-  modal.setAttribute('aria-hidden', 'false');
 }
 
-function markInstallmentAsPaid(debtId, installmentNumber) {
-  const debt = debtsData.find(d => d.id === debtId);
-  if(!debt) return;
+async function markInstallmentAsPaid(debtId, installmentNumber) {
+  try {
+    // Marca parcela como paga via API
+    const result = await DataService.payDebtInstallment(debtId, installmentNumber);
 
-  if(!debt.paidInstallments.includes(installmentNumber)) {
-    debt.paidInstallments.push(installmentNumber);
-    debt.paidInstallments.sort((a, b) => a - b);
-  }
-
-  if(debt.paidInstallments.length >= debt.installments) {
-    const modal = document.getElementById('debtDetailsModal');
-    if(modal) {
-      if(document.activeElement && modal.contains(document.activeElement)){
-        document.activeElement.blur();
+    if (result.success) {
+      // Verifica se todas as parcelas foram pagas
+      const debt = await DataService.fetchDebtDetails(debtId);
+      
+      if (debt.summary.paidCount >= debt.installmentCount) {
+        // Todas pagas - fecha modal
+        const modal = document.getElementById('debtDetailsModal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      } else {
+        // Ainda há parcelas - atualiza modal
+        await openDebtDetailsModal(debtId);
       }
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden', 'true');
+
+      // Atualiza card de dívidas
+      await renderDebtsCardFromAPI(currentMonthKey);
     }
-    renderDebtsCard(currentMonthKey);
-  } else {
-    openDebtDetailsModal(debtId);
-    renderDebtsCard(currentMonthKey);
+  } catch (error) {
+    console.error('[markInstallmentAsPaid] Erro:', error);
+    alert('Erro ao pagar parcela. Tente novamente.');
   }
+}
+
+/**
+ * Renderiza parcelas pendentes no modal (versão API)
+ */
+function renderPendingInstallmentsFromAPI(debt) {
+  const list = document.getElementById('pendingInstallments');
+  if (!list) return;
+
+  list.innerHTML = '';
+  
+  if (!debt.pendingInstallments || debt.pendingInstallments.length === 0) {
+    list.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted);">Todas as parcelas foram pagas</li>';
+    return;
+  }
+
+  debt.pendingInstallments.forEach(inst => {
+    const dueDate = new Date(inst.dueDate);
+    const isOverdue = inst.isOverdue || false;
+
+    const li = document.createElement('li');
+    li.className = 'installment-item';
+    if (isOverdue) li.classList.add('overdue');
+
+    li.innerHTML = `
+      <div class="installment-info">
+        <div class="installment-number">Parcela ${inst.installmentNumber}/${debt.installmentCount}</div>
+        <div class="installment-date">${formatDate(dueDate.toISOString().split('T')[0])}${isOverdue ? ' - ATRASADA' : ''}</div>
+      </div>
+      <div class="installment-actions">
+        <span class="installment-amount">${formatAmount(inst.amount)}</span>
+        <button class="btn-pay" data-debt-id="${debt._id}" data-installment="${inst.installmentNumber}">Pagar</button>
+      </div>
+    `;
+
+    const payBtn = li.querySelector('.btn-pay');
+    payBtn.addEventListener('click', function() {
+      const debtId = this.getAttribute('data-debt-id');
+      const installmentNum = parseInt(this.getAttribute('data-installment'));
+      markInstallmentAsPaid(debtId, installmentNum);
+    });
+
+    list.appendChild(li);
+  });
+}
+
+/**
+ * Renderiza parcelas pagas no modal (versão API)
+ */
+function renderPaidInstallmentsFromAPI(debt) {
+  const list = document.getElementById('paidInstallments');
+  if (!list) return;
+
+  list.innerHTML = '';
+
+  if (!debt.paidInstallments || debt.paidInstallments.length === 0) {
+    list.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted);">Nenhuma parcela paga ainda</li>';
+    return;
+  }
+
+  debt.paidInstallments.forEach(inst => {
+    const dueDate = new Date(inst.dueDate);
+    const paidDate = inst.paidAt ? new Date(inst.paidAt) : null;
+
+    const li = document.createElement('li');
+    li.className = 'installment-item paid';
+
+    const paidInfo = paidDate 
+      ? `Pago em ${formatDate(paidDate.toISOString().split('T')[0])}`
+      : 'Pago';
+
+    li.innerHTML = `
+      <div class="installment-info">
+        <div class="installment-number">Parcela ${inst.installmentNumber}/${debt.installmentCount}</div>
+        <div class="installment-date">${paidInfo}</div>
+      </div>
+      <div class="installment-actions">
+        <span class="installment-amount paid">${formatAmount(inst.paidAmount || inst.amount)}</span>
+        <span class="installment-status">✓ Paga</span>
+      </div>
+    `;
+
+    list.appendChild(li);
+  });
 }
 
 function initDebtDetailsModal() {
