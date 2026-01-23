@@ -23,6 +23,25 @@ Como **coordenador**, o Agente Analista recebe automaticamente a **Memória de C
 
 **Uso:** Utiliza toda a memória disponível para elaborar análises profundas integradas, considerando histórico completo do usuário e processos anteriores.
 
+---
+
+## 💾 Sistema de Acesso a Dados Internos
+
+Como agente de IA coordenador, o Agente Analista tem **acesso direto e inteligente** ao Sistema de Acesso a Dados Internos, permitindo consultas dinâmicas aos dados financeiros do usuário durante o ciclo ReAct.
+
+### Funcionamento do Acesso:
+- **Categorias Iniciais:** Seleciona de categorias como `Dados_receitas_e_despesas`, `Dados_transacoes`, `Dados_dividas`, etc.
+- **Filtros Dinâmicos:** Aplica filtros específicos (período, tipo, status) para refinar diagnósticos financeiros.
+- **Iteração Inteligente:** Pode voltar às categorias, adicionar/remover filtros conforme a análise evolui.
+- **Integração com IA:** Usa dados obtidos para alimentar frameworks de análise e ciclos ReAct.
+
+### Exemplos de Uso:
+- **Diagnóstico de Gastos:** Consulta `Dados_receitas_e_despesas` com filtros por tipo de despesa para identificar padrões de consumo.
+- **Análise de Renda:** Filtra receitas por período para avaliar estabilidade financeira.
+- **Avaliação de Dívidas:** Acessa dados de dívidas para calcular índices de endividamento.
+
+Este acesso direto garante que as análises de IA sejam baseadas em dados reais e atualizados, maximizando a precisão dos diagnósticos financeiros.
+
 ### 📚 Banco de Frameworks (diferencial central)
 
 O banco de frameworks é a base do raciocínio do agente. Ele é estruturado hierarquicamente (níveis 1, 2 e 3) e contém:

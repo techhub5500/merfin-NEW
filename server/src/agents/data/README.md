@@ -1,13 +1,13 @@
-# Data Agent - Módulo de Acesso a Dados
+# Sistema de Dados Internos - Módulo de Acesso a Dados Financeiros
 
-Esta pasta contém o agente responsável por todas as operações de leitura de dados financeiros do sistema, incluindo contas, transações e perfil do usuário.
+Esta pasta contém o sistema responsável por todas as operações de leitura de dados financeiros do sistema, incluindo contas, transações e perfil do usuário.
 
 ## Arquivos e Responsabilidades
 
 ### data-agent.js
-O arquivo central do módulo, responsável por orquestrar todas as operações de leitura de dados financeiros. Ele funciona como um agente especializado que responde a cinco ações principais: buscar saldos de contas, buscar transações, buscar perfil do usuário, buscar sumário de contas e validar integridade dos dados.
+O arquivo central do módulo, responsável por orquestrar todas as operações de leitura de dados financeiros. Ele funciona como um módulo especializado que responde a cinco ações principais: buscar saldos de contas, buscar transações, buscar perfil do usuário, buscar sumário de contas e validar integridade dos dados.
 
-Este arquivo estende a classe `BaseAgent` e utiliza um sistema de mapeamento de ações, onde cada requisição é direcionada para o método correspondente. Toda operação passa por validação de parâmetros obrigatórios e integra o sistema de cache de forma transparente. Quando uma informação é requisitada, o agente primeiro verifica se existe uma versão em cache válida antes de consultar o banco de dados, garantindo performance ideal.
+Este arquivo estende a classe `BaseAgent` e utiliza um sistema de mapeamento de ações, onde cada requisição é direcionada para o método correspondente. Toda operação passa por validação de parâmetros obrigatórios e integra o sistema de cache de forma transparente. Quando uma informação é requisitada, o módulo primeiro verifica se existe uma versão em cache válida antes de consultar o banco de dados, garantindo performance ideal.
 
 O arquivo serve de modelo para outros agentes do sistema e é utilizado tanto pelo orquestrador quanto diretamente pela API. Ele não executa queries diretamente no banco, delegando essa responsabilidade para módulos especializados.
 
@@ -42,10 +42,35 @@ Este arquivo **não modifica dados**, apenas reporta problemas encontrados. Cada
 Pode ser executado sob demanda através da ação `validateDataIntegrity` do `data-agent.js` ou agendado via cron para validações automáticas. Os resultados são logados e retornados para análise pela equipe técnica.
 
 ### cache-manager.js
-Gerenciador de cache especializado para o Data Agent. Este arquivo funciona como um wrapper do ToolContext (sistema central de cache), adicionando lógica específica para dados financeiros.
+Gerenciador de cache especializado para o Sistema de Dados Internos. Este arquivo funciona como um wrapper do ToolContext (sistema central de cache), adicionando lógica específica para dados financeiros.
 
 Suas responsabilidades incluem gerar chaves de cache consistentes, aplicar TTLs (tempo de vida) apropriados por tipo de dado e invalidar cache de forma inteligente quando dados mudam. Por exemplo: dados de perfil do usuário têm cache longo (30 minutos) pois mudam raramente, enquanto saldos e transações têm cache curto (5 minutos) pois são mais voláteis.
 
 O arquivo implementa invalidação inteligente por padrões: ao invalidar o cache de um usuário, automaticamente limpa todas as chaves relacionadas (saldos, transações, perfil, sumários). Ele também coleta estatísticas de hit/miss do cache, úteis para análise de performance do sistema.
 
-É utilizado internamente por todos os métodos do `data-agent.js`, tornando o cache transparente para quem consome o agente. Logs automáticos registram cada operação de cache para diagnóstico e otimização.
+É utilizado internamente por todos os métodos do `data-agent.js`, tornando o cache transparente para quem consome o sistema. Logs automáticos registram cada operação de cache para diagnóstico e otimização.
+
+---
+
+## 🤖 Integração com Agentes de IA
+
+O Sistema de Dados Internos serve como infraestrutura crítica para os agentes de IA do sistema multi-agente, fornecendo acesso rápido e confiável aos dados financeiros do usuário. Os agentes de IA que interagem diretamente com este módulo incluem:
+
+### Agentes Coordenadores (IA Completa)
+- **Agente de Planejamento Financeiro:** Acessa diretamente o Sistema de Acesso a Dados Internos para consultar dados de renda, metas e projeções históricas durante elaboração de planos estratégicos.
+- **Agente de Análise Financeira Pessoal:** Utiliza dados agregados para diagnóstico financeiro, acessando categorias como receitas/despesas e perfil de risco.
+- **Agente de Investimentos:** Consulta histórico de transações e saldos para recomendações de alocação de ativos.
+
+### Agente Matemático (Executor com IA)
+- Possui acesso direto ao Sistema de Acesso a Dados Internos para dados históricos do usuário (ex.: renda passada, gastos mensais) durante cálculos precisos.
+- Integra dados obtidos para calibrar modelos matemáticos e validar premissas numéricas.
+
+### Agente de Pesquisa Externa (Executor com IA)
+- Pode receber elementos da Memória de Contexto ou Interna dos coordenadores quando necessário para contextualizar pesquisas externas.
+- Utiliza dados do sistema para enriquecer queries de coleta de informações de mercado.
+
+### Orquestrador Global (IA Estratégica)
+- Utiliza DeepSeek para classificar complexidade de queries que envolvem dados financeiros.
+- Coordena acesso indireto aos dados através dos agentes coordenadores.
+
+Esta integração garante que os agentes de IA tomem decisões baseadas em dados reais e atualizados, mantendo a precisão e relevância das análises e recomendações.

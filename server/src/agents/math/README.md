@@ -205,3 +205,24 @@ O Agente Matemático possui **acesso direto ao Sistema de Acesso a Dados Interno
 Este acesso direto permite cálculos mais precisos e personalizados, baseados em dados reais do usuário.
 
 Este acesso direto garante que cálculos sejam baseados em dados atualizados, mesmo quando coordenadores subestimam necessidades de informação.
+
+---
+
+## 🤖 Integração com Agentes de IA
+
+O Agente Matemático é um executor especializado que integra capacidades de validação inteligente com o sistema multi-agente de IA:
+
+### Agentes Coordenadores (IA Completa)
+- **Chamado por:** Planning, Analyst, Investments para cálculos complexos durante ciclos ReAct.
+- **Pode receber memória:** Coordenadores avaliam e incluem elementos relevantes da Memória de Contexto ou Interna para contextualizar cálculos.
+- **Integração:** Fornece resultados validados que alimentam frameworks de análise e planejamento.
+
+### Acesso Direto a Dados Internos
+- **Sistema de Acesso a Dados Internos:** Acesso direto para dados históricos do usuário, garantindo precisão em modelos matemáticos.
+- **Agente de Pesquisa Externa:** Chamadas diretas para dados externos (taxas, índices) durante cálculos.
+
+### Outros Agentes
+- **Orquestrador:** Coordena através de coordenadores, usando DeepSeek para identificar necessidades de cálculos complexos.
+- **Junior/Simplista:** Não chama diretamente; operações matemáticas simples são tratadas localmente.
+
+Esta integração permite que agentes de IA realizem cálculos precisos baseados em dados reais, mantendo a integridade numérica das decisões financeiras.

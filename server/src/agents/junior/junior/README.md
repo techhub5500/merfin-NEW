@@ -17,7 +17,7 @@ Este agente é responsável por receber todas as queries do usuário e classific
 
 ### ❌ Não é usado para:
 - Análises financeiras
-- Cálculos numéricos
+- Cálculos numéricos.
 - Decisões estratégicas
 - Consultas a dados
 - Qualquer processamento além da triagem

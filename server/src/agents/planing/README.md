@@ -20,6 +20,25 @@ Como **coordenador**, o Agente de Planejamento recebe automaticamente a **Memór
 
 **Uso:** Utiliza toda a memória disponível para elaborar planos estratégicos integrados, considerando histórico completo do usuário e processos anteriores.
 
+---
+
+## 💾 Sistema de Acesso a Dados Internos
+
+Como agente de IA coordenador, o Agente de Planejamento tem **acesso direto e inteligente** ao Sistema de Acesso a Dados Internos, permitindo consultas dinâmicas aos dados financeiros do usuário sem overhead de Message Bus.
+
+### Funcionamento do Acesso:
+- **Categorias Iniciais:** Seleciona de categorias como `Dados_receitas_e_despesas`, `Dados_contas_bancarias`, `Dados_transacoes`, etc.
+- **Filtros Dinâmicos:** Aplica filtros específicos (período, tipo, status) para refinar buscas em tempo real.
+- **Iteração Inteligente:** Pode voltar às categorias, adicionar/remover filtros conforme o plano evolui.
+- **Integração com IA:** Usa dados obtidos para alimentar frameworks hierárquicos e ciclos ReAct.
+
+### Exemplos de Uso:
+- **Projeções de Renda:** Consulta `Dados_receitas_e_despesas` com filtro período = últimos 12 meses para calcular renda média.
+- **Análise de Gastos:** Filtra por tipo de despesa para identificar padrões e otimizar alocações.
+- **Validação de Metas:** Compara dados históricos com objetivos de planejamento para ajustar cenários realistas.
+
+Este acesso direto garante que os planos sejam baseados em dados reais e atualizados, maximizando a precisão das recomendações de IA.
+
 ### 📚 Banco de Frameworks (diferencial central)
 
 O banco de frameworks é a base do raciocínio do agente. Ele é estruturado hierárquicamente (níveis 1, 2 e 3) e contém:

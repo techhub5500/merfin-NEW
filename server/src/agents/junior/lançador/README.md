@@ -242,9 +242,22 @@ O Agente Lançador é chamado diretamente pelo Agente Junior para queries de lan
 
 Este agente garante que o banco de dados financeiro do usuário esteja sempre atualizado e preciso, servindo como base para todas as análises e consultas do sistema multi-agente.
 
-## Memória e Contexto
+## 💾 Sistema de Memória
 
-- O Agente Lançador consulta o contexto unificado via `context-builder` quando necessário para completar ou validar lançamentos. O contexto inclui `workingMemory` (diálogo ativo, dados temporários) e `episodicSummary` (trechos do histórico de conversas/transações).
-- Uso prático: se o Junior marcou `diálogo_ativo: lançador`, o Lançador recebe diretamente a resposta do usuário via `workingMemory` sem nova triagem; também pode checar `episodicSummary` para detectar duplicidades ou lançamentos recorrentes.
-- Regras de acesso: o Lançador pode ler `workingMemory` e `episodicSummary`. Ele não envia memórias completas ao Agente Matemático ou ao Agente de Pesquisa Externa. Todas as entradas são curadas para remover PII sensível antes da persistência.
+O Agente Lançador **NÃO recebe memória de contexto** (nem Working Memory, nem Episodic Memory, nem Long-Term Memory). Opera de forma completamente independente, focado exclusivamente em registro transacional.
+
+**Exceção:** Durante diálogos de esclarecimento iniciados pelo próprio Lançador, o sistema mantém um flag de `diálogo_ativo` temporário que permite respostas do usuário serem roteadas diretamente ao Lançador sem retriagem. Este flag não constitui acesso a memória histórica.
+
+**O que o Lançador recebe:**
+- `userId` - Identificador do usuário
+- `sessionId` - Identificador da sessão
+- `query_original` - Query do usuário
+- `diálogo_ativo` (flag) - Se há diálogo em andamento (apenas para roteamento)
+
+**O que o Lançador NÃO recebe:**
+- `workingMemory` (memória de contexto)
+- `episodicSummary` (histórico de conversas)
+- `longTermMemory` (perfil do usuário)
+
+**Justificativa:** Isolamento total garante que lançamentos transacionais sejam rápidos, seguros e não dependam de contexto histórico que poderia causar inconsistências.
 

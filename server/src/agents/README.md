@@ -106,13 +106,10 @@ Quando agentes Junior, Lançador ou Simplista iniciam um diálogo para esclarece
 **Como Funciona:**
 1. **Agente identifica necessidade de esclarecimento**
 2. **Formula pergunta específica**
-3. **Sistema marca contexto:** "diálogo_ativo: {agente}, pergunta: {conteúdo}" e envia para o usuário. A partir desse momento, o agente DeepSeek, com uma instrução básica de aproximadamente 70 palavras, vai identificar se a resposta do usuário responde à pergunta enviada ou não. Caso não, o agente DeepSeek envia para a triagem normal; caso sim, a **Próxima entrada do usuário:** Vai direto para o agente em diálogo
-4. **Agente processa resposta e responde**
-5. **Se resposta indica complexidade:** Reseta contexto e volta à triagem normal
-
-**Agente DeepSeek para Detecção de Transição:**
-- **System Prompt:** "Você é um agente de detecção de continuidade de diálogo no sistema multi-agente de IA financeira. Sua tarefa é analisar se a resposta do usuário responde diretamente à pergunta específica formulada pelo agente em diálogo ativo. Responda apenas com 'sim' se a resposta for relevante e direta à pergunta, ou 'não' se não for, indicando que deve voltar à triagem normal. Não adicione explicações ou texto extra."
-- Responde exclusivamente com "sim" ou "não".
+3. **Sistema marca contexto:** "diálogo_ativo: {agente}, pergunta: {conteúdo}"
+4. **Próxima entrada do usuário:** Vai direto para o agente em diálogo
+5. **Agente processa resposta e responde**
+6. **Se resposta indica complexidade:** Reseta contexto e volta à triagem normal
 
 **Agentes que Podem Iniciar Diálogo:**
 - **Agente Junior:** Para saudações ou contexto inicial
@@ -120,23 +117,25 @@ Quando agentes Junior, Lançador ou Simplista iniciam um diálogo para esclarece
 - **Agente Simplista:** Para refinar queries informacionais simples
 
 **Detecção de Transição para Complexidade:**
-- A análise é realizada pelo agente DeepSeek, que determina se a resposta do usuário é relevante à pergunta em diálogo ou se indica uma mudança para uma query complexa, resetando o contexto para triagem normal.
+- Palavras-chave: "analise", "plano", "investimento", "orçamento detalhado"
+- Frases completas: "faça uma análise das minhas finanças"
+- Sistema detecta → reseta contexto → processa como query complexa normal
 
 **Exemplo de Fluxo:**
 ```
 Usuário: "gastei 450 reais"
 Junior → Lançador
 Lançador: "Em que você gastou os R$ 450?"
-Sistema: marca "diálogo_ativo: lançador, pergunta: Em que você gastou os R$ 450?"
+Sistema: marca "diálogo_ativo: lançador"
 Usuário: "no supermercado"
-DeepSeek analisa: resposta responde à pergunta? → "sim" → direto para Lançador
+Junior: detecta contexto → direto para Lançador
 Lançador: registra e confirma
 ```
 
 **Exemplo de Transição:**
 ```
 Usuário: "esquece, faça uma análise das minhas finanças"
-DeepSeek analisa: resposta não responde à pergunta em diálogo → "não" → reseta contexto → triagem normal → Orquestrador
+Sistema: detecta transição → reseta contexto → triagem normal → Orquestrador
 ```
 
 Este sistema evita retrabalho e mantém eficiência em diálogos simples, enquanto permite escalabilidade para análises complexas.
@@ -144,41 +143,29 @@ Este sistema evita retrabalho e mantém eficiência em diálogos simples, enquan
 
 ## 2.2 MEMÓRIA E CONTEXTO (VISÃO SIMPLIFICADA)
 
-O sistema possui **dois sistemas de memória distintos e independentes**:
-
-### Sistema de Memória de Contexto (Chat entre Usuário e Agente)
-Este sistema mantém o contexto da conversa entre o usuário e a IA, sendo enviado automaticamente a todos os agentes para fornecer background histórico.
+O sistema mantém três camadas de memória que juntas formam o contexto utilizado pelos agentes:
 
 - **Working Memory (volátil):** memória de sessão (curto prazo) usada para variáveis de execução, diálogos ativos e resultados intermediários. Construída e entregue pelo `context-builder`.
 - **Episodic Memory (por chat):** histórico persistente da conversa individual, curado e comprimido pelo sistema de memória episódica (`episodic-memory`). Contém o histórico relevante da interação do usuário.
 - **Long-Term Memory (perfil):** perfil permanente do usuário (LTM) com memórias curadas e embeddings semânticos (acessível via `profile-manager`).
 
-Essas memórias são sempre enviadas automaticamente a todos os agentes, com identificação clara de cada tipo. Elas podem estar vazias se não houver conteúdo relevante, mas quando presentes, devem ser analisadas para prosseguir, pois podem conter informações essenciais.
-
-### Sistema de Memória Interna (Processos dos Agentes)
-Este é um sistema independente e efêmero, detalhado em `server/src/agents/working-memory/README.md`. Ele preserva a integridade dos processos internos dos agentes durante o processamento de qualquer query (não apenas complexas), garantindo que todas as operações, decisões e respostas integrais dos agentes executores e coordenadores sejam 100% preservadas.
-
-**Propósito:** Em queries que passam por múltiplos agentes e realizam mais de 10 operações, é crucial manter o estado completo dos processos para elaborar a resposta final com integridade. Esta memória é volátil e deletada após a resposta ser enviada ao usuário.
-
-**Integração na Resposta Final:** A resposta final deve incluir ambos os sistemas:
-- **Memória de Contexto (Chat):** Exatamente a mesma enviada pelo Agente Junior, identificada claramente.
-- **Memória Interna:** Dados e informações dos processos internos, devidamente divididos e preservados na sua integridade, indicando claramente a diferença entre contexto histórico e processos operacionais.
-
 Como o contexto é construído:
 
-- O `context-builder` é a fonte canônica do contexto de chat; agentes recebem automaticamente o contexto unificado em cada interação.
-- Cada agente recebe: `sessionId`, `userId`, `sessionMetadata`, `workingMemory` (pares chave-valor voláteis), `episodicSummary` (trechos relevantes da memória episódica, quando aplicável), `prompt_current` (o texto exato do usuário que originou a request).
+- Cada ciclo de agente deve solicitar um contexto unificado usando `context-builder.buildContext()` (ou API equivalente). Isso retorna:
+    - `sessionId`, `userId`, `sessionMetadata`
+    - `workingMemory` (pares chave-valor voláteis)
+    - `episodicSummary` (trechos relevantes da memória episódica quando aplicável)
+    - `prompt_current` (o texto exato do usuário que originou a request)
 
 Regras de acesso e privacidade:
 
-- **Agentes que recebem contexto completo automaticamente:** Agente Junior, Agente Simplista, Agentes Coordenadores (Analista, Planejamento, Investimentos), Agente Matemático e Agente de Pesquisa Externa.
-- **Agente Lançador NÃO recebe memória de contexto** - opera de forma isolada para garantir integridade transacional. Recebe apenas flag de `diálogo_ativo` para roteamento.
-- Conteúdo pode estar vazio para agentes que não precisam de certos tipos de memória (ex.: Agente Matemático pode receber `workingMemory` vazio se não aplicável).
+- **Agentes que recebem o contexto unificado:** Agente Junior, Agente Simplista, Agente Lançador e todos os Agentes Coordenadores (Analista, Planejamento, Investimentos). Esses agentes podem ler `workingMemory` e `episodicSummary` e, quando necessário, consultar o `profile-manager` para acessar LTM.
+- **Agentes que NÃO recebem memória/contexto:** Agente Matemático e Agente de Pesquisa Externa (respeito à separação de responsabilidades e para minimizar exposição de histórico de usuário).
 - **Dados sensíveis:** Antes de qualquer inclusão no `episodicSummary` ou `workingMemory`, a curadoria remove PII sensível (CPF, números de cartão, senhas). Agentes devem tratar qualquer dado recebido como potencialmente sensível e seguir políticas de privacidade.
 
 Operacionalmente:
 
-- Agentes não precisam solicitar o contexto de chat; ele é entregue automaticamente em cada ciclo ou interação.
+- O `context-builder` é a fonte canônica do contexto; agentes não devem montar contexto localmente a partir de chamadas diretas ao banco.
 - Ao enviar pacotes ao Orquestrador ou a coordenadores, o agente emissor deve incluir `prompt_current` e um resumo curto do contexto (se aplicável) para manter rastreabilidade.
 
 
@@ -379,17 +366,6 @@ Em vez de um agente executor dedicado, os agentes coordenadores têm acesso dire
 
 Esse sistema integra-se diretamente no ciclo ReAct dos coordenadores, permitindo acesso eficiente sem overhead de agentes adicionais.
 
-### 🤖 Integração com Agentes de IA
-
-O Sistema de Acesso a Dados Internos é uma infraestrutura crítica para os agentes de IA do sistema, fornecendo dados reais e atualizados para tomadas de decisão inteligentes:
-
-- **Agentes Coordenadores (IA Completa):** Planning, Analyst e Investments acessam diretamente para consultas dinâmicas durante ciclos ReAct, alimentando frameworks hierárquicos com dados financeiros reais.
-- **Agente Matemático (Executor com IA):** Usa para calibrar cálculos com dados históricos do usuário, garantindo precisão numérica em modelos financeiros.
-- **Agente Simplista (Executor):** Tem acesso direto para consultas rápidas em respostas informacionais simples.
-- **Orquestrador (IA Estratégica):** Coordena indiretamente através dos coordenadores, usando DeepSeek para classificar queries que envolvem dados internos.
-
-Esta integração garante que todas as decisões de IA sejam baseadas em dados verificados, mantendo a integridade e relevância do sistema multi-agente.
-
 ---
 
 # SISTEMA MULTI-AGENTE DE IA
@@ -492,13 +468,10 @@ Permite que agentes conversem diretamente SEM passar pelo orquestrador a cada me
 **Detecção de Loops Circulares:**
 
 - Análise do campo rastreamento.caminho_chamadas
-- Se um agente aparece mais de 6 vezes no caminho → alerta de loop e bloqueia
+- Se um agente aparece mais de 3 vezes no caminho → alerta de loop e bloqueia
 - Se profundidade_chamada excede 8 níveis → bloqueia mensagem
-- Algoritmo: mantém grafo direcionado de chamadas, detecta ciclos via DFS (Depth-First Search)
-- Detecta padrões cíclicos reais (A → B → A → B → A) vs chamadas sequenciais legítimas (A → B → A → C → A → D)
+- Algoritmo: mantém grafo direcionado de chamadas, detecta ciclos via DFS
 - Quando bloqueia: notifica coordenador líder sobre loop detectado
-
-**Justificativa do limite de 6:** Permite fluxos legítimos onde coordenador precisa chamar mesmo executor múltiplas vezes (ex.: DataAgent para buscar dados de 6 períodos diferentes), mantendo proteção contra loops infinitos.
 
 **Detecção de Explosão de Mensagens:**
 
@@ -676,11 +649,6 @@ Todo agente coordenador opera em ciclos, mas decide autonomamente quantos ciclos
 - Como lidar com timeouts de mensagens individuais
 - Como lidar com fallbacks automáticos
 - Como interpretar respostas parciais ou via fallback
-
-**Subseção 4.1 - Transmissão de Memória:**
-
-- **Para Executores:** Ao enviar requisições, avalie se é relevante incluir elementos da Memória de Contexto (Chat) ou Memória Interna. Inclua apenas o necessário para o executor realizar sua operação, evitando sobrecarga.
-- **Entre Coordenadores:** Sempre envie a Memória de Contexto e a Memória Interna na sua integralidade para garantir continuidade e acesso completo aos processos anteriores.
 
 **Seção 5 - Ciclo de Raciocínio e Tomada de Decisão:**
 
@@ -1162,8 +1130,7 @@ A resposta final é acionada quando:
 
 **Etapa 1 - Recebimento da Consolidação:**
 
-- Sistema recebe JSON de consolidação do coordenador, preservado integralmente na Memória Interna dos Agentes (`server/src/agents/working-memory/README.md`)
-- A consolidação inclui 100% das respostas e dados processados pelos agentes executores e coordenadores
+- Sistema recebe JSON de consolidação do coordenador
 - JSON contém:
     - resposta_pre_estruturada (já em linguagem natural)
     - dados_suporte
@@ -1176,13 +1143,11 @@ A resposta final é acionada quando:
 
 **Etapa 2 - Construção do Contexto Mínimo:**
 
-- Sistema extrai apenas informações essenciais, distinguindo claramente:
-    - **Memória de Contexto (Chat):** Query original e histórico de conversa (exatamente como enviado pelo Agente Junior)
-    - **Memória Interna:** Dados e processos preservados da execução dos agentes
-- Query original do usuário
-- Resposta pré-estruturada do coordenador
-- Limitações encontradas (se houver)
-- Recomendações adicionais (se houver)
+- Sistema extrai apenas informações essenciais:
+    - Query original do usuário
+    - Resposta pré-estruturada do coordenador
+    - Limitações encontradas (se houver)
+    - Recomendações adicionais (se houver)
 - **NOVO:** Reduz drasticamente o contexto enviado ao LLM de síntese
 - Dados brutos, cálculos detalhados e metadados ficam armazenados mas NÃO vão para síntese
 

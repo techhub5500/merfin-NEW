@@ -944,4 +944,25 @@ O Agente de Pesquisa Externa é chamado principalmente por coordenadores, mas po
 - **Acesso do Simplista ao Serper e Brapi:** Para enriquecer respostas simples com dados de mercado (ex.: indicadores fundamentalistas, cotações), o Simplista pode acessar diretamente Serper e Brapi
 - **Cenários comuns:** Validação de cotações, obtenção de índices econômicos, pesquisa de taxas de mercado, dados factuais para respostas diretas, indicadores fundamentalistas básicos
 
+---
+
+## 🤖 Integração com Agentes de IA
+
+O Agente de Pesquisa Externa é um executor com capacidades de IA para roteamento inteligente de dados externos, integrando-se com o sistema multi-agente de IA:
+
+### Agentes Coordenadores (IA Completa)
+- **Recebe chamadas de:** Planning, Analyst, Investments para coleta de dados externos durante ciclos ReAct.
+- **Pode receber memória:** Coordenadores avaliam e incluem elementos relevantes da Memória de Contexto ou Interna para contextualizar pesquisas.
+- **Integração:** Fornece dados externos que alimentam frameworks de análise e planejamento.
+
+### Agente Matemático (Executor com IA)
+- **Acesso direto:** Pode chamar diretamente para dados externos necessários em cálculos (ex.: taxas de juros, índices econômicos).
+- **Integração:** Dados obtidos refinam modelos matemáticos e validações numéricas.
+
+### Outros Agentes
+- **Junior/Simplista:** Acesso direto limitado ao Serper/Brapi para enriquecimento de respostas simples.
+- **Orquestrador:** Coordena indiretamente através de coordenadores, usando DeepSeek para classificar queries que envolvem pesquisa externa.
+
+Esta integração permite que agentes de IA tomem decisões informadas com dados de mercado atualizados, mantendo a precisão e relevância das análises.
+
 ```
