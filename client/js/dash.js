@@ -33,6 +33,24 @@
 'use strict';
 
 // ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Get user ID from localStorage
+ * @returns {string|null}
+ */
+function getUserId() {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.id || user._id || null;
+  } catch (error) {
+    console.error('[getUserId] Failed to parse user from localStorage:', error);
+    return null;
+  }
+}
+
+// ============================================================================
 // VARIÁVEL GLOBAL: MÊS ATUAL SELECIONADO
 // ============================================================================
 
@@ -91,6 +109,21 @@ function initChat(){
       // Preparar histórico (simplificado)
       const history = [];
 
+      // Persistir/garantir existência do chat no servidor principal
+      try {
+        const userId = getUserId();
+        const area = document.documentElement.dataset.page || 'Finanças';
+        if (userId) {
+          const created = await chatIntegration.createChatOnMain(userId, window.dashSessionId, area, '');
+          if (created && created.success && created.chat && created.chat._id) {
+            window.dashChatId = created.chat._id;
+            await chatIntegration.addMessageToChatOnMain(window.dashChatId, userId, message, 'user', area);
+          }
+        }
+      } catch (err) {
+        console.warn('Falha ao registrar chat no servidor principal:', err);
+      }
+
       // Enviar para API
       const response = await chatIntegration.sendToChatAPI(message, window.dashSessionId, history);
 
@@ -100,6 +133,15 @@ function initChat(){
       // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
       if (response && response.status === 'success' && response.response) {
         appendAssistantMessage(response.response);
+        try {
+          const userId = getUserId();
+          const area = document.documentElement.dataset.page || 'Finanças';
+          if (userId && window.dashChatId) {
+            await chatIntegration.addMessageToChatOnMain(window.dashChatId, userId, response.response, 'ai', area);
+          }
+        } catch (err) {
+          console.warn('Falha ao persistir resposta do assistente:', err);
+        }
       } else {
         console.error('Resposta em formato inesperado:', response);
         appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');

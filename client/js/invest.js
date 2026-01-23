@@ -50,6 +50,21 @@ const initializeLucideIcons = () => {
     }
 };
 
+/**
+ * Get user ID from localStorage
+ * @returns {string|null}
+ */
+const getUserId = () => {
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.id || user._id || null;
+    } catch (error) {
+        console.error('[getUserId] Failed to parse user from localStorage:', error);
+        return null;
+    }
+}
+};
+
 // ============================================================================
 // SIDEBAR MANAGER MODULE
 // ============================================================================
@@ -350,6 +365,21 @@ class ChatManager {
             // Preparar histórico (simplificado)
             const history = [];
 
+            // Persistir/garantir existência do chat no servidor principal
+            try {
+                const userId = getUserId();
+                const area = document.documentElement.dataset.page || 'Invest';
+                if (userId) {
+                    const created = await chatIntegration.createChatOnMain(userId, this.sessionId, area, '');
+                    if (created && created.success && created.chat && created.chat._id) {
+                        this.chatId = created.chat._id;
+                        await chatIntegration.addMessageToChatOnMain(this.chatId, userId, message, 'user', area);
+                    }
+                }
+            } catch (err) {
+                console.warn('Falha ao registrar chat no servidor principal:', err);
+            }
+
             // Enviar para API
             const response = await chatIntegration.sendToChatAPI(message, this.sessionId, history);
 
@@ -359,6 +389,15 @@ class ChatManager {
             // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
             if (response && response.status === 'success' && response.response) {
                 this.appendAssistantMessage(response.response);
+                try {
+                    const userId = getUserId();
+                    const area = document.documentElement.dataset.page || 'Invest';
+                    if (userId && this.chatId) {
+                        await chatIntegration.addMessageToChatOnMain(this.chatId, userId, response.response, 'ai', area);
+                    }
+                } catch (err) {
+                    console.warn('Falha ao persistir resposta do assistente:', err);
+                }
             } else {
                 console.error('Resposta em formato inesperado:', response);
                 this.appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');

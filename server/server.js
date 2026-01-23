@@ -12,6 +12,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./src/routes/authRoutes');
+const chatHistoryRoutes = require('./src/routes/chatHistoryRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ app.get('/', (req, res) => {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/chat/history', chatHistoryRoutes);
 
 // Rota raiz
 app.get('/api', (req, res) => {

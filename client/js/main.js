@@ -99,6 +99,20 @@ const initializeLucideIcons = () => {
 };
 
 /**
+ * Get user ID from localStorage
+ * @returns {string|null}
+ */
+const getUserId = () => {
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.id || user._id || null;
+    } catch (error) {
+        console.error('[getUserId] Failed to parse user from localStorage:', error);
+        return null;
+    }
+};
+
+/**
  * Debounce function for performance optimization
  * @param {Function} func - Function to debounce
  * @param {number} wait - Milliseconds to wait
@@ -1081,19 +1095,45 @@ class MessageManager {
                 this.sessionId = chatIntegration.generateSessionId();
             }
 
-            // Enviar para API
-            const response = await chatIntegration.sendToChatAPI(text, this.sessionId, history);
+                // Persistir/garantir existência do chat no servidor principal (associa ao user)
+                try {
+                    const userId = typeof getUserId === 'function' ? getUserId() : null;
+                    const area = document.documentElement.dataset.page || 'Home';
+                    if (userId) {
+                        const created = await chatIntegration.createChatOnMain(userId, this.sessionId, area, '');
+                        if (created && created.success && created.chat && created.chat._id) {
+                            this.currentChatId = created.chat._id;
+                            // record user message immediately
+                            await chatIntegration.addMessageToChatOnMain(this.currentChatId, userId, text, 'user', area);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Falha ao registrar chat no servidor principal:', err);
+                }
+
+                // Enviar para API do agente
+                const response = await chatIntegration.sendToChatAPI(text, this.sessionId, history);
             
             console.log('Resposta recebida no index.html:', response);
             
-            // Adicionar resposta do assistente ao chat
+                // Adicionar resposta do assistente ao chat
             // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
-            if (response && response.status === 'success' && response.response) {
-                this.appendAssistantMessage(response.response);
-            } else {
-                console.error('Resposta em formato inesperado:', response);
-                this.appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
-            }
+                if (response && response.status === 'success' && response.response) {
+                    this.appendAssistantMessage(response.response);
+                    // persist assistant reply
+                    try {
+                        const userId = getUserId();
+                        const area = document.documentElement.dataset.page || 'Home';
+                        if (userId && this.currentChatId) {
+                            await chatIntegration.addMessageToChatOnMain(this.currentChatId, userId, response.response, 'ai', area);
+                        }
+                    } catch (err) {
+                        console.warn('Falha ao persistir resposta do assistente:', err);
+                    }
+                } else {
+                    console.error('Resposta em formato inesperado:', response);
+                    this.appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
+                }
             
         } catch (error) {
             console.error('Erro ao enviar mensagem:', error);
@@ -1331,6 +1371,18 @@ function initChatHistoryModal() {
     const memoriesSection = modal.querySelector('.chat-memories');
     const btnMemories = modal.querySelector('.btn-memories');
     const btnExitMemories = modal.querySelector('.btn-exit-memories');
+    const searchInput = modal.querySelector('.chat-history-search');
+
+    if (searchInput) {
+        let debounce = null;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                const activeTab = tabs.find(t => t.classList.contains('active')) || tabs[0];
+                if (activeTab) selectTab(activeTab);
+            }, 350);
+        });
+    }
 
     const openModal = (pageName) => {
         modal.setAttribute('aria-hidden', 'false');
@@ -1355,7 +1407,89 @@ function initChatHistoryModal() {
         tabEl.classList.add('active');
         tabEl.setAttribute('aria-selected', 'true');
         const list = modal.querySelector('.chat-history-list');
-        if (list) list.innerHTML = `<p class="muted">Conversas de <strong>${tabEl.dataset.chat}</strong> (carregamento não implementado)</p>`;
+        const searchInput = modal.querySelector('.chat-history-search');
+        const area = tabEl.dataset.chat;
+        if (!list) return;
+        list.innerHTML = `<p class="muted">Carregando conversas de <strong>${area}</strong>...</p>`;
+
+        (async () => {
+            try {
+                const { default: chatIntegration } = await import('../js/chat-integration.js');
+                const userId = getUserId();
+                const resp = await chatIntegration.fetchChatsOnMain(userId, area, searchInput ? searchInput.value : null);
+                const chats = (resp && resp.chats) ? resp.chats : [];
+                if (!chats.length) {
+                    list.innerHTML = `<p class="muted">Nenhuma conversa encontrada para <strong>${area}</strong>.</p>`;
+                    return;
+                }
+
+                list.innerHTML = '';
+                chats.forEach((c) => {
+                    const item = document.createElement('div');
+                    item.className = 'chat-history-item';
+                    item.dataset.chatId = c._id || c.id || '';
+                    const when = new Date(c.updatedAt || c.createdAt || Date.now()).toLocaleString();
+                    item.innerHTML = `
+                        <div class="chat-history-item__meta">
+                          <strong class="chat-history-title">${(c.title && c.title.length) ? c.title : 'Sem título'}</strong>
+                          <span class="chat-history-time">${when}</span>
+                        </div>
+                        <div class="chat-history-actions">
+                          <button class="btn-open" type="button">Abrir</button>
+                          <button class="btn-delete" type="button">Apagar</button>
+                        </div>
+                    `;
+
+                    const btnOpen = item.querySelector('.btn-open');
+                    const btnDelete = item.querySelector('.btn-delete');
+
+                    btnOpen.addEventListener('click', async () => {
+                        try {
+                            const details = await chatIntegration.fetchChatByIdOnMain(item.dataset.chatId, userId);
+                            // close modal
+                            closeModal();
+                            const chatObj = details && details.chat ? details.chat : details;
+                            // open in page if message manager exists
+                            if (window.FinanceDashboard && window.FinanceDashboard.messageManager) {
+                                const mgr = window.FinanceDashboard.messageManager;
+                                mgr.enterChatMode();
+                                // render messages
+                                if (chatObj && Array.isArray(chatObj.messages)) {
+                                    // clear existing chat log
+                                    const chatLog = mgr.bentoGrid.querySelector('.chat-log');
+                                    if (chatLog) chatLog.innerHTML = '';
+                                    chatObj.messages.forEach(m => {
+                                        if (m.type === 'user') mgr.appendMessage(m.content);
+                                        else mgr.appendAssistantMessage(m.content);
+                                    });
+                                }
+                                // store current chat id for later persistence
+                                mgr.currentChatId = item.dataset.chatId;
+                            }
+                        } catch (err) {
+                            console.error('Erro ao abrir conversa:', err);
+                        }
+                    });
+
+                    btnDelete.addEventListener('click', () => {
+                        // open confirm modal
+                        const confirm = document.getElementById('chat-delete-confirm');
+                        if (!confirm) return;
+                        confirm.dataset.chatId = item.dataset.chatId;
+                        confirm.querySelector('.confirm-text').textContent = `Deseja realmente apagar a conversa "${(c.title && c.title.length) ? c.title : 'Sem título'}"?`;
+                        confirm.classList.add('open');
+                      
+                        // confirm handlers set below globally
+                    });
+
+                    list.appendChild(item);
+                });
+
+            } catch (err) {
+                console.error('Erro ao carregar conversas:', err);
+                list.innerHTML = `<p class="muted">Erro ao carregar conversas.</p>`;
+            }
+        })();
     };
 
     tabs.forEach(t => t.addEventListener('click', () => selectTab(t)));
@@ -1379,6 +1513,39 @@ function initChatHistoryModal() {
         btnExitMemories.addEventListener('click', () => {
             if (memoriesSection) memoriesSection.hidden = true;
             if (contentSection) contentSection.hidden = false;
+        });
+    }
+
+    // Confirmation modal handlers (delete chat)
+    const confirmModal = document.getElementById('chat-delete-confirm');
+    if (confirmModal) {
+        const overlay = confirmModal.querySelector('.confirm-modal__overlay');
+        const btnCancel = confirmModal.querySelector('.confirm-cancel');
+        const btnOk = confirmModal.querySelector('.confirm-ok');
+
+        const closeConfirm = () => {
+            confirmModal.classList.remove('open');
+            confirmModal.dataset.chatId = '';
+        };
+
+        if (overlay) overlay.addEventListener('click', closeConfirm);
+        if (btnCancel) btnCancel.addEventListener('click', closeConfirm);
+
+        if (btnOk) btnOk.addEventListener('click', async () => {
+            const chatId = confirmModal.dataset.chatId;
+            if (!chatId) return closeConfirm();
+            try {
+                const { default: chatIntegration } = await import('../js/chat-integration.js');
+                const userId = getUserId();
+                await chatIntegration.deleteChatOnMain(chatId, userId);
+                // Refresh active tab
+                const activeTab = tabs.find(t => t.classList.contains('active')) || tabs[0];
+                if (activeTab) selectTab(activeTab);
+            } catch (err) {
+                console.error('Erro ao apagar conversa:', err);
+            } finally {
+                closeConfirm();
+            }
         });
     }
 }
