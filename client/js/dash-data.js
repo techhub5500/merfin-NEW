@@ -237,7 +237,10 @@ async function updateStatsFromAPI(monthKey) {
   const despesasValue = document.querySelector('.stat.despesas .value');
   const saldoValue = document.querySelector('.stat.saldo .value');
   
-  if (!receitasValue || !despesasValue || !saldoValue) return;
+  if (!receitasValue || !despesasValue || !saldoValue) {
+    console.error('[updateStatsFromAPI] Elementos não encontrados');
+    return;
+  }
 
   try {
     // Mostra loading (opcional)
@@ -245,8 +248,15 @@ async function updateStatsFromAPI(monthKey) {
     despesasValue.textContent = '...';
     saldoValue.textContent = '...';
 
+    console.log('[updateStatsFromAPI] Buscando sumário para monthKey:', monthKey);
+
     // Busca sumário da API
     const summary = await DataService.fetchTransactionsSummary(monthKey);
+
+    console.log('[updateStatsFromAPI] Sumário recebido:', summary);
+    console.log('[updateStatsFromAPI] Receitas:', summary.receitas);
+    console.log('[updateStatsFromAPI] Despesas:', summary.despesas);
+    console.log('[updateStatsFromAPI] Saldo:', summary.saldo);
 
     receitasValue.textContent = formatAmount(summary.receitas);
     despesasValue.textContent = formatAmount(summary.despesas);
@@ -394,36 +404,70 @@ async function renderPayablesFromAPI(monthKey) {
 // FUNÇÕES DE RENDERIZAÇÃO (VERSÃO ANTIGA - mantida para outros cards)
 // ============================================================================
 
-function renderTransactions(list){
+/**
+ * Renderiza últimas transações (card do carrossel) com dados da API
+ * @param {string} monthKey - Mês no formato 'YYYY-MM'
+ */
+async function renderLatestTransactionsFromAPI(monthKey) {
   const txListElem = document.getElementById('txList');
-  if(!txListElem) return;
-  txListElem.innerHTML = '';
-  const latest = list.slice().reverse().slice(0,5);
-  latest.forEach(tx=>{
-    const li = document.createElement('li');
-    li.className = tx.type === 'income' ? 'income-item' : 'expense-item';
+  if (!txListElem) return;
+
+  try {
+    // Mostra loading
+    txListElem.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted);">Carregando...</li>';
+
+    // Busca transações do extrato (statement) do mês
+    const result = await DataService.fetchStatementTransactions({ monthKey });
+    const transactions = result.transactions || [];
+
+    if (transactions.length === 0) {
+      txListElem.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.875rem;">Nenhuma transação neste período</li>';
+      return;
+    }
+
+    txListElem.innerHTML = '';
     
-    const leftDiv = document.createElement('div');
-    
-    const descDiv = document.createElement('div');
-    descDiv.className = 'tx-desc';
-    descDiv.textContent = tx.desc;
-    
-    const metaDiv = document.createElement('div');
-    metaDiv.className = 'tx-meta';
-    metaDiv.textContent = formatDate(tx.date);
-    
-    leftDiv.appendChild(descDiv);
-    leftDiv.appendChild(metaDiv);
-    
-    const amountDiv = document.createElement('div');
-    amountDiv.className = `tx-amount ${tx.type==='income'?'income':'outcome'}`;
-    amountDiv.textContent = formatAmount(tx.amount);
-    
-    li.appendChild(leftDiv);
-    li.appendChild(amountDiv);
-    txListElem.appendChild(li);
-  });
+    // Ordena por data (mais recentes primeiro) e pega as últimas 5
+    const sortedTx = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const latest = sortedTx.slice(0, 5);
+
+    latest.forEach(tx => {
+      const li = document.createElement('li');
+      li.className = tx.type === 'income' ? 'income-item' : 'expense-item';
+      
+      const leftDiv = document.createElement('div');
+      
+      const descDiv = document.createElement('div');
+      descDiv.className = 'tx-desc';
+      descDiv.textContent = tx.description || 'Sem descrição';
+      
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'tx-meta';
+      metaDiv.textContent = formatDate(tx.date);
+      
+      leftDiv.appendChild(descDiv);
+      leftDiv.appendChild(metaDiv);
+      
+      const amountDiv = document.createElement('div');
+      amountDiv.className = `tx-amount ${tx.type === 'income' ? 'income' : 'outcome'}`;
+      amountDiv.textContent = formatAmount(tx.amount);
+      
+      li.appendChild(leftDiv);
+      li.appendChild(amountDiv);
+      txListElem.appendChild(li);
+    });
+
+  } catch (error) {
+    console.error('[renderLatestTransactionsFromAPI] Erro:', error);
+    txListElem.innerHTML = '<li style="padding: 20px; text-align: center; color: #e74c3c;">Erro ao carregar transações. Tente novamente.</li>';
+  }
+}
+
+function renderTransactions(list){
+  // Esta função agora é substituída por renderLatestTransactionsFromAPI
+  // Mantida apenas para compatibilidade com outras partes do código
+  // Use renderLatestTransactionsFromAPI(monthKey) ao invés
+  console.warn('[renderTransactions] Função depreciada. Use renderLatestTransactionsFromAPI(monthKey)');
 }
 
 function renderIncomes(list){

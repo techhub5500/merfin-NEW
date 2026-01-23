@@ -498,6 +498,8 @@ async function createTransaction(params) {
 async function getTransactionsSummary(params) {
 	const { userId, startDate, endDate } = params;
 
+	console.log('[transaction-queries] getTransactionsSummary called with params:', params);
+
 	try {
 		const query = {
 			userId,
@@ -512,6 +514,9 @@ async function getTransactionsSummary(params) {
 		}
 
 		const summary = await calculateSummary(query);
+
+		console.log('[transaction-queries] query for summary:', query);
+		console.log('[transaction-queries] calculated summary:', summary);
 
 		return {
 			receitas: summary.total_income || 0,

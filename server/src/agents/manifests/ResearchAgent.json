@@ -1,0 +1,19 @@
+{
+  "agent_name": "ResearchAgent",
+  "version": "0.1.0",
+  "description": "Executa consultas externas: notícias, APIs públicas e dados de mercado.",
+  "actions": {
+    "queryExternal": {
+      "summary": "Busca e agrega resultados de fontes externas com base em uma query.",
+      "params": { "query": "string", "limit": "number (optional)" },
+      "exampleRequest": { "query": "inflação Brasil 2026", "limit": 5 },
+      "exampleResponse": { "results": [] }
+    },
+    "fetchMarketData": {
+      "summary": "Retorna preços e séries históricas para um símbolo.",
+      "params": { "symbol": "string", "range": "string (optional)" },
+      "exampleRequest": { "symbol": "PETR4.SA", "range": "1y" },
+      "exampleResponse": { "series": [] }
+    }
+  }
+}

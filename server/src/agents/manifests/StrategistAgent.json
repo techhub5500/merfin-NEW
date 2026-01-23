@@ -1,0 +1,19 @@
+{
+  "agent_name": "StrategistAgent",
+  "version": "0.1.0",
+  "description": "Gera planos e priorizações de ações (ex.: redução de dívida, investimentos).",
+  "actions": {
+    "planStrategy": {
+      "summary": "Gera plano de ações priorizadas com base em objetivos e restrições.",
+      "params": { "user_id": "string", "objective": "string", "constraints": "object (optional)" },
+      "exampleRequest": { "user_id": "user_123", "objective": "reduzir_dívida", "constraints": { "max_monthly_payment": 500 } },
+      "exampleResponse": { "plan": [ { "step": "Pagar cartão X", "priority": 1 } ] }
+    },
+    "scoreOptions": {
+      "summary": "Avalia opções e atribui pontuações (custo/benefício/risco).",
+      "params": { "user_id": "string", "options": "array" },
+      "exampleRequest": { "user_id": "user_123", "options": [ { "name": "Pagar dívida A" } ] },
+      "exampleResponse": { "scores": [] }
+    }
+  }
+}

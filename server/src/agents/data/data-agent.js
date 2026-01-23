@@ -313,6 +313,7 @@ class DataAgent extends BaseAgent {
 	 */
 	async getTransactionsSummary(params, context) {
 		this._validateParams(params, ['userId']);
+		console.log('[DataAgent.getTransactionsSummary] incoming params:', params);
 		
 		const cacheKey = `transactions_summary_${params.userId}_${params.startDate || 'all'}_${params.endDate || 'now'}`;
 		const cached = await cacheManager.get(cacheKey);

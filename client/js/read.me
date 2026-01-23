@@ -1,0 +1,108 @@
+# Arquitetura e Fluxo de Dados — Dashboard (client/js)
+
+Este documento descreve como o frontend se comunica com o backend/agents, onde os dados são buscados, quais funções e endpoints são usados, e orientações de desenvolvimento.
+
+**Resumo geral**:
+- O frontend (arquivos em `client/js`) consome duas camadas de API:
+  - APIs REST simples expostas por `server.js` (porta 3000) para autenticação.
+  - Um *agent*/API em `serverAgent.js` (porta 5000) que executa ações (DataAgent) e retorna dados do domínio (transações, dívidas, cartões, patrimônio).
+- `dataService.js` centraliza chamadas HTTP e a integração com o agent (função `executeAgent`).
+- `dash-data.js` contém lógica de formatação, cálculos e funções de renderização que chamam `DataService` para obter dados reais.
+- `dash.js` gerencia a UI (carrossel, modais, toggles, month picker) e orquestra chamadas de renderização (chama funções de `dash-data.js`).
+- O HTML (ex.: `client/html/dash.html`) contém elementos com `id` e classes usados pelas funções de renderização e pelos modais.
+
+---
+
+**Pontos-chave técnicos**
+
+1) Autenticação
+- O token JWT é armazenado no `localStorage` sob a chave `token`.
+- `dataService.getAuthToken()` lê o token; `requireAuth()` redireciona para `/html/index.html` se não houver token.
+- Todas as requisições via `makeRequest()` incluem o header `Authorization: Bearer <token>`.
+- Se a API retornar `401`, `makeRequest()` remove o token e força redirecionamento para login.
+
+2) Endpoints e bases de API
+- `CONFIG.AGENT_API_BASE` → `http://localhost:5000/api/dashboard` — usado para endpoints REST legados e chamadas diretas (ex.: `/stats/:month`, `/transactions/...`, `/debts`, `/credit-cards`).
+- `AGENT_API_URL` → `http://localhost:5000/api/agent/execute` — endpoint que executa ações do `DataAgent` (modo RPC) e é utilizado para a maior parte das operações modernas (fetchStatementTransactions, createTransaction, getDebts, etc.).
+- `CONFIG.AUTH_API_BASE` → `http://localhost:3000/api/auth` — usado para autenticação (login/logout), não diretamente detalhado aqui.
+
+3) Padrões de chamada
+- Funções REST simples (ex.: `getMonthlyStats`, `getLatestTransactions`) utilizam os wrappers `get/post/put/del` que chamam `makeRequest()`.
+- Funções mais ricas (statement, criação de transações, dívidas, cartões) usam `executeAgent()` que envia um body JSON com `{ agent_name, action, parameters, context }` para `AGENT_API_URL`.
+- `executeAgent()` inclui `Authorization` apenas se houver token; retorna JSON padronizado `{ status, data, error }`.
+
+4) Segurança e tokens
+- O token é verificado apenas por presença no frontend; não há validação local de expiração implementada (comentário `TODO` em `dataService.isAuthenticated`).
+- Recomendação: validar expiração do token (decodificar JWT) antes de chamar `requireAuth()` para evitar redirecionamentos inesperados.
+
+5) Como os dados fluem (exemplo: carregar o dashboard)
+- `dash.js:initDashboard()` é executado no carregamento da página e inicializa todos os componentes (chat, carrossel, month picker, modais).
+- Ao popular o mês inicial o `monthPicker` chama `applyFilter(initMonth.key)` que dispara uma sequência de chamadas:
+  - `updateStatsFromAPI(monthKey)` → chama `DataService.fetchTransactionsSummary(monthKey)` → `executeAgent('DataAgent','getTransactionsSummary', params)` → atualiza os elementos `.stat.receitas`, `.stat.despesas`, `.stat.saldo`.
+  - `renderIncomesFromAPI(monthKey)` → `DataService.fetchIncomes(monthKey)` → `executeAgent('DataAgent','fetchTransactions', params)` → popula `#incomeList`.
+  - `renderExpensesFromAPI(monthKey)` → `DataService.fetchExpenses(monthKey)` → idem → popula `#expenseList`.
+  - `renderLatestTransactionsFromAPI(monthKey)` → `DataService.fetchStatementTransactions({monthKey})` → popula `#txList` com as 5 últimas.
+  - `renderReceivablesFromAPI`/`renderPayablesFromAPI` → `DataService.fetchReceivables`/`fetchPayables` (ambas usam `executeAgent('DataAgent','fetchTransactions', params)` filtrando `scheduled`).
+  - `renderCreditCardFromAPI` → `DataService.fetchPrimaryCreditCard()` + `DataService.fetchCreditCardUtilization(cardId)` → popula card e `window.currentCreditCard`.
+  - `renderDebtsCardFromAPI` → `DataService.fetchDebts('active')` → popula total pendente e lista de dívidas; cada item abre modal via `openDebtDetailsModal(debt._id)` que chama `DataService.fetchDebtDetails(debtId)`.
+
+6) Formato esperado de respostas
+- `executeAgent()` costuma retornar objetos com `status: 'success'|'error'` e `data` contendo os resultados. O código do frontend usa `response.data` para acessar payloads (por exemplo `response.data.transactions`, `response.data.cards`, `response.data.debts`).
+- Para os wrappers REST diretos (`getMonthlyStats` etc.) o padrão é `response.data` também.
+
+7) Tratamento de erros e UX
+- Cada função de renderização exibe um placeholder de "Carregando..." e, em caso de erro, mostra uma mensagem de erro na UI e escreve no console.
+- Em operações de escrita (criar dívida, criar/atualizar cartão), o código usa `try/catch` e exibe `alert()` em falhas.
+
+8) Caching e timeouts
+- `CONFIG.CACHE_ENABLED` existe mas atualmente está `false`; se ativado, o DataService pode armazenar respostas no `localStorage` por `CACHE_TTL` milissegundos.
+- `TIMEOUT` está configurado (10s) mas a implementação atual não aplica timeout explícito ao `fetch` (pode ser melhorada com AbortController).
+
+---
+
+Guia rápido de mapeamento (elementos HTML → funções JS)
+- `#monthPickerBtn` / `#monthGrid` → `initMonthPicker()` → chama `applyFilter()`
+- `.stat.receitas`, `.stat.despesas`, `.stat.saldo` → atualizados por `updateStatsFromAPI()`
+- `#incomeList`, `#expenseList` → `renderIncomesFromAPI()` / `renderExpensesFromAPI()`
+- `#txList` → `renderLatestTransactionsFromAPI()`
+- `#receivableList`, `#payableList` → `renderReceivablesFromAPI()` / `renderPayablesFromAPI()`
+- `.credit-used`, `.credit-available`, `.credit-bill`, `.credit-due`, `.credit-bar-fill` → `renderCreditCardFromAPI()`
+- `.debt-total`, `.debt-list` → `renderDebtsCardFromAPI()` e `openDebtDetailsModal()` → `DataService.fetchDebtDetails()`
+
+---
+
+Boas práticas e melhorias recomendadas
+- Implementar validação de expiração do JWT no `isAuthenticated()` (decodificar JWT e checar `exp`).
+- Implementar `AbortController` para aplicar `TIMEOUT` nas requisições `fetch`.
+- Centralizar mensagens de erro para criar mensagens amigáveis e internacionais.
+- Consolidar os dois estilos (REST direto via `CONFIG.AGENT_API_BASE` e RPC via `AGENT_API_URL`) — preferir um padrão (recomendado: agent RPC para lógica complexa, REST para recursos simples).
+- Remover os scripts de teste incluídos em `dash.html` (`teste-card-*.js`) em produção.
+- Habilitar `CACHE_ENABLED` somente para endpoints idempotentes e não sensíveis (e invalidar manualmente após operações de escrita).
+
+---
+
+Como testar localmente (rápido)
+1. Garanta que os servidores estejam rodando:
+
+```powershell
+# servidor de autenticação/backend
+node server/server.js    # porta 3000
+
+# serverAgent (agent/serviços de domínio)
+node server/serverAgent.js  # porta 5000
+```
+
+2. Abra `client/html/dash.html` no navegador (ou sirva a pasta `client/` com um servidor estático).
+3. Faça login na aplicação (o fluxo de login popula `localStorage.token` e `localStorage.user`).
+4. Abra DevTools > Network para inspecionar chamadas a `/api/agent/execute` e aos endpoints em `AGENT_API_BASE`.
+
+---
+
+Arquivo criado: [client/js/read.me](client/js/read.me)
+
+Se quiser, eu posso:
+- Ajustar o README para incluir exemplos de payloads (request/response) para cada ação do `DataAgent`;
+- Implementar `AbortController` com timeout em `makeRequest()`;
+- Adicionar validação de expiração de JWT em `isAuthenticated()`.
+
+O que prefere que eu faça a seguir?

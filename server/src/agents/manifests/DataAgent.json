@@ -1,0 +1,25 @@
+{
+  "agent_name": "DataAgent",
+  "version": "0.1.0",
+  "description": "Consulta e agrega dados financeiros: transações, contas futuras, cartões e dívidas.",
+  "actions": {
+    "fetchTransactions": {
+      "summary": "Retorna transações do extrato ou agendadas (filtros: section, date range, type)",
+      "params": { "user_id": "string", "section": "string (statement|scheduled)", "start_date": "string (ISO)", "end_date": "string (ISO)", "type": "string (income|expense)" },
+      "exampleRequest": { "user_id": "user_123", "section": "statement", "start_date": "2026-01-01T00:00:00Z", "end_date": "2026-01-31T23:59:59Z" },
+      "exampleResponse": { "transactions": [], "summary": { "total_income": 0, "total_expense": 0 }, "count": 0 }
+    },
+    "getTransactionsSummary": {
+      "summary": "Retorna receitas, despesas e saldo para o período informado.",
+      "params": { "userId": "string", "startDate": "string (ISO)", "endDate": "string (ISO)" },
+      "exampleRequest": { "userId": "user_123", "startDate": "2026-01-01T00:00:00Z", "endDate": "2026-01-31T23:59:59Z" },
+      "exampleResponse": { "receitas": 12450.0, "despesas": 6120.5, "saldo": 6329.5 }
+    },
+    "fetchDebts": {
+      "summary": "Lista dívidas do usuário (status opcional: active|paid).",
+      "params": { "userId": "string", "status": "string (optional)" },
+      "exampleRequest": { "userId": "user_123", "status": "active" },
+      "exampleResponse": { "debts": [] }
+    }
+  }
+}

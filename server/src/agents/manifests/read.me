@@ -1,0 +1,108 @@
+Objetivo
+
+Este documento explica como o orquestrador deverá ler e usar os manifests dos agentes.
+O fluxo que proponho é: o orquestrador mantém um resumo (índice) local ; quando precisa de mais detalhes sobre agentes selecionados, ele carrega os manifests detalhados on‑demand.
+
+Arquivos nesta pasta
+- `index.json` (índice leve): lista todos os agentes com resumo curto (agent_name, version, short_description, primary_actions, estimated_latency, detail_path).
+- `<AgentName>.json` (manifest detalhado): documento com descrição completa do agente, ações suportadas, JSON Schema (params/response), exemplos, timeouts, custos estimados (tokens/latency), tags e metadados.
+- `read.me` (este arquivo): instruções e recomendações.
+
+Por que usar índice leve + manifests on‑demand
+- Reduz tráfego e uso de tokens (importante se o orquestrador faz análise via LLM ou envia informações a serviços externos).
+- Permite ao orquestrador tomar decisões rápidas sobre quais agentes investigar com base em metadados (latência estimada, custo, authRequired).
+- Manifests detalhados ficam disponíveis apenas quando necessário, permitindo crescimento incremental das capacidades dos agentes.
+
+Fluxo proposto para o orquestrador (passo a passo)
+1. Carregar `index.json` (em inicialização ou a cada X minutos/por push do agente).
+2. Para cada agente no índice, ler: `agent_name`, `short_description`, `primary_actions`, `estimated_latency_ms`, `estimated_tokens`, `authRequired`, `detail_path`.
+3. Tomada de decisão (resumo): orquestrador escolhe um subconjunto de agentes para investigar com base em regras (prioridade, custo, latência, permissão do usuário).
+4. Para cada agente selecionado, carregar o manifest detalhado apontado por `detail_path` (localmente ou via endpoint de descoberta).
+5. Validar o manifest detalhado:
+   - Validar schema do manifest com JSON Schema/Joi (estrutura esperada: agent_name, version, actions, para cada action: paramsSchema, responseSchema, timeoutMs, etc.).
+   - Opcionalmente verificar `manifest_hash`/assinatura para garantir integridade.
+6. Consultar o manifest detalhado para:
+   - Listar ações suportadas e schemas de parâmetros (usado para validação pré-dispatch).
+   - Extrair `timeoutMs`, `estimated_tokens`, e `authRequired` para planejamento de chamadas.
+7. Se o orquestrador decidir executar uma ação, validar os parâmetros da requisição contra o `paramsSchema` do action antes de encaminhar ao agente.
+8. Enviar request ao agente (RPC/HTTP) e aplicar políticas do orquestrador: timeout, retry, fallback, rate limit e registro de métricas.
+9. Receber resposta e validar contra `responseSchema` (se presente) antes de entregar ao solicitante.
+
+Boas práticas e recomendações
+- Não inclua segredos ou credenciais no manifesto.
+- Use `manifest_hash` (SHA256) e, se possível, assine manifests para evitar manipulação de arquivos.
+- Mantenha o `index.json` extremamente enxuto (mínimos metadados para seleção rápida).
+- Cache os manifests detalhados no orquestrador com TTL e invalidação por `version`/`manifest_hash`.
+- Para agentes externos (ex.: `ResearchAgent`) inclua campos de `rateLimit` e `costModel` para evitar sobrecarregar provedores.
+- Padronize `paramsSchema` e `responseSchema` em JSON Schema (ou exporte Joi → JSON Schema) para validação automatizada.
+- Evite leitura síncrona de arquivos no caminho crítico; preferir leitura assíncrona com cache.
+
+Estratégias de otimização de tokens/latência
+- Se usar LLMs para avaliação de capabilities, envie apenas o item do índice relevante (não todo o manifest) e só envie o manifest detalhado quando necessário.
+- Se possível, armazene um pequeno `summary` já pré-formatado para LLMs, reduzindo tokens por consulta.
+
+Formato mínimo recomendado para `index.json` (por agente)
+{
+  Objetivo
+
+  Este documento descreve a política atual para os manifests na pasta `server/src/agents/manifests`.
+  Você optou por manter os resumos (índice curto) no código do orquestrador e por carregar manifests
+  individuais apenas quando o orquestrador desejar detalhes de um agente específico.
+
+  Princípio central
+
+  O orquestrador guarda um resumo suficiente dos agentes no próprio código (ou cache local). Cada manifesto
+  de agente disponível nesta pasta deve conter APENAS as capacidades (tarefas/ações) do agente — nada mais.
+  Isto mantém os manifests pequenos e focados, e evita exposição de políticas operacionais, segredos ou schemas
+  extensos.
+
+  Formato mínimo recomendado por manifesto (capacidades apenas)
+
+  Campos mínimos:
+  - `agent_name` (string)
+  - `version` (string)
+  - `description` (string)
+  - `actions` (object): para cada ação, um objeto com:
+    - `summary` (string) — descrição curta da tarefa
+    - `params` (object, opcional) — nomes/tipos básicos dos parâmetros esperados (ex.: `{ "user_id": "string" }`)
+    - `exampleRequest` (object, opcional) — exemplo mínimo de chamada
+    - `exampleResponse` (object, opcional) — exemplo mínimo de retorno
+
+  Exemplo minimalista:
+  {
+    "agent_name": "DataAgent",
+    "version": "0.1.0",
+    "description": "Consulta e agrega dados financeiros",
+    "actions": {
+      "fetchTransactions": {
+        "summary": "Retorna transações do extrato ou agendadas",
+        "params": { "user_id": "string", "section": "string" },
+        "exampleRequest": { "user_id": "user_123", "section": "statement" }
+      }
+    }
+  }
+
+  Regras e recomendações
+
+  - Mantenha os manifests focados em capacidades: NÃO inclua políticas de execução (timeout/retry), segredos,
+    esquemas JSON extensos ou dados sensíveis.
+  - O orquestrador faz validação superficial com base nos campos `params` e nos exemplos; validação avançada ou
+    lógica operacional ficam centralizadas no orquestrador.
+  - Controle de versão: atualize `version` no manifesto quando alterar capacidades para permitir cache/invalidação.
+
+  Vantagens
+
+  - Simplicidade e baixo custo de leitura: manifests pequenos reduzem I/O e tornam a leitura on‑demand rápida.
+  - Evolução independente: equipes podem atualizar a lista de ações sem tocar lógica do orquestrador.
+
+  Operação típica do orquestrador
+
+  1. Orquestrador tem um resumo embutido (ex.: em código) com informações suficientes para decidir quais agentes
+     devem ser explorados.
+  2. Quando for necessário, orquestrador lê o manifesto JSON do agente desejado nesta pasta.
+  3. Orquestrador usa os campos `actions`/`params`/`exampleRequest` para validar e montar a chamada ao agente.
+
+  Próximo passo sugerido
+
+  - Posso varrer `server/src/agents/manifests` e reduzir/normalizar cada manifesto para que contenha somente os
+    campos de capacidade conforme a política acima. Deseja que eu execute essa normalização agora?

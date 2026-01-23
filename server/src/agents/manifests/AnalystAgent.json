@@ -1,0 +1,19 @@
+{
+  "agent_name": "AnalystAgent",
+  "version": "0.1.0",
+  "description": "Gera relatórios analíticos e detecta anomalias em transações.",
+  "actions": {
+    "generateReport": {
+      "summary": "Gera relatório agregando métricas por categoria e período.",
+      "params": { "user_id": "string", "period": "string (YYYY-MM)" },
+      "exampleRequest": { "user_id": "user_123", "period": "2026-01" },
+      "exampleResponse": { "report_url": "https://.../report.pdf" }
+    },
+    "detectAnomalies": {
+      "summary": "Detecta transações suspeitas e outliers.",
+      "params": { "user_id": "string", "sensitivity": "number (optional)" },
+      "exampleRequest": { "user_id": "user_123", "sensitivity": 0.8 },
+      "exampleResponse": { "anomalies": [] }
+    }
+  }
+}

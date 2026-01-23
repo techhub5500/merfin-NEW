@@ -511,11 +511,11 @@ Implementar o agente orquestrador que coordena todos os outros agentes usando o 
   - Análise de palavras-chave
   - Detecção de queries comparativas ("vs", "ou", "melhor")
   - Detecção de queries de planejamento ("plano", "aposentadoria")
-  - Pode usar LLM para classificação mais precisa
+  - usar LLM para classificação mais precisa
 
 - [ ] Criar `server/src/agents/orchestrator/cycle-limits.js`
   - Mapeamento complexidade → limite de ciclos
-  - Simple: 1-3, Basic: 3-5, Comparative: 5-8, Complex: 8-12, Research: 10-15
+  - Simple: 1-3, Basic: 3-5, Comparative: 5-8, Complex: 7-10, Research: 10-12
 
 **4.2 - Planejador de Execução**
 - [ ] Criar `server/src/agents/orchestrator/execution-planner.js`

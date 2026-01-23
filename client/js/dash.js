@@ -349,10 +349,15 @@ function initMonthPicker(){
 }
 
 function applyFilter(monthKey){
-  // Atualizar cards usando dados da API (assíncrono)
+  // Atualizar cards do topo com sumário - via API
   updateStatsFromAPI(monthKey);
+  
+  // Card Extrato (Receitas e Despesas) - via API
   renderIncomesFromAPI(monthKey);
   renderExpensesFromAPI(monthKey);
+  
+  // Card Últimas Transações - via API
+  renderLatestTransactionsFromAPI(monthKey);
   
   // Card Contas Futuras (A receber / A pagar) - via API
   renderReceivablesFromAPI(monthKey);
@@ -366,13 +371,6 @@ function applyFilter(monthKey){
   
   // Outros cards do carrossel (ainda usando dados locais - serão atualizados depois)
   renderPatrimonyCard(monthKey);
-  
-  // Renderizar transações (ainda não convertido - próxima etapa)
-  let filtered = sampleTx.slice();
-  if(monthKey && monthKey !== 'all'){
-    filtered = sampleTx.filter(t=>getMonthKey(t.date) === monthKey);
-  }
-  renderTransactions(filtered);
 }
 
 // ============================================================================

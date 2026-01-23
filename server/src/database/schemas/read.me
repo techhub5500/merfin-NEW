@@ -1,0 +1,102 @@
+Resumo dos dados de usuário persistidos no MongoDB
+=================================================
+
+Este arquivo resume, por coleção, os campos relacionados a usuários presentes nas schemas
+do diretório `server/src/database/schemas` e os comportamentos relevantes observados nos
+arquivos de transações em `server/src/database/transactions`.
+
+1) UserProfile (UserProfile - users-schema.js)
+------------------------------------------------
+- userId: ObjectId (referência a `User`)
+- riskAssessment.answers[]: lista de respostas { qId, question, choice, choiceText }
+- riskAssessment.riskScore: Number
+- riskAssessment.risk_profile: String (enum: conservador|moderado|agressivo)
+- riskAssessment.riskUpdatedAt: Date
+- investment_goals[]: { name, targetAmount, targetDate, priority }
+- financial_situation: { monthlyIncome, monthlyExpenses, netWorth, liquidAssets, liabilities }
+- preferences: Schema.Types.Mixed (livre)
+- createdAt, updatedAt
+
+Observação: usado para personalização e cálculos de perfil de risco por agentes/IA.
+
+2) Account (Account - accounts-schema.js)
+------------------------------------------------
+- userId: ObjectId (referência a `User`)
+- accountName: String
+- accountType: String (enum: checking, savings, investment, cash, other)
+- currency: String (BRL)
+- balance: Number
+- status: String (enum: active, suspended, closed)
+- createdAt, updatedAt (timestamps)
+
+Observação: saldos e tipo de conta por usuário; atualizações de saldo são feitas via
+`account-transactions.js` dentro de transações ACID.
+
+3) Transaction (Transaction - transactions-schema.js)
+------------------------------------------------
+- userId: ObjectId (referência a `User`)
+- accountId: ObjectId (referência a `Account`)
+- section: String (enum: statement, scheduled, credit_card, debt, asset)
+- type: String (enum: income, expense, transfer, investment, fee, refund)
+- amount: Number
+- currency: String (BRL, USD, EUR)
+- date: Date
+- status: String (pending, confirmed, cancelled, failed)
+- description: String (validação: até 15 palavras)
+- category: String
+- tags: [String]
+- merchant: String
+- referenceId: String
+- metadata: Schema.Types.Mixed
+- Subdocumentos por seção:
+  - statement: { executedAt, receiptNumber }
+  - scheduled: { frequency, nextDate, recurrenceCount, endDate, scheduledType, dueDate }
+  - creditCard: { cardId, utilizedAmount, creditLimit, billingCycleStartDay, billingCycleEndDay }
+  - debt: (ver Debt schema) campos relacionados a dívidas
+  - asset: { assetName, assetType, assetValue, acquisitionDate }
+- createdAt
+
+Observação: transações vinculam usuário e conta; usadas para extrato, cálculos de saldo,
+agendamento de pagamentos, faturas de cartão e gerenciamento de dívidas.
+
+4) CreditCard (CreditCard - credit-card-schema.js)
+------------------------------------------------
+- userId: ObjectId (referência a `User`)
+- cardName: String
+- creditLimit: Number
+- billingCycleRenewalDay, billingDueDay: Number (1-31)
+- status: String (active, blocked, cancelled)
+- brand: String (visa, mastercard, elo, amex, hipercard, other)
+- lastFourDigits: String (4 dígitos)
+- metadata, createdAt, updatedAt
+
+Observação: número completo do cartão NÃO é armazenado nas schemas lidas; apenas `lastFourDigits`.
+
+5) Debt (Debt - debt-schema.js)
+------------------------------------------------
+- userId: ObjectId (referência a `User`)
+- description, institution, debtDate
+- totalValue, installmentCount, firstPaymentDate, installmentValue
+- installments[]: { installmentNumber, dueDate, amount, isPaid, paidAt, paidAmount }
+- status: enum (active, paid, cancelled, overdue)
+- debtType, interestRate, notes, metadata, createdAt, updatedAt
+
+Observação: possui métodos auxiliares para cálculo de parcelas pagas, valor restante, próximo vencimento.
+
+6) AuditLog (AuditLog - audit-log-schema.js)
+------------------------------------------------
+- timestamp, userId, actor, action, entity, entityId
+- beforeState, afterState (snapshots), metadata, ip, requestId
+
+Observação: coleção append-only usada para rastreabilidade; registra operações com vínculo opcional a `userId`.
+
+Comportamento extra observado em `server/src/database/transactions`:
+- `account-transactions.js`: funções `updateAccountBalance` e `transferFunds` que atualizam `Account`,
+  criam `Transaction` e gravam `AuditLog` dentro de transações MongoDB (via `transaction-manager.js`).
+- `transaction-manager.js`: helper para executar sessões/transações MongoDB com logging de commit/abort.
+
+Campos sensíveis / privacidade:
+- Não há armazenamento de números completos de cartão nas schemas lidas; somente `lastFourDigits`.
+- Credenciais e senha do usuário provavelmente estão em `server/src/models/User.js` (não incluído aqui).
+
+Fim do resumo. Revisado em: 2026-01-20
