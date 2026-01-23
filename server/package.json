@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "mongoose": "^8.21.0",
+    "openai": "^6.16.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {

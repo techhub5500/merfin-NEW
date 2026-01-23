@@ -125,6 +125,35 @@ html, body {
   padding: 20px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: linear-gradient(90deg, rgba(var(--color-chart-green-rgb), 0.08), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Ensure the history button in the chat header is visible and matches existing quick-button styles */
+.chat-header-actions .chat-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  
+  border-radius: 10px;
+  background: rgba(15, 16, 20, 0.12);
+  border: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chat-header-actions .chat-quick-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.chat-header-actions .chat-quick-btn i {
+  width: 14px;
+  height: 14px;
+  color: var(--text-primary);
 }
 
 .chat-header h2 {

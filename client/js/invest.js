@@ -295,6 +295,7 @@ class ChatManager {
         this.messages = document.querySelector(messagesSelector);
         this.input = document.querySelector(inputSelector);
         this.sendBtn = document.querySelector(sendBtnSelector);
+        this.sessionId = null;
     }
 
     init(){
@@ -331,6 +332,50 @@ class ChatManager {
         this.input.value = '';
         this.autoResize();
         this.input.focus();
+
+        // Enviar para o JuniorAgent
+        this.sendToJuniorAgent(text);
+    }
+
+    async sendToJuniorAgent(message) {
+        try {
+            // Importar chatIntegration
+            const { default: chatIntegration } = await import('./chat-integration.js');
+
+            // Gerar sessionId se não existir
+            if (!this.sessionId) {
+                this.sessionId = chatIntegration.generateSessionId();
+            }
+
+            // Preparar histórico (simplificado)
+            const history = [];
+
+            // Enviar para API
+            const response = await chatIntegration.sendToChatAPI(message, this.sessionId, history);
+
+            console.log('Resposta recebida no invest.html:', response);
+
+            // Adicionar resposta do assistente
+            // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
+            if (response && response.status === 'success' && response.response) {
+                this.appendAssistantMessage(response.response);
+            } else {
+                console.error('Resposta em formato inesperado:', response);
+                this.appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
+            }
+
+        } catch (error) {
+            console.error('Erro ao enviar mensagem:', error);
+            this.appendAssistantMessage('Desculpe, houve um erro ao processar sua mensagem. Tente novamente.');
+        }
+    }
+
+    appendAssistantMessage(text) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble ai';
+        bubble.textContent = text;
+        this.messages.appendChild(bubble);
+        this.messages.scrollTop = this.messages.scrollHeight;
     }
 
     autoResize(){
@@ -422,3 +467,73 @@ document.addEventListener('DOMContentLoaded', () => {
         window.investApp = app;
     }
 });
+
+/* === CHAT HISTORY MODAL INITIALIZER (for pages without main.js) === */
+function initChatHistoryModalForInvest() {
+    const historyButtons = document.querySelectorAll('.chat-quick-btn--history');
+    const modal = document.getElementById('chat-history-modal');
+
+    if (!modal) return; // nothing to do
+
+    const overlayCloseEls = modal.querySelectorAll('[data-action="close"]');
+    const closeBtn = modal.querySelector('.chat-history-close');
+    const tabs = Array.from(modal.querySelectorAll('.chat-tab'));
+    const contentSection = modal.querySelector('.chat-history-content');
+    const memoriesSection = modal.querySelector('.chat-memories');
+    const btnMemories = modal.querySelector('.btn-memories');
+    const btnExitMemories = modal.querySelector('.btn-exit-memories');
+
+    const selectTab = (tabEl) => {
+        if (!tabEl) return;
+        tabs.forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+        });
+        tabEl.classList.add('active');
+        tabEl.setAttribute('aria-selected', 'true');
+        const list = modal.querySelector('.chat-history-list');
+        if (list) list.innerHTML = `<p class="muted">Conversas de <strong>${tabEl.dataset.chat}</strong> (carregamento não implementado)</p>`;
+    };
+
+    const openModal = (pageName) => {
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('open');
+        const target = tabs.find(t => t.dataset.chat === pageName) || tabs[0];
+        selectTab(target);
+    };
+
+    const closeModal = () => {
+        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.remove('open');
+        if (memoriesSection) memoriesSection.hidden = true;
+        if (contentSection) contentSection.hidden = false;
+    };
+
+    tabs.forEach(t => t.addEventListener('click', () => selectTab(t)));
+
+    historyButtons.forEach(btn => btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const pageName = document.documentElement.dataset.page || 'Home';
+        openModal(pageName);
+    }));
+
+    overlayCloseEls.forEach(el => el.addEventListener('click', closeModal));
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+    if (btnMemories) btnMemories.addEventListener('click', () => {
+        if (contentSection) contentSection.hidden = true;
+        if (memoriesSection) memoriesSection.hidden = false;
+    });
+
+    if (btnExitMemories) btnExitMemories.addEventListener('click', () => {
+        if (memoriesSection) memoriesSection.hidden = true;
+        if (contentSection) contentSection.hidden = false;
+    });
+}
+
+// Ensure modal initializer runs on invest page
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChatHistoryModalForInvest);
+} else {
+    initChatHistoryModalForInvest();
+}

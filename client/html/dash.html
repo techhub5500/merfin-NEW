@@ -46,12 +46,15 @@
 
   <main class="dashboard">
     <aside class="chat" aria-label="Chat lateral">
-      <header class="chat-header">
-        <h2>Chat</h2>
-      </header>
+        <header class="chat-header">
+          <h2>Chat</h2>
+          <div class="chat-header-actions">
+            <button class="chat-quick-btn chat-quick-btn--history" type="button" aria-label="Histórico do chat" data-tooltip="Histórico">
+              <i data-lucide="clock" aria-hidden="true"></i>
+            </button>
+          </div>
+        </header>
       <div class="chat-messages" id="chatMessages" aria-live="polite">
-        <div class="message received"><span class="meta">Sistema • agora</span><p>Bem-vindo ao painel — use o chat para testes.</p></div>
-        <div class="message sent"><span class="meta">Você • 2m</span><p>Olá! Está funcionando.</p></div>
       </div>
       <form id="chatForm" class="chat-form" autocomplete="off">
         <textarea id="chatInput" rows="1" placeholder="Digite uma mensagem..." aria-label="Mensagem" required></textarea>
@@ -477,5 +480,47 @@
   <script src="../js/teste-card-cartao.js"></script>
   <script src="../js/teste-card-dividas.js"></script>
   
+  <script>document.documentElement.dataset.page = 'Finanças';</script>
+  <!-- Include modal markup loaded from index (shared UI) -->
+  <div id="chat-history-modal" class="chat-history-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="chat-history-title">
+    <div class="chat-history-overlay" data-action="close"></div>
+    <div class="chat-history-container" role="document">
+      <header class="chat-history-header">
+        <h2 id="chat-history-title">Histórico do Chat</h2>
+        <button class="chat-history-close" aria-label="Fechar" data-action="close">✕</button>
+      </header>
+
+      <div class="chat-history-main">
+        <nav class="chat-history-tabs" role="tablist" aria-label="Escolha o chat">
+          <button role="tab" data-chat="Home" class="chat-tab">Home</button>
+          <button role="tab" data-chat="Finanças" class="chat-tab">Finanças</button>
+          <button role="tab" data-chat="Invest" class="chat-tab">Invest</button>
+        </nav>
+
+        <section class="chat-history-content">
+          <div class="chat-history-controls">
+            <input type="search" class="chat-history-search" placeholder="Pesquisar no histórico..." aria-label="Pesquisar histórico">
+            <div class="chat-history-actions">
+              <button class="btn btn-secondary btn-memories" type="button">Memórias</button>
+            </div>
+          </div>
+
+          <div class="chat-history-list" aria-live="polite">
+            <p class="muted">Selecione uma conversa para visualizar seu histórico.</p>
+          </div>
+        </section>
+
+        <section class="chat-memories" hidden>
+          <header class="memories-header">
+            <h3>Suas Memórias</h3>
+            <button class="btn btn-secondary btn-exit-memories" type="button">Sair</button>
+          </header>
+          <div class="memories-content">
+            <p class="muted">Ainda não há memórias armazenadas.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

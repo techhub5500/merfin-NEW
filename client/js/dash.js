@@ -73,6 +73,53 @@ function initChat(){
     chatInput.value = '';
     chatInput.dispatchEvent(new Event('input', {bubbles: true}));
     chatInput.focus();
+
+    // Enviar para o JuniorAgent
+    sendToJuniorAgent(text);
+  }
+
+  async function sendToJuniorAgent(message) {
+    try {
+      // Importar chatIntegration
+      const { default: chatIntegration } = await import('./chat-integration.js');
+
+      // Gerar sessionId se não existir
+      if (!window.dashSessionId) {
+        window.dashSessionId = chatIntegration.generateSessionId();
+      }
+
+      // Preparar histórico (simplificado)
+      const history = [];
+
+      // Enviar para API
+      const response = await chatIntegration.sendToChatAPI(message, window.dashSessionId, history);
+
+      console.log('Resposta recebida do servidor:', response);
+
+      // Adicionar resposta do assistente
+      // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
+      if (response && response.status === 'success' && response.response) {
+        appendAssistantMessage(response.response);
+      } else {
+        console.error('Resposta em formato inesperado:', response);
+        appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
+      }
+
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      appendAssistantMessage('Desculpe, houve um erro ao processar sua mensagem. Tente novamente.');
+    }
+  }
+
+  function appendAssistantMessage(text) {
+    const msg = document.createElement('div');
+    msg.className = 'message received';
+    const now = new Date();
+    const time = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    msg.innerHTML = `<span class="meta">Sistema • ${time}</span><p>${escapeHtml(text)}</p>`;
+
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
   chatForm.addEventListener('submit', function(e){

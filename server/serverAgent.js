@@ -112,6 +112,7 @@ app.use('/api/auth', authRoutes);
 const DataAgent = require('./src/agents/data/data-agent');
 const { validateRequest } = require('./src/agents/shared/contracts');
 const ToolContext = require('./src/core/toolContext/tool-context');
+const JuniorAgent = require('./src/agents/junior/junior/junior-agent');
 
 // Instancia ToolContext global
 const toolContext = new ToolContext();
@@ -120,7 +121,8 @@ const toolContext = new ToolContext();
 // Sistema que mapeia agent_name para instância correta
 // Futuros agentes serão adicionados aqui conforme forem implementados
 const agents = {
-	'DataAgent': new DataAgent()
+	'DataAgent': new DataAgent(),
+	'JuniorAgent': new JuniorAgent()
 	// 'AnalystAgent': new AnalystAgent(),       // Etapa 5
 	// 'ResearchAgent': new ResearchAgent(),     // Etapa 5
 	// 'StrategistAgent': new StrategistAgent(), // Etapa 6
@@ -307,6 +309,57 @@ app.get('/api/agents/list', (req, res) => {
 		total: agentsList.length,
 		timestamp: new Date().toISOString()
 	});
+});
+
+// ===== ENDPOINT PARA PROCESSAMENTO DE CHAT =====
+// Processa mensagens de chat usando o JuniorAgent
+app.post('/api/chat/process', async (req, res) => {
+	try {
+		const { message, sessionId, history } = req.body;
+
+		// Validação básica
+		if (!message || typeof message !== 'string') {
+			return res.status(400).json({
+				status: 'error',
+				error: {
+					code: 'INVALID_MESSAGE',
+					message: 'Mensagem inválida ou ausente',
+					type: 'ValidationError'
+				}
+			});
+		}
+
+		// Processa a mensagem usando JuniorAgent
+		const result = await agents['JuniorAgent'].run({
+			action: 'process_chat_message',
+			parameters: { message, sessionId, history }
+		});
+
+		console.log('[CHAT] Resultado do JuniorAgent:', JSON.stringify(result, null, 2));
+
+		// Retorna resposta
+		// result tem a estrutura: { status: 'success', data: { response, sessionId, timestamp }, ... }
+		const responsePayload = {
+			status: 'success',
+			...result.data,
+			timestamp: new Date().toISOString()
+		};
+
+		console.log('[CHAT] Enviando resposta para o cliente:', JSON.stringify(responsePayload, null, 2));
+
+		res.json(responsePayload);
+
+	} catch (error) {
+		console.error('Erro no processamento de chat:', error);
+		res.status(500).json({
+			status: 'error',
+			error: {
+				code: 'CHAT_PROCESSING_ERROR',
+				message: error.message || 'Erro interno ao processar mensagem',
+				type: 'InternalError'
+			}
+		});
+	}
 });
 
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;

@@ -1021,14 +1021,42 @@ class MessageManager {
     }
 
     /**
+     * Appends assistant message to chat log
+     * @param {string} text - Assistant message text
+     */
+    appendAssistantMessage(text) {
+        if (!text || !this.bentoGrid) return;
+
+        if (!this.inChatMode) this.enterChatMode();
+        
+        const chatLog = this.bentoGrid.querySelector('.chat-log');
+        if (!chatLog) return;
+
+        const msg = document.createElement('article');
+        msg.className = 'chat-message chat-message--incoming';
+        msg.setAttribute('role', 'article');
+
+        const content = document.createElement('div');
+        content.className = 'chat-message__content';
+        content.textContent = text;
+
+        msg.appendChild(content);
+        chatLog.appendChild(msg);
+
+        // Scroll to bottom
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    /**
      * Sends message
      */
-    sendMessage() {
+    async sendMessage() {
         if (!this.messageInput) return;
 
         const text = this.messageInput.value.trim();
         if (!text) return;
 
+        // Adicionar mensagem do usuário ao chat
         this.appendMessage(text);
         this.messageInput.value = '';
         this.syncCardsVisibility();
@@ -1039,6 +1067,39 @@ class MessageManager {
                 this.messageInput.focus();
             }
         });
+
+        // Enviar para o JuniorAgent
+        try {
+            // Importar chatIntegration dinamicamente
+            const { default: chatIntegration } = await import('../js/chat-integration.js');
+            
+            // Preparar histórico (simplificado por enquanto)
+            const history = [];
+            
+            // Gerar sessionId se não existir
+            if (!this.sessionId) {
+                this.sessionId = chatIntegration.generateSessionId();
+            }
+
+            // Enviar para API
+            const response = await chatIntegration.sendToChatAPI(text, this.sessionId, history);
+            
+            console.log('Resposta recebida no index.html:', response);
+            
+            // Adicionar resposta do assistente ao chat
+            // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
+            if (response && response.status === 'success' && response.response) {
+                this.appendAssistantMessage(response.response);
+            } else {
+                console.error('Resposta em formato inesperado:', response);
+                this.appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
+            }
+            
+        } catch (error) {
+            console.error('Erro ao enviar mensagem:', error);
+            // Mostrar mensagem de erro no chat
+            this.appendAssistantMessage('Desculpe, houve um erro ao processar sua mensagem. Tente novamente.');
+        }
     }
 
     /**
@@ -1252,3 +1313,78 @@ document.addEventListener('DOMContentLoaded', () => {
         window.FinanceDashboard = app;
     }
 });
+
+// ============================================================================
+// CHAT HISTORY MODAL - Client interactions (shared across pages)
+// ============================================================================
+
+function initChatHistoryModal() {
+    const historyButtons = document.querySelectorAll('.chat-quick-btn--history');
+    const modal = document.getElementById('chat-history-modal');
+
+    if (!modal) return; // modal not present on this page
+
+    const overlayCloseEls = modal.querySelectorAll('[data-action="close"]');
+    const closeBtn = modal.querySelector('.chat-history-close');
+    const tabs = Array.from(modal.querySelectorAll('.chat-tab'));
+    const contentSection = modal.querySelector('.chat-history-content');
+    const memoriesSection = modal.querySelector('.chat-memories');
+    const btnMemories = modal.querySelector('.btn-memories');
+    const btnExitMemories = modal.querySelector('.btn-exit-memories');
+
+    const openModal = (pageName) => {
+        modal.setAttribute('aria-hidden', 'false');
+        modal.classList.add('open');
+        const target = tabs.find(t => t.dataset.chat === pageName) || tabs[0];
+        selectTab(target);
+    };
+
+    const closeModal = () => {
+        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.remove('open');
+        if (memoriesSection) memoriesSection.hidden = true;
+        if (contentSection) contentSection.hidden = false;
+    };
+
+    const selectTab = (tabEl) => {
+        if (!tabEl) return;
+        tabs.forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+        });
+        tabEl.classList.add('active');
+        tabEl.setAttribute('aria-selected', 'true');
+        const list = modal.querySelector('.chat-history-list');
+        if (list) list.innerHTML = `<p class="muted">Conversas de <strong>${tabEl.dataset.chat}</strong> (carregamento não implementado)</p>`;
+    };
+
+    tabs.forEach(t => t.addEventListener('click', () => selectTab(t)));
+
+    historyButtons.forEach(btn => btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const pageName = document.documentElement.dataset.page || 'Home';
+        openModal(pageName);
+    }));
+
+    overlayCloseEls.forEach(el => el.addEventListener('click', closeModal));
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+
+    if (btnMemories) {
+        btnMemories.addEventListener('click', () => {
+            if (contentSection) contentSection.hidden = true;
+            if (memoriesSection) memoriesSection.hidden = false;
+        });
+    }
+    if (btnExitMemories) {
+        btnExitMemories.addEventListener('click', () => {
+            if (memoriesSection) memoriesSection.hidden = true;
+            if (contentSection) contentSection.hidden = false;
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChatHistoryModal);
+} else {
+    initChatHistoryModal();
+}

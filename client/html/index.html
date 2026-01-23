@@ -28,6 +28,8 @@
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
+    <!-- mark current page for modal to open correct tab -->
+    <script>document.documentElement.dataset.page = 'Home';</script>
 
     <!-- Sidebar (fixed left) -->
     <aside class="sidebar" id="sidebar" role="complementary" aria-label="Menu de navegação lateral">
@@ -572,5 +574,47 @@
 
     <script type="module" src="../js/main.js"></script>
     <script type="module" src="../js/auth.js"></script>
+        <!-- Chat History Modal (shared UI) -->
+        <div id="chat-history-modal" class="chat-history-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="chat-history-title">
+            <div class="chat-history-overlay" data-action="close"></div>
+            <div class="chat-history-container" role="document">
+                <header class="chat-history-header">
+                    <h2 id="chat-history-title">Histórico do Chat</h2>
+                    <button class="chat-history-close" aria-label="Fechar" data-action="close">✕</button>
+                </header>
+
+                <div class="chat-history-main">
+                    <nav class="chat-history-tabs" role="tablist" aria-label="Escolha o chat">
+                        <button role="tab" data-chat="Home" class="chat-tab">Home</button>
+                        <button role="tab" data-chat="Finanças" class="chat-tab">Finanças</button>
+                        <button role="tab" data-chat="Invest" class="chat-tab">Invest</button>
+                    </nav>
+
+                    <section class="chat-history-content">
+                        <div class="chat-history-controls">
+                            <input type="search" class="chat-history-search" placeholder="Pesquisar no histórico..." aria-label="Pesquisar histórico">
+                            <div class="chat-history-actions">
+                                <button class="btn btn-secondary btn-memories" type="button">Memórias</button>
+                            </div>
+                        </div>
+
+                        <div class="chat-history-list" aria-live="polite">
+                            <!-- Placeholder: list of chat sessions for the selected tab (not implemented) -->
+                            <p class="muted">Selecione uma conversa para visualizar seu histórico.</p>
+                        </div>
+                    </section>
+
+                    <section class="chat-memories" hidden>
+                        <header class="memories-header">
+                            <h3>Suas Memórias</h3>
+                            <button class="btn btn-secondary btn-exit-memories" type="button">Sair</button>
+                        </header>
+                        <div class="memories-content">
+                            <p class="muted">Ainda não há memórias armazenadas.</p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
 </body>
 </html>
