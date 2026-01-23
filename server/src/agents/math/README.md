@@ -1,12 +1,52 @@
 ---
-agente matemático:
+# AGENTE MATEMÁTICO (EXECUTOR ESPECIALIZADO)
+
+## 📋 Status de Implementação
+
+**FUTURO** - Este agente será implementado quando houver demanda por cálculos financeiros complexos que exigem rigor matemático absoluto.
+
+**Arquitetura atual:**
+- ✅ Junior Agent: Triagem e roteamento
+- ✅ DataAgent: Acesso a dados MongoDB
+- 🔜 Simplista Agent: Cálculos simples (somas, médias)
+- 📅 **Math Agent**: Cálculos complexos (este documento)
+
+**Quando será usado:**
+- Simplista lida com cálculos básicos (totais, porcentagens simples)
+- Math Agent será chamado por coordenadores (Analyst, Investment, Planing) para cálculos que exigem modelos matemáticos específicos
+
+---
+
 ## 3. Arquitetura conceitual do agente
 
-O Agente Matemático opera como um **executor especializado** no sistema multi-agente, focado exclusivamente em cálculos matemáticos e financeiros complexos. Ele não toma decisões estratégicas, mas garante precisão numérica absoluta em operações que impactam decisões financeiras. O agente segue um processo rigoroso de validação e revisão para eliminar erros que poderiam levar a decisões ruins.
+O Agente Matemático opera como um **executor especializado** no sistema, focado exclusivamente em cálculos matemáticos e financeiros complexos. Ele não toma decisões estratégicas, mas garante precisão numérica absoluta em operações que impactam decisões financeiras. O agente segue um processo rigoroso de validação e revisão para eliminar erros que poderiam levar a decisões ruins.
 
 ### 📚 Especialização e Limites
 
 O agente é ativado apenas quando há **risco real de erro numérico** ou **complexidade matemática**. Ele não substitui calculadoras simples, mas garante que cálculos críticos sejam feitos com rigor profissional.
+
+### 🔗 Integração com Outros Agentes
+
+**Quem chama o Math Agent:**
+- **Analyst Agent**: Para cálculos de índices financeiros complexos (ROI, TIR, VPL)
+- **Investment Agent**: Para valuation, análise de risco quantitativa, simulações
+- **Planing Agent**: Para projeções de longo prazo, otimização de alocações
+
+**O que Math Agent NÃO recebe:**
+- Memória episódica ou working memory do usuário
+- Contexto histórico de conversas
+- Apenas dados estruturados necessários ao cálculo específico
+
+**O que Math Agent recebe:**
+- Parâmetros numéricos específicos (valores, taxas, períodos)
+- Tipo de cálculo desejado (NPV, IRR, amortização, etc)
+- Premissas claras e declaradas
+
+**O que Math Agent retorna:**
+- Resultado numérico validado
+- Todos os passos do cálculo
+- Validações realizadas
+- Cenários alternativos (se aplicável)
 
 ---
 

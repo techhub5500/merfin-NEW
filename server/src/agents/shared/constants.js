@@ -1,23 +1,22 @@
 /**
  * NOTE (constants.js):
  * Purpose: Fonte única da verdade para todas as constantes usadas pelos agentes.
- * Define enums de complexidade, status, limites de ciclos, TTLs de cache, etc.
+ * Define enums de status, categorias, TTLs de cache, timeouts, etc.
  * Controls: Valores centralizados que podem ser ajustados sem mudar código dos agentes.
  * Behavior: Mudanças aqui afetam automaticamente todos os agentes que usam essas constantes.
- * Integration notes: Importado por todos os agentes e pelo orquestrador para garantir
- * consistência. Use sempre essas constantes em vez de valores hardcoded.
+ * Integration notes: Importado por todos os agentes para garantir consistência.
+ * Use sempre essas constantes em vez de valores hardcoded.
  */
 
 /**
  * Níveis de complexidade de queries/tarefas
- * Usados pelo orquestrador para determinar limite de ciclos ReAct
+ * Usados pelo sistema de triagem para classificar requisições
  */
 const COMPLEXITY = {
-	SIMPLE: 'simple',           // Queries diretas, 1-2 agentes
-	BASIC: 'basic',             // Queries com 2-3 agentes
-	COMPARATIVE: 'comparative', // Comparações, análises
-	COMPLEX: 'complex',         // Múltiplos agentes, planejamento
-	RESEARCH: 'research'        // Pesquisa externa intensiva
+	TRIVIAL: 'trivial',         // Saudações, info do sistema
+	LAUNCH: 'launch',           // Lançamento de transações
+	SIMPLE: 'simple',           // Queries diretas, informacionais
+	COMPLEX: 'complex'          // Análises, planejamento, múltiplos dados
 };
 
 /**
@@ -68,15 +67,24 @@ const RISK_PROFILES = {
 };
 
 /**
- * Limites de ciclos ReAct por nível de complexidade
- * Previne loops infinitos e controla custos de LLM
+ * Tipos de agente do sistema
  */
-const CYCLE_LIMITS = {
-	[COMPLEXITY.SIMPLE]: 3,
-	[COMPLEXITY.BASIC]: 5,
-	[COMPLEXITY.COMPARATIVE]: 8,
-	[COMPLEXITY.COMPLEX]: 12,
-	[COMPLEXITY.RESEARCH]: 15
+const AGENT_TYPES = {
+	JUNIOR: 'JuniorAgent',           // Triagem e roteamento
+	SIMPLISTA: 'SimplistaAgent',     // Consultas simples
+	LAUNCH: 'LancadorAgent',         // Lançamentos transacionais
+	DATA: 'DataAgent',               // Acesso a dados
+	ANALYST: 'AnalystAgent',         // Análises futuras
+	RESEARCH: 'ResearchAgent'        // Pesquisas futuras
+};
+
+/**
+ * Limites de tentativas e diálogos
+ */
+const LIMITS_INTERACTION = {
+	MAX_DIALOG_TURNS: 3,          // Máximo de trocas em diálogo
+	MAX_RETRY_ATTEMPTS: 3,        // Tentativas de retry
+	MAX_CLARIFICATION_ATTEMPTS: 2 // Tentativas de esclarecimento
 };
 
 /**
@@ -131,7 +139,9 @@ const TIMEOUTS = {
 	EXTERNAL_API: 15000,         // 15 segundos
 	LLM_CALL: 30000,             // 30 segundos
 	AGENT_EXECUTION: 60000,      // 60 segundos
-	ORCHESTRATOR_CYCLE: 120000   // 2 minutos
+	JUNIOR_TRIAGE: 5000,         // 5 segundos (triagem rápida)
+	SIMPLISTA_QUERY: 10000,      // 10 segundos (consulta simples)
+	LANCH_TRANSACTION: 15000     // 15 segundos (lançamento)
 };
 
 /**
@@ -173,13 +183,37 @@ const INVESTMENT_TYPES = {
  * Mapeamento de quais ações cada agente pode executar
  */
 const AGENT_ACTIONS = {
+	JuniorAgent: [
+		'triageQuery',
+		'classifyComplexity',
+		'routeToAgent',
+		'handleTrivial'
+	],
+	SimplistaAgent: [
+		'fetchSimpleData',
+		'calculateSimpleMetric',
+		'clarifyQuery',
+		'respondDirect'
+	],
+	LancadorAgent: [
+		'extractTransactionInfo',
+		'validateTransaction',
+		'persistTransaction',
+		'confirmLaunch',
+		'clarifyDetails'
+	],
 	DataAgent: [
 		'fetchAccountBalance',
 		'fetchTransactions',
 		'fetchUserProfile',
 		'fetchAccountSummary',
-		'validateDataIntegrity'
+		'validateDataIntegrity',
+		'getCreditCards',
+		'getDebts',
+		'fetchReceivables',
+		'fetchPayables'
 	],
+	// Agentes futuros
 	ResearchAgent: [
 		'searchAssetPrices',
 		'searchMarketAnalysis',
@@ -191,24 +225,6 @@ const AGENT_ACTIONS = {
 		'calculateReturns',
 		'analyzePortfolio',
 		'assessRisk'
-	],
-	StrategistAgent: [
-		'createInvestmentPlan',
-		'optimizePortfolio',
-		'suggestRebalancing',
-		'planRetirement'
-	],
-	TransactionAgent: [
-		'executeTransaction',
-		'scheduleTransaction',
-		'updateTransaction',
-		'cancelTransaction'
-	],
-	ValidatorAgent: [
-		'validateTransaction',
-		'checkCompliance',
-		'verifyLimits',
-		'auditOperation'
 	]
 };
 
@@ -233,14 +249,42 @@ const LOG_LEVELS = {
 	ERROR: 'error'
 };
 
+/**
+ * Categorias de transação/despesa
+ */
+const TRANSACTION_CATEGORIES = {
+	ALIMENTACAO: 'Alimentação',
+	TRANSPORTE: 'Transporte',
+	SAUDE: 'Saúde',
+	LAZER: 'Lazer',
+	EDUCACAO: 'Educação',
+	MORADIA: 'Moradia',
+	CONTAS: 'Contas',
+	SALARIO: 'Salário',
+	OUTROS: 'Outros'
+};
+
+/**
+ * Estado de contexto de diálogo
+ */
+const DIALOG_STATE = {
+	NONE: null,
+	SIMPLISTA_ACTIVE: 'simplista',
+	LANCH_ACTIVE: 'lancador',
+	AWAITING_CLARIFICATION: 'awaiting_clarification'
+};
+
 module.exports = {
 	COMPLEXITY,
 	STATUS,
 	TRANSACTION_STATUS,
 	TRANSACTION_TYPES,
+	TRANSACTION_CATEGORIES,
 	ACCOUNT_STATUS,
 	RISK_PROFILES,
-	CYCLE_LIMITS,
+	AGENT_TYPES,
+	LIMITS_INTERACTION,
+	DIALOG_STATE,
 	CACHE_TTL,
 	CACHE_KEY_PREFIXES,
 	TIMEOUTS,

@@ -1,4 +1,21 @@
+---
+# AGENTE DE PESQUISA EXTERNA (EXECUTOR ESPECIALIZADO)
 
+## 📋 Status de Implementação
+
+**FUTURO** - Este agente será implementado quando houver demanda por pesquisas de dados de mercado externo (cotações, fundamentos, notícias).
+
+**Arquitetura atual:**
+- ✅ Junior Agent: Triagem (pode acessar Serper diretamente para queries triviais)
+- ✅ DataAgent: Acesso a dados MongoDB
+- 🔜 Simplista Agent: Pode acessar Serper/Brapi diretamente para enriquecer respostas
+- 📅 **Research Agent**: Pesquisas complexas de mercado (este documento)
+
+**Quando será usado:**
+- Junior e Simplista lidam com consultas rápidas a Serper/Brapi
+- Research Agent será chamado por coordenadores (Analyst, Investment, Planing) para pesquisas complexas que exigem múltiplas fontes, análise semântica e consolidação
+
+---
 
 # ARQUITETURA COMPLETA DO AGENTE DE PESQUISA EXTERNA (EXECUTOR)
 
@@ -12,17 +29,41 @@
 
 ### Tipo
 
-**Executor Operacional**
+**Executor Operacional Especializado**
 
 ### Especialização
 
 Coleta inteligente de dados externos através de múltiplas fontes (Brapi, Tavily, Serper), com roteamento automático baseado no tipo de informação solicitada e execução paralela para otimização de performance.
 
+### 🔗 Integração com Outros Agentes
+
+**Quem chama o Research Agent:**
+- **Analyst Agent**: Para contexto de mercado em análises financeiras
+- **Investment Agent**: Para dados fundamentalistas, cotações, análises de ativos
+- **Planing Agent**: Para indicadores econômicos, taxas de juros, projecões
+
+**O que Research Agent NÃO recebe:**
+- Memória episódica ou working memory do usuário
+- Contexto histórico de conversas
+- Apenas parâmetros estruturados da pesquisa
+
+**O que Research Agent recebe:**
+- Objetivo da pesquisa (string descritiva)
+- Contexto adicional para melhorar precisão
+- Tickers/códigos se aplicável
+- Nível de profundidade (básica, média, profunda)
+
+**O que Research Agent retorna:**
+- Dados consolidados de múltiplas fontes
+- Metadados (fontes usadas, timestamps, confiança)
+- Fallbacks utilizados (se aplicável)
+- Advertenças sobre frescor dos dados
+
 ### O que Executa vs O que NÃO Executa
 
 **✅ EXECUTA:**
 
--  Análise semântica da requisição para identificar tipo de dado necessário
+- Análise semântica da requisição para identificar tipo de dado necessário
 - Descoberta de entidades necessárias à execução (ex: identificar ticker de ações/FIIs, códigos de moedas, códigos de fundos, setores ou ativos listados quando não fornecido)
 - Roteamento inteligente para fonte(s) apropriada(s)
 - Execução paralela de chamadas quando múltiplas fontes são necessárias
@@ -32,10 +73,16 @@ Coleta inteligente de dados externos através de múltiplas fontes (Brapi, Tavil
 
 **❌ NÃO EXECUTA:**
 
-- Decisões estratégicas sobre quais dados coletar
-- Análise ou interpretação dos dados coletados
-- Chamadas a outros agentes
-- Planejamento de múltiplas operações
+- Decisões estratégicas sobre quais dados coletar (isso é decisão do coordenador)
+- Análise ou interpretação dos dados coletados (apenas coleta e normaliza)
+- Chamadas a outros agentes (opera de forma independente)
+- Planejamento de múltiplas operações (executa uma operação por vez)
+
+**📝 NOTA:** Junior Agent e Simplista Agent podem fazer chamadas **diretas e simples** a Serper/Brapi para dados triviais (ex.: "qual é a cotação atual do dólar?"). O Research Agent é usado quando há necessidade de:
+- Combinar múltiplas fontes
+- Análise semântica complexa
+- Descoberta automática de entidades
+- Pesquisas profundas com fallbacks hierárquicos
 
 ---
 

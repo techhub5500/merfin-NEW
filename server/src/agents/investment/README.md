@@ -1,15 +1,29 @@
 ---
-agente de investimentos:
+# AGENTE DE INVESTIMENTOS (COORDENADOR)
+
+## 📋 Status de Implementação
+
+**FUTURO** - Este agente será implementado quando houver demanda por estratégias de investimento personalizadas.
+
+**Arquitetura atual:**
+- ✅ Junior Agent: Triagem e roteamento
+- ✅ DataAgent: Acesso a dados MongoDB
+- 🔜 Simplista Agent: Consultas simples
+- 🔜 Lançador Agent: Lançamentos transacionais
+- 📅 **Investment Agent**: Estratégias de investimento (este documento)
+
+---
+
 ## 3. Arquitetura conceitual do agente
 
-O Agente de Investimentos opera em um **ciclo ReAct próprio**, adaptado à sua especialização, integrando o banco de frameworks hierárquicos para garantir raciocínio guiado e explicável. O ciclo combina planejamento estratégico de investimentos, execução operacional, avaliação contínua e consolidação final, alinhado com a autonomia de coordenadores no sistema multi-agente.
+O Agente de Investimentos opera como um **coordenador autônomo** especializado em estratégias de investimento e alocação de carteira. Integra o banco de frameworks hierárquicos para garantir raciocínio guiado e explicável, pensando como um **gestor de fundos renomado**, priorizando diversificação, gestão de risco e horizonte de investimento.
 
 ## Memória e Contexto
 
-- O Agente de Investimentos recebe o contexto unificado via `context-builder`: `workingMemory`, `episodicSummary` e `prompt_current` são usados para contextualizar decisões e respeitar histórico do usuário.
-- Uso prático: `episodicSummary` ajuda a identificar decisões de investimento anteriores, alocações e restrições pessoais; `workingMemory` provê parâmetros temporários da sessão.
-- Acesso a LTM: quando necessário, o Investimentos pode consultar o `profile-manager` para dados permanentes do usuário.
-- Restrições: o Agente Matemático e o Agente de Pesquisa Externa não recebem o contexto episódico/working para manter a separação de responsabilidades.
+- O Agente de Investimentos receberá contexto unificado via `context-builder` quando implementado: `workingMemory`, `episodicSummary` e `prompt_current` serão usados para contextualizar decisões e respeitar histórico do usuário.
+- **Uso prático:** `episodicSummary` ajudará a identificar decisões de investimento anteriores, alocações e restrições pessoais; `workingMemory` proverá parâmetros temporários da sessão.
+- **Acesso a dados:** Quando necessário, poderá consultar o DataAgent para dados financeiros do usuário (saldos, investimentos atuais, perfil de risco).
+- **Agentes auxiliares:** Na v2.0+, Math Agent e Research Agent não receberão contexto episódico/working para manter separação de responsabilidades - receberão apenas dados estruturados necessários.
 
 
 ### 📚 Banco de Frameworks (diferencial central)
@@ -56,36 +70,38 @@ Isso garante:
 
 ---
 
-## 4. 🔀 Ciclo ReAct do Agente de Investimentos
+## 4. 🔀 Ciclo de Execução Autônomo para Investimentos
 
-O ciclo ReAct é adaptado para decisões de investimento, com ênfase em estratégia, alocação e seleção de ativos. O agente pensa como um **gestor de fundos renomado**, priorizando diversificação, gestão de risco e horizonte de investimento.
+O ciclo de execução é adaptado para decisões de investimento, com ênfase em estratégia, alocação e seleção de ativos.
 
-**Ciclo N - PLANEJAMENTO (primeiro ciclo):**
+**Fase 1 - PLANEJAMENTO:**
 
-1. Recebe o pacote de missão do orquestrador (objetivo estratégico, query do usuário, contratos de agentes, orçamento, timeout).
-2. Classifica a intenção de investimento: "Que tipo de decisão de investimento esse pedido exige?" (ex.: alocação de carteira, análise de ativo específico, gestão de risco).
-3. Consulta o banco de frameworks (níveis 1 e 2) para selecionar frameworks centrais e secundários adequados.
-4. Define plano de execução: quais agentes executores chamar (ex.: acessa diretamente o Sistema de Acesso a Dados Internos para dados de investimentos), ordem de operações e dependências.
-5. Avalia orçamento e tempo restante; prioriza operações críticas.
+1. Recebe requisição com query do usuário e contexto unificado
+2. Classifica a intenção de investimento: "Que tipo de decisão de investimento esse pedido exige?" (ex.: alocação de carteira, análise de ativo específico, gestão de risco)
+3. Consulta o banco de frameworks (níveis 1 e 2) para selecionar frameworks centrais e secundários adequados
+4. Define plano de execução: quais dados buscar (DataAgent para investimentos atuais, Research Agent para dados de mercado - futuro)
+5. Estima complexidade e prioriza operações críticas
 
-**Ciclo N+1, N+2... - EXECUÇÃO:**
+**Fase 2 - COLETA DE DADOS:**
 
-1. Acessa diretamente o Sistema de Acesso a Dados Internos (ex.: consulta dados de investimentos via categorias e filtros).
-2. Aplica frameworks selecionados: carrega "modo de pensar" (etapas, métricas) e processa dados.
-3. Monitora progresso: valida respostas, usa fallbacks se necessário, acumula consumo de recursos.
-4. Se orçamento crítico ou tempo baixo, prioriza finalização.
+1. Acessa DataAgent para dados de investimentos do usuário via ações estruturadas
+2. Na v2.0+: Acessa Research Agent para dados de mercado (cotações, fundamentalistas)
+3. Valida dados e identifica gaps
+4. Organiza informações para aplicação dos frameworks
 
-**Ciclo N+X - AVALIAÇÃO CONTÍNUA:**
+**Fase 3 - APLICAÇÃO DE FRAMEWORKS:**
 
-1. Após cada bloco de operações, pergunta: "Objetivo foi suficientemente alcançado? Dados faltantes impactam qualidade?"
-2. Calcula custo-benefício de operações futuras baseado em frameworks (ex.: se análise de risco é essencial, executa mesmo com recursos limitados).
-3. Decide continuar ou consolidar; documenta limitações.
+1. Aplica frameworks selecionados: carrega "modo de pensar" (etapas, métricas) e processa dados
+2. Executa análises de alocação, risco, diversificação conforme framework
+3. Na v2.0+: Pode delegar cálculos complexos ao Math Agent
+4. Monitora progresso e ajusta se necessário
 
-**Ciclo N+FINAL - CONSOLIDAÇÃO:**
+**Fase 4 - CONSOLIDAÇÃO:**
 
-1. Agrega todos os outputs em resposta estruturada.
-2. Aplica validação final baseada em frameworks (ex.: verifica se alocação respeita perfil de risco).
-3. Reporta ao orquestrador com metadados (recursos consumidos, status).
+1. Agrega todos os outputs em resposta estruturada
+2. Aplica validação final baseada em frameworks (ex.: verifica se alocação respeita perfil de risco)
+3. Formata resposta no padrão de contrato com metadados
+4. Retorna estratégia completa ao chamador
 
 ---
 

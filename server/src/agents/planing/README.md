@@ -1,43 +1,70 @@
 ---
-agente de planejamento financeiro:
-## 3. Arquitetura conceitual do agente
+# AGENTE DE PLANEJAMENTO FINANCEIRO (COORDENADOR)
 
-O Agente de Planejamento Financeiro opera em um **ciclo ReAct próprio**, adaptado à sua especialização, integrando o banco de frameworks hierárquicos para garantir raciocínio guiado e explicável. O ciclo combina planejamento estratégico, execução operacional, avaliação contínua e consolidação final, alinhado com a autonomia de coordenadores no sistema multi-agente.
+## 📋 Status de Implementação
 
-## 8. 💾 Sistema de Memória
+**FUTURO** - Este agente será implementado quando houver demanda por planejamento financeiro estratégico (curto, médio e longo prazo).
 
-Como **coordenador**, o Agente de Planejamento recebe automaticamente a **Memória de Contexto (Chat)** e a **Memória Interna** na sua integralidade de outros agentes coordenadores, garantindo continuidade e acesso completo aos processos anteriores.
-
-**Recebe automaticamente:**
-- **Memória de Contexto (Chat):** Working Memory (volátil), Episodic Memory (histórico da conversa), Long-Term Memory (perfil do usuário) - sempre enviada na integralidade.
-- **Memória Interna:** Dados e processos preservados de execuções anteriores, identificados claramente como distintos do contexto histórico.
-
-**Compartilha com outros coordenadores:**
-- Sempre envia Memória de Contexto e Memória Interna na integralidade para garantir continuidade.
-
-**Para executores:**
-- Avalia se é relevante incluir elementos da memória; inclui apenas o necessário para evitar sobrecarga.
-
-**Uso:** Utiliza toda a memória disponível para elaborar planos estratégicos integrados, considerando histórico completo do usuário e processos anteriores.
+**Arquitetura atual:**
+- ✅ Junior Agent: Triagem e roteamento
+- ✅ DataAgent: Acesso a dados MongoDB
+- 🔜 Simplista Agent: Consultas simples
+- 🔜 Lançador Agent: Lançamentos transacionais
+- 📅 **Planing Agent**: Planejamento estratégico (este documento)
 
 ---
 
-## 💾 Sistema de Acesso a Dados Internos
+## 3. Arquitetura conceitual do agente
 
-Como agente de IA coordenador, o Agente de Planejamento tem **acesso direto e inteligente** ao Sistema de Acesso a Dados Internos, permitindo consultas dinâmicas aos dados financeiros do usuário sem overhead de Message Bus.
+O Agente de Planejamento Financeiro opera como um **coordenador autônomo** especializado em planejamento estratégico de curto, médio e longo prazo. Integra o banco de frameworks hierárquicos para garantir raciocínio guiado e explicável. Como coordenador, ele tem autonomia tática completa para decidir COMO alcançar os objetivos de planejamento definidos.
+
+## 8. 💾 Sistema de Memória e Contexto
+
+Como **coordenador**, o Agente de Planejamento receberá automaticamente contexto unificado via `context-builder` quando implementado:
+
+**Receberá (futuro):**
+- `workingMemory`: Variáveis de sessão e contexto volátil
+- `episodicSummary`: Trechos relevantes do histórico de conversas (metas anteriores, planos em andamento)
+- `prompt_current`: Query original do usuário
+- `userId` e `sessionId`: Identificadores para acesso a dados
+
+**Acesso a dados:**
+- Acesso direto ao DataAgent para consultas estruturadas
+- Pode consultar dados financeiros, metas, proventos via DataAgent
+- Dados retornados integrados aos frameworks de planejamento
+
+**Compartilhamento:**
+- Na v2.0+, poderá compartilhar contexto com outros coordenadores
+- Por enquanto, opera de forma independente via chamadas diretas ao DataAgent
+
+**Uso:** Utilizará toda a memória e dados disponíveis para elaborar planos estratégicos integrados, considerando histórico completo do usuário, metas estabelecidas e processos de planejamento anteriores.
+
+---
+
+## 💾 Acesso a Dados via DataAgent
+
+Como coordenador, o Agente de Planejamento terá **acesso direto ao DataAgent** para consultas estruturadas aos dados financeiros do usuário.
 
 ### Funcionamento do Acesso:
-- **Categorias Iniciais:** Seleciona de categorias como `Dados_receitas_e_despesas`, `Dados_contas_bancarias`, `Dados_transacoes`, etc.
-- **Filtros Dinâmicos:** Aplica filtros específicos (período, tipo, status) para refinar buscas em tempo real.
-- **Iteração Inteligente:** Pode voltar às categorias, adicionar/remover filtros conforme o plano evolui.
-- **Integração com IA:** Usa dados obtidos para alimentar frameworks hierárquicos e ciclos ReAct.
+- **Chamadas ao DataAgent:** Usa as ações disponíveis no DataAgent (fetchTransactions, fetchAccountSummary, etc)
+- **Parâmetros Estruturados:** Envia parâmetros via formato de contrato padrão com filtros de período, tipo, status
+- **Respostas Formatadas:** Recebe dados já validados e formatados pelo DataAgent
+- **Integração com Frameworks:** Usa dados obtidos para alimentar frameworks hierárquicos de planejamento
+
+### Ações Disponíveis do DataAgent:
+- `fetchTransactions`: Histórico de transações com filtros
+- `fetchAccountSummary`: Resumo financeiro consolidado
+- `fetchReceivables/Payables`: Contas futuras a receber/pagar
+- `getCreditCards`: Dados de cartões (limites, faturas)
+- `getDebts`: Informações de dívidas e parcelas
 
 ### Exemplos de Uso:
-- **Projeções de Renda:** Consulta `Dados_receitas_e_despesas` com filtro período = últimos 12 meses para calcular renda média.
-- **Análise de Gastos:** Filtra por tipo de despesa para identificar padrões e otimizar alocações.
-- **Validação de Metas:** Compara dados históricos com objetivos de planejamento para ajustar cenários realistas.
+- **Projeções de Renda:** Consulta `fetchTransactions` com filtro período = últimos 12 meses, tipo = receita
+- **Análise de Gastos:** Filtra por tipo de despesa para identificar padrões e otimizar alocações
+- **Validação de Metas:** Compara dados históricos com objetivos de planejamento para ajustar cenários realistas
+- **Fluxo de Caixa:** Combina `fetchReceivables` e `fetchPayables` para projetar fluxo futuro
 
-Este acesso direto garante que os planos sejam baseados em dados reais e atualizados, maximizando a precisão das recomendações de IA.
+Este acesso via DataAgent garante que os planos sejam baseados em dados reais, validados e com cache otimizado.
 
 ### 📚 Banco de Frameworks (diferencial central)
 
@@ -58,36 +85,38 @@ O banco de frameworks é a base do raciocínio do agente. Ele é estruturado hie
 
 O agente **não inventa** a lógica. Ele **consulta** o banco para selecionar e aplicar frameworks adequados ao prompt do usuário.
 
-### 🧠 Ciclo ReAct Adaptado para Planejamento Financeiro
+### 🧠 Ciclo de Execução Autônomo para Planejamento Financeiro
 
-**Ciclo N - PLANEJAMENTO (primeiro ciclo):**
+**Fase 1 - PLANEJAMENTO:**
 
-1. Recebe o pacote de missão do orquestrador (objetivo estratégico, query do usuário, contratos de agentes, orçamento, timeout).
-2. Classifica a intenção de planejamento: "Que tipo de planejamento preciso executar?" (ex.: curto prazo como orçamento mensal, médio prazo como compra de imóvel, longo prazo como aposentadoria).
-3. Consulta o banco de frameworks (níveis 1 e 2) para selecionar frameworks centrais e secundários adequados.
-4. Define plano de execução: quais agentes executores chamar (ex.: acessa diretamente o Sistema de Acesso a Dados Internos para projeções), ordem de operações e dependências.
-5. Avalia orçamento e tempo restante; prioriza operações críticas.
+1. Recebe requisição com query do usuário e contexto unificado
+2. Classifica a intenção de planejamento: "Que tipo de planejamento preciso executar?" (ex.: curto prazo como orçamento mensal, médio prazo como compra de imóvel, longo prazo como aposentadoria)
+3. Consulta o banco de frameworks (níveis 1 e 2) para selecionar frameworks centrais e secundários adequados
+4. Define plano de execução: quais dados buscar do DataAgent, ordem de operações e dependências
+5. Estima horizonte temporal e complexidade do planejamento
 
-**Ciclo N+1, N+2... - EXECUÇÃO:**
+**Fase 2 - COLETA DE DADOS:**
 
-1. Acessa diretamente o Sistema de Acesso a Dados Internos (ex.: consulta dados de renda e metas via categorias e filtros).
-2. Aplica frameworks selecionados: carrega "modo de pensar" (etapas, métricas) e processa dados.
-3. Monitora progresso: valida respostas, usa fallbacks se necessário, acumula consumo de recursos.
-4. Se orçamento crítico ou tempo baixo, prioriza finalização.
+1. Acessa DataAgent para dados de renda, despesas, metas via ações estruturadas
+2. Consulta históricos relevantes (12 meses, 24 meses, conforme framework)
+3. Valida dados e identifica gaps ou inconsistências
+4. Organiza informações por categoria (receitas, despesas fixas/variáveis, dívidas)
 
-**Ciclo N+X - AVALIAÇÃO CONTÍNUA:**
+**Fase 3 - APLICAÇÃO DE FRAMEWORKS:**
 
-1. Após cada bloco de operações, pergunta: "Objetivo foi suficientemente alcançado? Dados faltantes impactam qualidade?"
-2. Calcula custo-benefício de operações futuras baseado em frameworks (ex.: se projeção de longo prazo é essencial, executa mesmo com recursos limitados).
-3. Decide continuar ou consolidar; documenta limitações.
+1. Aplica frameworks selecionados: carrega "modo de pensar" (etapas, métricas) e processa dados
+2. Executa projeções, simulações de cenários conforme estrutura do framework
+3. Na v2.0+: Pode delegar cálculos complexos ao Math Agent
+4. Identifica viabilidade, riscos e ajustes necessários
 
-**Ciclo FINAL - CONSOLIDAÇÃO:**
+**Fase 4 - CONSOLIDAÇÃO:**
 
-1. Sintetiza resultados usando estrutura dos frameworks (ex.: quais metas são viáveis, cronograma, riscos).
-2. Estrutura resposta explicável: framework usado, métricas aplicadas, limitações.
-3. Reporta ao orquestrador com metadados (recursos consumidos, status).
+1. Sintetiza resultados usando estrutura dos frameworks (metas viáveis, cronograma, riscos)
+2. Estrutura resposta explicável: framework usado, métricas aplicadas, limitações identificadas
+3. Formata plano completo no padrão de contrato com metadados
+4. Retorna plano estratégico completo ao chamador
 
-Isso garante consistência, reprodutibilidade e explicabilidade, alinhado com a autonomia do sistema.
+Isso garante consistência, reprodutibilidade e explicabilidade dos planos financeiros.
 
 ---
 

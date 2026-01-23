@@ -1,46 +1,71 @@
 
-    
+---
+# AGENTE ANALISTA DE FINANÇAS PESSOAIS (COORDENADOR)
+
+## 📋 Status de Implementação
+
+**FUTURO** - Este agente será implementado quando houver demanda por análises financeiras complexas.
+
+**Arquitetura atual:**
+- ✅ Junior Agent: Triagem e roteamento
+- ✅ DataAgent: Acesso a dados MongoDB
+- 🔜 Simplista Agent: Consultas simples
+- 🔜 Lançador Agent: Lançamentos transacionais
+- 📅 **Analyst Agent**: Análises complexas (este documento)
 
 ---
-agente analista de finanças pessoais:
+
 ## 3. Arquitetura conceitual do agente
 
-O Agente Analista de Finanças Pessoais opera em um **ciclo ReAct próprio**, adaptado à sua especialização, integrando o banco de frameworks hierárquicos para garantir raciocínio guiado e explicável. O ciclo combina planejamento estratégico, execução operacional, avaliação contínua e consolidação final, alinhado com a autonomia de coordenadores no sistema multi-agente.
+O Agente Analista de Finanças Pessoais opera como um **coordenador autônomo** especializado em análises financeiras profundas. Ele integra o banco de frameworks hierárquicos para garantir raciocínio guiado e explicável. Como coordenador, ele tem autonomia tática completa para decidir COMO alcançar os objetivos analíticos definidos.
 
-## 8. 💾 Sistema de Memória
+## 8. 💾 Sistema de Memória e Contexto
 
-Como **coordenador**, o Agente Analista recebe automaticamente a **Memória de Contexto (Chat)** e a **Memória Interna** na sua integralidade de outros agentes coordenadores, garantindo continuidade e acesso completo aos processos anteriores.
+Como **coordenador**, o Agente Analista receberá automaticamente contexto unificado via `context-builder` quando implementado:
 
-**Recebe automaticamente:**
-- **Memória de Contexto (Chat):** Working Memory (volátil), Episodic Memory (histórico da conversa), Long-Term Memory (perfil do usuário) - sempre enviada na integralidade.
-- **Memória Interna:** Dados e processos preservados de execuções anteriores, identificados claramente como distintos do contexto histórico.
+**Receberá (futuro):**
+- `workingMemory`: Variáveis de sessão e contexto volátil
+- `episodicSummary`: Trechos relevantes do histórico de conversas
+- `prompt_current`: Query original do usuário
+- `userId` e `sessionId`: Identificadores para acesso a dados
 
-**Compartilha com outros coordenadores:**
-- Sempre envia Memória de Contexto e Memória Interna na integralidade para garantir continuidade.
+**Acesso a dados:**
+- Acesso direto ao DataAgent para consultas estruturadas
+- Pode consultar dados financeiros via categorias e filtros
+- Dados retornados integrados às análises de frameworks
 
-**Para executores:**
-- Avalia se é relevante incluir elementos da memória; inclui apenas o necessário para evitar sobrecarga.
+**Compartilhamento:**
+- Na v2.0+, poderá compartilhar contexto com outros coordenadores
+- Por enquanto, opera de forma independente via chamadas diretas ao DataAgent
 
-**Uso:** Utiliza toda a memória disponível para elaborar análises profundas integradas, considerando histórico completo do usuário e processos anteriores.
+**Uso:** Utilizará toda a memória e dados disponíveis para elaborar análises profundas integradas, considerando histórico completo do usuário e frameworks especializados.
 
 ---
 
-## 💾 Sistema de Acesso a Dados Internos
+## 💾 Acesso a Dados via DataAgent
 
-Como agente de IA coordenador, o Agente Analista tem **acesso direto e inteligente** ao Sistema de Acesso a Dados Internos, permitindo consultas dinâmicas aos dados financeiros do usuário durante o ciclo ReAct.
+Como coordenador, o Agente Analista terá **acesso direto ao DataAgent** para consultas estruturadas aos dados financeiros do usuário.
 
 ### Funcionamento do Acesso:
-- **Categorias Iniciais:** Seleciona de categorias como `Dados_receitas_e_despesas`, `Dados_transacoes`, `Dados_dividas`, etc.
-- **Filtros Dinâmicos:** Aplica filtros específicos (período, tipo, status) para refinar diagnósticos financeiros.
-- **Iteração Inteligente:** Pode voltar às categorias, adicionar/remover filtros conforme a análise evolui.
-- **Integração com IA:** Usa dados obtidos para alimentar frameworks de análise e ciclos ReAct.
+- **Chamadas ao DataAgent:** Usa as ações disponíveis no DataAgent (fetchAccountBalance, fetchTransactions, etc)
+- **Parâmetros Estruturados:** Envia parâmetros via formato de contrato padrão
+- **Respostas Formatadas:** Recebe dados já validados e formatados pelo DataAgent
+- **Integração com Frameworks:** Usa dados obtidos para alimentar frameworks de análise
+
+### Ações Disponíveis do DataAgent:
+- `fetchAccountBalance`: Saldos de contas
+- `fetchTransactions`: Histórico de transações com filtros
+- `fetchAccountSummary`: Resumo financeiro consolidado
+- `getCreditCards`: Dados de cartões de crédito
+- `getDebts`: Informações de dívidas
+- `fetchReceivables/Payables`: Contas futuras a receber/pagar
 
 ### Exemplos de Uso:
-- **Diagnóstico de Gastos:** Consulta `Dados_receitas_e_despesas` com filtros por tipo de despesa para identificar padrões de consumo.
-- **Análise de Renda:** Filtra receitas por período para avaliar estabilidade financeira.
-- **Avaliação de Dívidas:** Acessa dados de dívidas para calcular índices de endividamento.
+1. **Diagnóstico de Gastos:** Chama `fetchTransactions` com filtros por categoria e período
+2. **Análise de Endividamento:** Usa `getDebts` para calcular índices de endividamento
+3. **Avaliação de Fluxo de Caixa:** Combina `fetchReceivables` e `fetchPayables` para projeções
 
-Este acesso direto garante que as análises de IA sejam baseadas em dados reais e atualizados, maximizando a precisão dos diagnósticos financeiros.
+Este acesso via DataAgent garante que análises sejam baseadas em dados reais, validados e com cache otimizado.
 
 ### 📚 Banco de Frameworks (diferencial central)
 
@@ -106,36 +131,38 @@ Mas:
 - Recomendações condicionais
     
 
-### 🧠 Ciclo ReAct Adaptado para Análise Financeira
+### 🧠 Ciclo de Execução Autônomo para Análise Financeira
 
-**Ciclo N - PLANEJAMENTO (primeiro ciclo):**
+**Fase 1 - PLANEJAMENTO:**
 
-1. Recebe o pacote de missão do orquestrador (objetivo estratégico, query do usuário, contratos de agentes, orçamento, timeout).
-2. Classifica a intenção financeira: "Que tipo de análise preciso executar?" (ex.: compra de ativo grande, endividamento, planejamento de longo prazo).
-3. Consulta o banco de frameworks (níveis 1 e 2) para selecionar frameworks centrais e secundários adequados.
-4. Define plano de execução: quais agentes executores chamar (ex.: acessa diretamente o Sistema de Acesso a Dados Internos para transações), ordem de operações e dependências.
-5. Avalia orçamento e tempo restante; prioriza operações críticas.
+1. Recebe requisição com query do usuário e contexto unificado
+2. Classifica a intenção financeira: "Que tipo de análise preciso executar?" (ex.: análise de gastos, diagnóstico de endividamento, avaliação de capacidade de compra)
+3. Consulta o banco de frameworks (níveis 1 e 2) para selecionar frameworks centrais e secundários adequados
+4. Define plano de execução: quais dados buscar do DataAgent, ordem de operações e dependências
+5. Estima tempo e complexidade da análise
 
-**Ciclo N+1, N+2... - EXECUÇÃO:**
+**Fase 2 - COLETA DE DADOS:**
 
-1. Acessa diretamente o Sistema de Acesso a Dados Internos (ex.: consulta dados de renda e dívidas via categorias e filtros).
-2. Aplica frameworks selecionados: carrega "modo de pensar" (etapas, métricas) e processa dados.
-3. Monitora progresso: valida respostas, usa fallbacks se necessário, acumula consumo de recursos.
-4. Se orçamento crítico ou tempo baixo, prioriza finalização.
+1. Faz chamadas estruturadas ao DataAgent (ex.: fetchTransactions, getDebts, fetchAccountBalance)
+2. Valida dados recebidos e identifica gaps
+3. Faz chamadas adicionais se necessário para completar análise
+4. Organiza dados para aplicação dos frameworks
 
-**Ciclo N+X - AVALIAÇÃO CONTÍNUA:**
+**Fase 3 - ANÁLISE COM FRAMEWORKS:**
 
-1. Após cada bloco de operações, pergunta: "Objetivo foi suficientemente alcançado? Dados faltantes impactam qualidade?"
-2. Calcula custo-benefício de operações futuras baseado em frameworks (ex.: se análise de risco é essencial, executa mesmo com recursos limitados).
-3. Decide continuar ou consolidar; documenta limitações.
+1. Aplica frameworks selecionados: carrega "modo de pensar" (etapas, métricas) e processa dados
+2. Executa cálculos e diagnósticos conforme estrutura do framework
+3. Identifica padrões, riscos e oportunidades
+4. Valida conclusões contra premissas dos frameworks
 
-**Ciclo FINAL - CONSOLIDAÇÃO:**
+**Fase 4 - CONSOLIDAÇÃO:**
 
-1. Sintetiza resultados usando estrutura dos frameworks (ex.: quais critérios passaram/falharam, riscos, recomendações).
-2. Estrutura resposta explicável: framework usado, métricas aplicadas, limitações.
-3. Reporta ao orquestrador com metadados (recursos consumidos, status).
+1. Sintetiza resultados usando estrutura dos frameworks (critérios, riscos, recomendações)
+2. Estrutura resposta explicável: framework usado, métricas aplicadas, limitações identificadas
+3. Formata saída no padrão de contrato (success/error)
+4. Retorna análise completa ao chamador
 
-Isso garante consistência, reprodutibilidade e explicabilidade, alinhado com a autonomia do sistema.
+Isso garante consistência, reprodutibilidade e explicabilidade das análises financeiras.
 
 ---
 

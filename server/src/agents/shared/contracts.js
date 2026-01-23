@@ -1,11 +1,12 @@
 /**
  * NOTE (contracts.js):
  * Purpose: Define contratos (schemas) de requisição e resposta padrão para comunicação
- * entre agentes e orquestrador. Garante consistência e validação de dados.
+ * entre agentes. Garante consistência e validação de dados.
  * Controls: Valida estrutura de requisições/respostas usando Joi.
  * Behavior: Rejeita requisições malformadas antes de chegarem ao agente.
  * Integration notes: Todos os agentes devem aceitar requisições neste formato e
  * retornar respostas neste formato. Use validateRequest() antes de processar.
+ * Sistema atual: Junior roteia para Simplista/Lançador/DataAgent diretamente.
  */
 
 const Joi = require('joi');
