@@ -84,12 +84,12 @@ class SessionStore {
    * End a session manually
    * @param {string} sessionId - Session identifier
    */
-  endSession(sessionId) {
+  async endSession(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
     // Clear working memory for this session
-    workingMemory.clear(sessionId);
+    await workingMemory.clear(sessionId);
     
     // Remove session
     this.sessions.delete(sessionId);
@@ -97,9 +97,9 @@ class SessionStore {
 
   /**
    * Cleanup expired sessions
-   * @returns {number} - Number of sessions cleaned up
+   * @returns {Promise<number>} - Number of sessions cleaned up
    */
-  cleanupExpired() {
+  async cleanupExpired() {
     const now = Date.now();
     let cleaned = 0;
 
@@ -107,7 +107,7 @@ class SessionStore {
       const elapsed = now - session.lastActivity;
       
       if (elapsed > this.timeoutMs) {
-        workingMemory.clear(sessionId);
+        await workingMemory.clear(sessionId);
         this.sessions.delete(sessionId);
         cleaned++;
       }
@@ -184,9 +184,9 @@ class SessionStore {
   /**
    * Clear all sessions (use with caution)
    */
-  clearAll() {
+  async clearAll() {
     for (const sessionId of this.sessions.keys()) {
-      workingMemory.clear(sessionId);
+      await workingMemory.clear(sessionId);
     }
     this.sessions.clear();
   }

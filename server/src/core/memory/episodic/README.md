@@ -7,18 +7,18 @@ Esta pasta contém o sistema de memória episódica, responsável por gerenciar 
 ### episodic-memory.js
 Arquivo central que gerencia operações CRUD (criar, ler, atualizar, deletar) para memórias específicas de cada chat. Cada conversa tem sua própria memória isolada, que persiste informações relevantes sobre preferências, decisões e contexto do usuário.
 
-O arquivo implementa curadoria inteligente usando DeepSeek AI antes de armazenar qualquer conteúdo. A IA analisa se o conteúdo é relevante, remove informações sensíveis (senhas, CPF, detalhes de cartão) e sanitiza dados antes do armazenamento. Conteúdo spam, irrelevante ou malicioso é rejeitado automaticamente. Conteúdo válido é limpo mas preserva seu significado essencial.
+O arquivo implementa curadoria inteligente usando DeepSeek AI, antes de armazenar qualquer conteúdo, a chave da api do deepsick esta em .env esta em "C:\Users\edmar\OneDrive\Desktop\Nova pasta\.env" como "DEEPSEEK_API_KEY"  . A IA analisa se o conteúdo é relevante, remove informações sensíveis (senhas, CPF, detalhes de cartão) e sanitiza dados antes do armazenamento. Conteúdo spam, irrelevante ou malicioso é rejeitado automaticamente. Conteúdo válido é limpo mas preserva seu significado essencial.
 
-Cada memória episódica tem um orçamento de 500 palavras. Quando o conteúdo atinge 80% desse limite (400 palavras), o sistema automaticamente comprime a memória para 60% do orçamento (300 palavras), priorizando informações mais importantes. A compressão pode usar IA ou regras determinísticas.
+Cada memória episódica tem um orçamento de 500 palavras. Quando o conteúdo atinge 80% desse limite (400 palavras), o sistema automaticamente comprime a memória para 60% do orçamento (300 palavras), priorizando informações mais importantes. A compressão pode usar IA ou regras determinísticas. 
 
-Memórias têm expiração automática: após 30 dias de inatividade, são arquivadas. Toda atualização renova esse prazo. O arquivo persiste dados no MongoDB através do schema `episodic-memory-schema` e mantém contadores de compressão e timestamps de última compressão para auditoria.
+Memórias episódicas têm expiração automática: após 20 dias de inatividade (inatividade = chat da memoria nao utilizado), são excluidas. Toda atualização no chat renova esse prazo. O arquivo persiste dados no MongoDB através do schema `episodic-memory-schema` e mantém contadores de compressão e timestamps de última compressão para auditoria.
 
 Oferece funções para criar nova memória de chat, atualizar (com merge ou substituição), obter memória atual, comprimir manualmente, arquivar (definir expiração), deletar permanentemente e listar todas as memórias de um usuário.
 
 ### chat-state-manager.js
-Wrapper de alto nível sobre o `episodic-memory.js` que adiciona lógica específica de gerenciamento de estado de chat. Funciona como uma camada de abstração simplificada para operações comuns de ciclo de vida de conversas.
+Wrapper de alto nível sobre o `episodic-memory.js` que adiciona lógica específica de gerenciamento de estado de chat. Funciona como uma camada de abstração simplificada para operações comuns de ciclo de vida de conversas. 
 
-O arquivo oferece interface amigável para inicializar um novo chat (criando sua memória), atualizar o estado da conversa, recuperar o estado atual (retornando apenas o conteúdo da memória, não metadados internos), encerrar um chat (arquivando sua memória para expiração futura) e deletar completamente um chat.
+O arquivo oferece niterface amigável para inicializar um novo chat (criando sua memória), atualizar o estado da conversa, recuperar o estado atual (retornando apenas o conteúdo da memória, não metadados internos), encerrar um chat (arquivando sua memória para expiração futura) e deletar completamente um chat.
 
 Esta camada de abstração facilita a integração com o sistema de chat, isolando a complexidade da gestão de memória. Outros módulos podem usar este arquivo sem precisar entender detalhes internos de curadoria, compressão ou persistência. Delega todas as operações complexas para o `episodic-memory.js`.
 
@@ -27,7 +27,7 @@ Motor responsável por decidir quando e como comprimir memórias episódicas. Mo
 
 A função `needsCompression()` verifica se uma memória está próxima do limite (padrão: 80% do orçamento de 500 palavras, ou seja, 400 palavras). Quando esse threshold é atingido, a função `compressEpisodicMemory()` é chamada para reduzir o tamanho.
 
-A compressão pode acontecer de duas formas: inteligente (usando LLM para decidir o que manter) ou baseada em regras (truncamento e sumarização determinística). O método inteligente é preferível mas requer função LLM configurada. O método baseado em regras é fallback confiável.
+A compressão deve acontecer da seguinte forma: usando LLM deepseeck para decidir o que manter. 
 
 O arquivo define target de compressão: reduzir para 60% do orçamento (300 palavras), deixando margem para crescimento futuro antes da próxima compressão. Retorna metadados sobre o processo: palavras antes e depois, taxa de compressão e método usado.
 
@@ -36,7 +36,7 @@ O arquivo define target de compressão: reduzir para 60% do orçamento (300 pala
 ### relevance-scorer.js
 Sistema de pontuação de relevância usando DeepSeek AI para avaliar a importância de fragmentos de memória. Usado durante compressão para decidir quais informações priorizar e quais descartar.
 
-A função `scoreFragment()` analisa um fragmento de texto e retorna score de 0 a 1 indicando sua relevância. A IA considera cinco fatores: valor estratégico (contém estratégias de investimento?), especificidade (é concreto ou genérico?), unicidade (comportamento único do usuário ou informação comum?), utilidade futura (será útil em conversas futuras?) e contexto de recência (informações recentes têm peso configurável).
+A função `scoreFragment()` analisa um fragmento de texto e retorna score de 0 a 1 indicando sua relevância. A IA considera cinco fatores: valor estratégico (contém estratégias de investimento?), especificidade (é concreto ou genérico?), unicidade (comportamento único do usuário ou informação comum?), utilidade futura (pode ser útil em conversas futuras?) e contexto de recência (informações recentes têm peso configurável).
 
 A análise usa keywords fornecidas como contexto e considera o contexto geral do chat. Se a chamada à IA falhar, um fallback simples usa matching de keywords e recency para calcular score básico.
 

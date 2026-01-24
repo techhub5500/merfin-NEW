@@ -1,8 +1,8 @@
 /**
  * NOTE (working-memory.js):
- * Purpose: Volatile session-based memory for immediate execution context with AI curation.
- * Controls: Per-session key-value storage with AI validation and 700-word budget.
- * Behavior: Automatically cleaned after 40 min inactivity. AI validates all entries.
+ * Purpose: Persistent session-based memory for immediate execution context with AI curation and MongoDB storage.
+ * Controls: Per-session key-value storage with AI validation, 600-word budget, and automatic expiration after 500 hours.
+ * Behavior: Persisted in MongoDB with TTL index, cached in RAM for performance. AI validates all entries.
  * Integration notes: Use for temporary calculations, intermediate results, and current action parameters.
  */
 
@@ -11,13 +11,14 @@ const { callDeepSeekJSON } = require('../../../config/deepseek-config');
 const memoryValidator = require('../shared/memory-validator');
 const wordCounter = require('../shared/word-counter');
 const { MEMORY_BUDGETS } = require('../shared/memory-types');
+const WorkingMemoryModel = require('../../../database/schemas/working-memory-schema');
 
 /**
- * Working Memory - Volatile storage per session with AI curation
+ * Working Memory - Persistent storage per session with AI curation and MongoDB
  */
 class WorkingMemory {
   constructor() {
-    this.sessions = new Map(); // sessionId -> Map(key -> value)
+    this.cache = new Map(); // sessionId -> Map(key -> {value, wordCount, timestamp})
     this.lastAccess = new Map(); // sessionId -> timestamp
   }
 
@@ -84,16 +85,27 @@ Return JSON:
   }
 
   /**
-   * Set a value in working memory for a session (with AI curation)
+   * Set a value in working memory for a session (with AI curation and MongoDB persistence)
    * @param {string} sessionId - Session identifier
    * @param {string} key - Key to store
    * @param {*} value - Value to store
    * @param {boolean} skipCuration - Skip AI curation (use with caution)
+   * @param {string} userId - Optional user ID (will be fetched from session if not provided)
    * @returns {Promise<boolean>} - True if stored successfully
    */
-  async set(sessionId, key, value, skipCuration = false) {
+  async set(sessionId, key, value, skipCuration = false, userId = null) {
     if (!sessionId || !key) {
       throw new Error('sessionId and key are required');
+    }
+
+    // Get userId from session if not provided
+    if (!userId) {
+      const session = sessionStore.getSession(sessionId);
+      if (session) {
+        userId = session.userId;
+      } else {
+        throw new Error('Session not found and userId not provided');
+      }
     }
 
     // AI Curation
@@ -110,23 +122,43 @@ Return JSON:
       console.log(`[WorkingMemory] Entry approved: ${curation.reason}`);
     }
 
-    if (!this.sessions.has(sessionId)) {
-      this.sessions.set(sessionId, new Map());
+    const wordCount = wordCounter.count(value);
+
+    // Check budget (600 words)
+    const currentWords = await this._countSessionWords(sessionId);
+    
+    if (currentWords + wordCount > MEMORY_BUDGETS.WORKING) {
+      console.warn(`[WorkingMemory] Budget exceeded for session ${sessionId}: ${currentWords + wordCount}/${MEMORY_BUDGETS.WORKING} words`);
+      // Remove oldest entries to make space
+      await this._freeSpace(sessionId, wordCount);
+    }
+    
+    // Set expiration (500 hours from now)
+    const expiresAt = new Date(Date.now() + 500 * 60 * 60 * 1000);
+    
+    // Persist to MongoDB
+    try {
+      await WorkingMemoryModel.findOneAndUpdate(
+        { sessionId, key },
+        { 
+          userId,
+          value, 
+          wordCount,
+          createdAt: new Date(),
+          expiresAt
+        },
+        { upsert: true, new: true }
+      );
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to persist to MongoDB: ${error.message}`);
+      return false;
     }
 
-    const sessionMemory = this.sessions.get(sessionId);
-    
-    // Check budget (700 words)
-    const currentWords = this._countSessionWords(sessionId);
-    const newValueWords = wordCounter.count(value);
-    
-    if (currentWords + newValueWords > MEMORY_BUDGETS.WORKING) {
-      console.warn(`[WorkingMemory] Budget exceeded for session ${sessionId}: ${currentWords + newValueWords}/${MEMORY_BUDGETS.WORKING} words`);
-      // Remove oldest entries to make space
-      this._freeSpace(sessionId, newValueWords);
+    // Update cache
+    if (!this.cache.has(sessionId)) {
+      this.cache.set(sessionId, new Map());
     }
-    
-    sessionMemory.set(key, value);
+    this.cache.get(sessionId).set(key, { value, wordCount, timestamp: Date.now() });
     
     // Update last access time
     this.lastAccess.set(sessionId, Date.now());
@@ -138,142 +170,269 @@ Return JSON:
    * Get a value from working memory
    * @param {string} sessionId - Session identifier
    * @param {string} key - Key to retrieve
-   * @returns {*} - Stored value or undefined
+   * @returns {Promise<*>} - Stored value or undefined
    */
-  get(sessionId, key) {
+  async get(sessionId, key) {
     if (!sessionId || !key) return undefined;
 
-    const sessionMemory = this.sessions.get(sessionId);
-    if (!sessionMemory) return undefined;
+    // Check cache first
+    const sessionCache = this.cache.get(sessionId);
+    if (sessionCache && sessionCache.has(key)) {
+      const cached = sessionCache.get(key);
+      // Update last access
+      this.lastAccess.set(sessionId, Date.now());
+      return cached.value;
+    }
 
-    // Update last access time
-    this.lastAccess.set(sessionId, Date.now());
-    
-    return sessionMemory.get(key);
+    // Load from MongoDB
+    try {
+      const doc = await WorkingMemoryModel.findOne({ sessionId, key });
+      if (doc) {
+        // Update cache
+        if (!this.cache.has(sessionId)) {
+          this.cache.set(sessionId, new Map());
+        }
+        this.cache.get(sessionId).set(key, { 
+          value: doc.value, 
+          wordCount: doc.wordCount, 
+          timestamp: Date.now() 
+        });
+        
+        this.lastAccess.set(sessionId, Date.now());
+        return doc.value;
+      }
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to load from MongoDB: ${error.message}`);
+    }
+
+    return undefined;
   }
 
   /**
    * Get all key-value pairs for a session
    * @param {string} sessionId - Session identifier
-   * @returns {object} - Object with all keys and values
+   * @returns {Promise<object>} - Object with all keys and values
    */
-  getAll(sessionId) {
+  async getAll(sessionId) {
     if (!sessionId) return {};
 
-    const sessionMemory = this.sessions.get(sessionId);
-    if (!sessionMemory) return {};
-
-    // Update last access time
-    this.lastAccess.set(sessionId, Date.now());
-
-    // Convert Map to object
-    const result = {};
-    for (const [key, value] of sessionMemory.entries()) {
-      result[key] = value;
+    // Check cache first
+    const sessionCache = this.cache.get(sessionId);
+    if (sessionCache && sessionCache.size > 0) {
+      const result = {};
+      for (const [key, data] of sessionCache.entries()) {
+        result[key] = data.value;
+      }
+      this.lastAccess.set(sessionId, Date.now());
+      return result;
     }
-    return result;
+
+    // Load from MongoDB
+    try {
+      const docs = await WorkingMemoryModel.find({ sessionId });
+      const result = {};
+      const cacheMap = new Map();
+      
+      for (const doc of docs) {
+        result[doc.key] = doc.value;
+        cacheMap.set(doc.key, { 
+          value: doc.value, 
+          wordCount: doc.wordCount, 
+          timestamp: Date.now() 
+        });
+      }
+      
+      // Update cache
+      this.cache.set(sessionId, cacheMap);
+      this.lastAccess.set(sessionId, Date.now());
+      
+      return result;
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to load all from MongoDB: ${error.message}`);
+      return {};
+    }
   }
 
   /**
    * Check if a key exists in session memory
    * @param {string} sessionId - Session identifier
    * @param {string} key - Key to check
-   * @returns {boolean} - True if key exists
+   * @returns {Promise<boolean>} - True if key exists
    */
-  has(sessionId, key) {
+  async has(sessionId, key) {
     if (!sessionId || !key) return false;
 
-    const sessionMemory = this.sessions.get(sessionId);
-    return sessionMemory ? sessionMemory.has(key) : false;
+    // Check cache first
+    const sessionCache = this.cache.get(sessionId);
+    if (sessionCache && sessionCache.has(key)) {
+      return true;
+    }
+
+    // Check MongoDB
+    try {
+      const count = await WorkingMemoryModel.countDocuments({ sessionId, key });
+      return count > 0;
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to check existence in MongoDB: ${error.message}`);
+      return false;
+    }
   }
 
   /**
    * Delete a specific key from session memory
    * @param {string} sessionId - Session identifier
    * @param {string} key - Key to delete
-   * @returns {boolean} - True if key was deleted
+   * @returns {Promise<boolean>} - True if key was deleted
    */
-  delete(sessionId, key) {
+  async delete(sessionId, key) {
     if (!sessionId || !key) return false;
 
-    const sessionMemory = this.sessions.get(sessionId);
-    if (!sessionMemory) return false;
+    // Remove from cache
+    const sessionCache = this.cache.get(sessionId);
+    if (sessionCache) {
+      sessionCache.delete(key);
+    }
 
-    return sessionMemory.delete(key);
+    // Remove from MongoDB
+    try {
+      const result = await WorkingMemoryModel.deleteOne({ sessionId, key });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to delete from MongoDB: ${error.message}`);
+      return false;
+    }
   }
 
   /**
    * Clear all memory for a session
    * @param {string} sessionId - Session identifier
    */
-  clear(sessionId) {
+  async clear(sessionId) {
     if (!sessionId) return;
 
-    this.sessions.delete(sessionId);
+    // Clear cache
+    this.cache.delete(sessionId);
     this.lastAccess.delete(sessionId);
+
+    // Clear from MongoDB
+    try {
+      await WorkingMemoryModel.deleteMany({ sessionId });
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to clear from MongoDB: ${error.message}`);
+    }
   }
 
   /**
-   * Clear all expired sessions (inactive for > timeout)
-   * @param {number} timeoutMs - Timeout in milliseconds (default: 30 minutes)
-   * @returns {number} - Number of sessions cleared
+   * Clear all expired sessions (inactive for > timeout) - Note: MongoDB TTL handles automatic expiration
+   * @param {number} timeoutMs - Timeout in milliseconds (default: 500 minutes)
+   * @returns {Promise<number>} - Number of sessions cleared
    */
-  clearExpired(timeoutMs = CLEANUP_RULES.WORKING_SESSION_TIMEOUT) {
+  async clearExpired(timeoutMs = CLEANUP_RULES.WORKING_SESSION_TIMEOUT) {
     const now = Date.now();
     let cleared = 0;
 
+    // Clear from cache based on last access
     for (const [sessionId, lastAccessTime] of this.lastAccess.entries()) {
       if (now - lastAccessTime > timeoutMs) {
-        this.sessions.delete(sessionId);
+        this.cache.delete(sessionId);
         this.lastAccess.delete(sessionId);
         cleared++;
       }
     }
 
+    // MongoDB TTL will handle persistence expiration automatically after 500 hours
     return cleared;
   }
 
   /**
    * Get statistics about working memory usage
-   * @returns {object} - Memory statistics
+   * @returns {Promise<object>} - Memory statistics
    */
-  getStats() {
-    const activeSessions = this.sessions.size;
-    const totalKeys = Array.from(this.sessions.values()).reduce((sum, m) => sum + m.size, 0);
+  async getStats() {
+    const activeSessions = this.cache.size;
+    const totalKeys = Array.from(this.cache.values()).reduce((sum, m) => sum + m.size, 0);
     
     let totalWords = 0;
-    for (const sessionId of this.sessions.keys()) {
-      totalWords += this._countSessionWords(sessionId);
+    for (const sessionId of this.cache.keys()) {
+      totalWords += await this._countSessionWords(sessionId);
     }
     
-    return {
-      activeSessions,
-      totalKeys,
-      totalWords,
-      avgKeysPerSession: activeSessions > 0 ? totalKeys / activeSessions : 0,
-      avgWordsPerSession: activeSessions > 0 ? (totalWords / activeSessions).toFixed(1) : 0
-    };
+    // Also get DB stats
+    try {
+      const dbStats = await WorkingMemoryModel.aggregate([
+        {
+          $group: {
+            _id: '$sessionId',
+            keys: { $sum: 1 },
+            words: { $sum: '$wordCount' }
+          }
+        }
+      ]);
+      
+      const dbSessions = dbStats.length;
+      const dbKeys = dbStats.reduce((sum, s) => sum + s.keys, 0);
+      const dbWords = dbStats.reduce((sum, s) => sum + s.words, 0);
+      
+      return {
+        cache: {
+          activeSessions,
+          totalKeys,
+          totalWords,
+          avgKeysPerSession: activeSessions > 0 ? totalKeys / activeSessions : 0,
+          avgWordsPerSession: activeSessions > 0 ? (totalWords / activeSessions).toFixed(1) : 0
+        },
+        database: {
+          totalSessions: dbSessions,
+          totalKeys: dbKeys,
+          totalWords: dbWords,
+          avgKeysPerSession: dbSessions > 0 ? dbKeys / dbSessions : 0,
+          avgWordsPerSession: dbSessions > 0 ? (dbWords / dbSessions).toFixed(1) : 0
+        }
+      };
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to get DB stats: ${error.message}`);
+      return {
+        cache: {
+          activeSessions,
+          totalKeys,
+          totalWords,
+          avgKeysPerSession: activeSessions > 0 ? totalKeys / activeSessions : 0,
+          avgWordsPerSession: activeSessions > 0 ? (totalWords / activeSessions).toFixed(1) : 0
+        },
+        database: null
+      };
+    }
   }
 
   /**
    * Count words in a session
    * @param {string} sessionId - Session identifier
-   * @returns {number} - Word count
+   * @returns {Promise<number>} - Word count
    * @private
    */
-  _countSessionWords(sessionId) {
-    const sessionMemory = this.sessions.get(sessionId);
-    
-    if (!sessionMemory) {
+  async _countSessionWords(sessionId) {
+    // Check cache first
+    const sessionCache = this.cache.get(sessionId);
+    if (sessionCache) {
+      let totalWords = 0;
+      for (const data of sessionCache.values()) {
+        totalWords += data.wordCount;
+      }
+      return totalWords;
+    }
+
+    // Count from MongoDB
+    try {
+      const result = await WorkingMemoryModel.aggregate([
+        { $match: { sessionId } },
+        { $group: { _id: null, totalWords: { $sum: '$wordCount' } } }
+      ]);
+      
+      return result.length > 0 ? result[0].totalWords : 0;
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to count words from MongoDB: ${error.message}`);
       return 0;
     }
-
-    let totalWords = 0;
-    for (const value of sessionMemory.values()) {
-      totalWords += wordCounter.count(value);
-    }
-
-    return totalWords;
   }
 
   /**
@@ -282,35 +441,48 @@ Return JSON:
    * @param {number} wordsNeeded - Words to free
    * @private
    */
-  _freeSpace(sessionId, wordsNeeded) {
-    const sessionMemory = this.sessions.get(sessionId);
-    
-    if (!sessionMemory) {
-      return;
-    }
+  async _freeSpace(sessionId, wordsNeeded) {
+    try {
+      // Get all entries for session, sorted by createdAt (oldest first)
+      const entries = await WorkingMemoryModel.find({ sessionId }).sort({ createdAt: 1 });
+      
+      let wordsFreed = 0;
+      for (const entry of entries) {
+        if (wordsFreed >= wordsNeeded) {
+          break;
+        }
 
-    // Convert to array and sort by insertion order (Map preserves order, so oldest first)
-    const entries = Array.from(sessionMemory.entries());
-
-    let wordsFreed = 0;
-    for (const [key, value] of entries) {
-      if (wordsFreed >= wordsNeeded) {
-        break;
+        // Remove from DB
+        await WorkingMemoryModel.deleteOne({ _id: entry._id });
+        
+        // Remove from cache if present
+        const sessionCache = this.cache.get(sessionId);
+        if (sessionCache) {
+          sessionCache.delete(entry.key);
+        }
+        
+        wordsFreed += entry.wordCount;
+        console.log(`[WorkingMemory] Removed key '${entry.key}' to free space (${entry.wordCount} words)`);
       }
-
-      const entryWords = wordCounter.count(value);
-      sessionMemory.delete(key);
-      wordsFreed += entryWords;
-      console.log(`[WorkingMemory] Removed key '${key}' to free space (${entryWords} words)`);
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to free space in MongoDB: ${error.message}`);
     }
   }
 
   /**
    * Clear all sessions (use with caution)
    */
-  clearAll() {
-    this.sessions.clear();
+  async clearAll() {
+    // Clear cache
+    this.cache.clear();
     this.lastAccess.clear();
+
+    // Clear from MongoDB
+    try {
+      await WorkingMemoryModel.deleteMany({});
+    } catch (error) {
+      console.error(`[WorkingMemory] Failed to clear all from MongoDB: ${error.message}`);
+    }
   }
 }
 

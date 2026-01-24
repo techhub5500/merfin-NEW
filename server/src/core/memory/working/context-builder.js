@@ -14,9 +14,9 @@ const sessionStore = require('./session-store');
  * @param {object} options - Context options
  * @param {string[]} options.keys - Specific keys to include from working memory
  * @param {boolean} options.includeMetadata - Include session metadata
- * @returns {object} - Complete context object
+ * @returns {Promise<object>} - Complete context object
  */
-function buildContext(sessionId, options = {}) {
+async function buildContext(sessionId, options = {}) {
   const { keys = null, includeMetadata = true } = options;
 
   const context = {
@@ -44,14 +44,14 @@ function buildContext(sessionId, options = {}) {
     // Get specific keys only
     context.memory = {};
     for (const key of keys) {
-      const value = workingMemory.get(sessionId, key);
+      const value = await workingMemory.get(sessionId, key);
       if (value !== undefined) {
         context.memory[key] = value;
       }
     }
   } else {
     // Get all working memory
-    context.memory = workingMemory.getAll(sessionId);
+    context.memory = await workingMemory.getAll(sessionId);
   }
 
   return context;
@@ -62,7 +62,7 @@ function buildContext(sessionId, options = {}) {
  * @param {string} sessionId - Session identifier
  * @param {object} updates - Key-value pairs to update
  */
-function updateContext(sessionId, updates) {
+async function updateContext(sessionId, updates) {
   if (!updates || typeof updates !== 'object') {
     throw new Error('Updates must be an object');
   }
@@ -70,9 +70,15 @@ function updateContext(sessionId, updates) {
   // Renew session activity
   sessionStore.renewActivity(sessionId);
 
+  // Get userId from session
+  const session = sessionStore.getSession(sessionId);
+  if (!session) {
+    throw new Error('Session not found');
+  }
+
   // Update working memory
   for (const [key, value] of Object.entries(updates)) {
-    workingMemory.set(sessionId, key, value);
+    await workingMemory.set(sessionId, key, value, false, session.userId);
   }
 }
 
@@ -81,13 +87,13 @@ function updateContext(sessionId, updates) {
  * @param {string} sessionId - Session identifier
  * @param {string[]} keys - Keys to clear
  */
-function clearContextKeys(sessionId, keys) {
+async function clearContextKeys(sessionId, keys) {
   if (!Array.isArray(keys)) {
     throw new Error('Keys must be an array');
   }
 
   for (const key of keys) {
-    workingMemory.delete(sessionId, key);
+    await workingMemory.delete(sessionId, key);
   }
 }
 
@@ -95,8 +101,8 @@ function clearContextKeys(sessionId, keys) {
  * Clear entire context for session
  * @param {string} sessionId - Session identifier
  */
-function clearContext(sessionId) {
-  workingMemory.clear(sessionId);
+async function clearContext(sessionId) {
+  await workingMemory.clear(sessionId);
 }
 
 module.exports = {

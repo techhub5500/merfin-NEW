@@ -1498,6 +1498,41 @@ body.sidebar-collapsed .sidebar__toggle-icon {
     gap: 14px;
     scroll-behavior: smooth;
     scrollbar-width: thin;
+
+/* Confirmation modal for deleting chat */
+.confirm-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+}
+.confirm-modal.open {
+    display: flex;
+}
+.confirm-modal__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+}
+.confirm-modal__container {
+    position: relative;
+    background: var(--color-surface-elevated);
+    padding: 18px;
+    border-radius: 12px;
+    width: 420px;
+    max-width: calc(100% - 40px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    z-index: 2;
+}
+.confirm-modal__header { margin-bottom: 8px; }
+.confirm-modal__title { margin: 0; font-size: 1.05rem; }
+.confirm-modal__body { margin-bottom: 12px; }
+.confirm-modal__footer { display:flex; gap:8px; justify-content: flex-end; }
+.confirm-cancel, .confirm-ok { padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; }
+.confirm-cancel { background: transparent; color: var(--text-muted); }
+.confirm-ok { background: var(--color-primary); color: white; }
     scrollbar-color: rgba(65, 65, 65, 0.85) transparent;
 }
 

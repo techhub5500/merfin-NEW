@@ -15,10 +15,12 @@ const MEMORY_SCOPES = {
 
 // Word budgets for each memory type
 const MEMORY_BUDGETS = {
-  WORKING: 700,             // 700 words per session (40 min de sessão)
-  EPISODIC: 500,            // 500 words per chat
-  LONG_TERM: 400            // 400 words total for user profile
+  WORKING: 700,
+  EPISODIC: 500,
+  LONG_TERM: 3500,              // Total: 3500 palavras
+  LONG_TERM_PER_CATEGORY: 350   // Por categoria: 350 palavras
 };
+
 
 // Impact score thresholds
 const IMPACT_THRESHOLDS = {
@@ -33,13 +35,17 @@ const SIMILARITY_THRESHOLDS = {
   DUPLICATE_THRESHOLD: 0.9  // Threshold for detecting duplicates
 };
 
-// Long-term memory categories
-const LTM_CATEGORIES = {
-  COMMUNICATION: 'comunicacao',           // User communication style
-  FINANCIAL_PROFILE: 'perfil_financeiro', // Financial behavior and preferences
-  BEHAVIORAL: 'comportamental',           // Behavioral patterns
-  GOALS: 'objetivos',                     // Long-term objectives
-  PLATFORM_RELATION: 'relacao_plataforma' // Relationship with platform
+LTM_CATEGORIES = {
+  PERFIL_PROFISSIONAL: 'perfil_profissional',
+  SITUACAO_FINANCEIRA: 'situacao_financeira',
+  INVESTIMENTOS: 'investimentos',
+  OBJETIVOS_METAS: 'objetivos_metas',
+  COMPORTAMENTO_GASTOS: 'comportamento_gastos',
+  PERFIL_RISCO: 'perfil_risco',
+  CONHECIMENTO_FINANCEIRO: 'conhecimento_financeiro',
+  PLANEJAMENTO_FUTURO: 'planejamento_futuro',
+  FAMILIA_DEPENDENTES: 'familia_dependentes',
+  RELACAO_PLATAFORMA: 'relacao_plataforma'
 };
 
 // Memory item structure for long-term

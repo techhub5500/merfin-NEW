@@ -7,7 +7,7 @@ Esta pasta contém módulos utilitários reutilizados por todos os tipos de mem�
 ### memory-types.js
 Arquivo central que define todas as constantes, orçamentos e thresholds do sistema de memória. Funciona como fonte única da verdade para valores configuráveis relacionados à memória.
 
-Define três escopos de memória: **WORKING** (volátil, por sessão, 700 palavras), **EPISODIC** (persistente por chat, 500 palavras, expira após inatividade) e **LONG_TERM** (persistente cross-chat, 400 palavras, curadoria rigorosa).
+Define três escopos de memória: **WORKING** (volátil, por sessão, 600 palavras), **EPISODIC** (persistente por chat, 500 palavras, expira após inatividade) e **LONG_TERM** (persistente cross-chat, 400 palavras, curadoria rigorosa).
 
 Os orçamentos de palavras são estrategicamente definidos: Working tem mais espaço pois armazena temporariamente contexto de raciocínio complexo. Episódica é intermediária para contexto de conversa. Long-term é mais restrita pois armazena apenas informações altamente relevantes permanentes.
 

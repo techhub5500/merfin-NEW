@@ -6,6 +6,10 @@
  * Integration notes: Uses LongTermMemory schema, vector-store.js for embeddings, memory-curator.js for validation.
  */
 
+const { getCategoryDefinition } = require('./category-definitions');
+const { MEMORY_BUDGETS } = require('../shared/memory-types');
+
+
 const LongTermMemoryModel = require('../../../database/schemas/long-term-memory-schema');
 const memoryCurator = require('./memory-curator');
 const memoryMerger = require('./memory-merger');
@@ -44,6 +48,18 @@ async function propose(userId, content, category, sourceChats = []) {
     }
   }
 
+  // Verificar orçamento POR CATEGORIA
+const categoryBudget = MEMORY_BUDGETS.LONG_TERM_PER_CATEGORY;
+const categoryItems = ltm ? ltm.getByCategory(category) : [];
+const categoryWordCount = categoryItems.reduce((sum, item) => 
+  sum + wordCounter.count(item.content), 0
+);
+
+if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
+  // Descartar memórias de menor impacto DESTA CATEGORIA
+  await discardLowImpactFromCategory(userId, category, wordCounter.count(curatedContent));
+}
+
   // Generate vector embedding
   const vectorId = await vectorStore.storeEmbedding(userId, curatedContent, { category, impactScore });
 
@@ -75,11 +91,16 @@ async function propose(userId, content, category, sourceChats = []) {
       }
     });
   } else {
-    // Check budget
-    const newWordCount = ltm.totalWordCount + wordCounter.count(curatedContent);
-    if (newWordCount > MEMORY_BUDGETS.LONG_TERM) {
-      // Need to discard low-impact memories
-      await discardLowImpact(userId, wordCounter.count(curatedContent));
+    // Check budget PER CATEGORY (não mais budget global)
+    const categoryBudget = MEMORY_BUDGETS.LONG_TERM_PER_CATEGORY; // 350 palavras
+    const categoryItems = ltm.getByCategory(category);
+    const categoryWordCount = categoryItems.reduce((sum, item) => 
+      sum + wordCounter.count(item.content), 0
+    );
+
+    if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
+      // Discard low-impact memories FROM THIS CATEGORY ONLY
+      await discardLowImpactFromCategory(userId, category, wordCounter.count(curatedContent));
     }
 
     // Add new item
@@ -199,8 +220,10 @@ async function discardLowImpact(userId, spaceNeeded) {
     return 0;
   }
 
+
   // Sort by impact (ascending)
   const sorted = [...ltm.memoryItems].sort((a, b) => a.impactScore - b.impactScore);
+
 
   let wordsFreed = 0;
   const toRemove = [];
@@ -228,6 +251,45 @@ async function discardLowImpact(userId, spaceNeeded) {
   console.log(`[LTM] Discarded ${toRemove.length} low-impact memories, freed ${wordsFreed} words`);
   return wordsFreed;
 }
+
+/**
+ * Discard low-impact memories from specific category
+ * @param {string} userId - User ID
+ * @param {string} category - Category name
+ * @param {number} spaceNeeded - Words needed
+ * @returns {Promise<number>} - Words freed
+ */
+async function discardLowImpactFromCategory(userId, category, spaceNeeded) {
+  const ltm = await LongTermMemoryModel.findOne({ userId });
+  if (!ltm) return 0;
+
+  // Get items from this category only, sorted by impact (ascending)
+  const categoryItems = ltm.getByCategory(category)
+    .sort((a, b) => a.impactScore - b.impactScore);
+
+  let wordsFreed = 0;
+  const toRemove = [];
+
+  for (const item of categoryItems) {
+    if (wordsFreed >= spaceNeeded) break;
+
+    const itemWords = wordCounter.count(item.content);
+    wordsFreed += itemWords;
+    toRemove.push(item._id);
+
+    if (item.vectorId) {
+      await vectorStore.deleteEmbedding(item.vectorId);
+    }
+  }
+
+  ltm.memoryItems = ltm.memoryItems.filter(item => !toRemove.includes(item._id));
+  ltm.totalWordCount -= wordsFreed;
+  await ltm.save();
+
+  console.log(`[LTM] Discarded ${toRemove.length} low-impact memories from category '${category}', freed ${wordsFreed} words`);
+  return wordsFreed;
+}
+
 
 /**
  * Get memory statistics
@@ -275,5 +337,6 @@ module.exports = {
   merge,
   calculateImpact,
   discardLowImpact,
-  getStats
+  getStats,
+  discardLowImpactFromCategory
 };

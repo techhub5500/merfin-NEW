@@ -1,6 +1,27 @@
 # Long-Term Memory - Memória Permanente do Usuário
 
-Esta pasta contém o sistema de memória de longo prazo (LTM), responsável por armazenar informações importantes do usuário que transcendem conversas individuais, formando um perfil permanente e curado.
+Sistema de memória permanente organizado em **10 categorias temáticas**, totalizando **3500 palavras**. Cada categoria tem orçamento de **350 palavras** com compressão automática individual.
+
+## Categorias de Memória (350 palavras cada)
+
+1. **perfil_profissional** - Carreira, emprego, renda, histórico profissional
+2. **situacao_financeira** - Patrimônio, dívidas, contas, fluxo de caixa
+3. **investimentos** - Ativos, estratégias, performance, alocação
+4. **objetivos_metas** - Metas financeiras, prazos, prioridades
+5. **comportamento_gastos** - Padrões de consumo, hábitos, preferências
+6. **perfil_risco** - Tolerância a risco, preferências de investimento
+7. **conhecimento_financeiro** - Nível de conhecimento, aprendizados
+8. **planejamento_futuro** - Aposentadoria, grandes compras, projetos
+9. **familia_dependentes** - Dependentes, responsabilidades familiares
+10. **relacao_plataforma** - Preferências de comunicação, feedback, uso da ferramenta
+
+## Características Especiais
+
+### Personalização com Nome
+Memórias sempre usam o nome do usuário (ex: "João precisa poupar R$ 500/mês") ao invés de "O usuário". Isso melhora legibilidade e permite que o usuário visualize suas próprias memórias de forma natural.
+
+### Controle do Usuário
+O usuário pode visualizar e excluir memórias por categoria através de uma interface que sera criada porteriormente. Cada categoria é apresentada de forma clara com seus itens organizados por impact score.
 
 ## Arquivos e Responsabilidades
 
@@ -11,7 +32,7 @@ O fluxo principal começa com `propose()`: quando uma memória candidata é subm
 
 Antes de armazenar, o sistema verifica duplicatas usando similarity search. Se encontrar memória similar existente, faz merge inteligente ao invés de criar duplicata. Cada memória recebe um embedding vetorial para busca semântica futura.
 
-O sistema mantém orçamento rígido de 400 palavras total. Quando o limite é atingido, memórias com menor impact score são descartadas automaticamente para abrir espaço. A função `retrieve()` oferece busca semântica vetorial ou filtragem por categoria e impact score.
+O sistema mantém orçamento rígido de 3500 palavras total. Quando o limite é atingido, memórias com menor impact score são descartadas automaticamente para abrir espaço. A função `retrieve()` oferece busca semântica vetorial ou filtragem por categoria e impact score.
 
 A função `merge()` extrai informações de alto impacto de memórias episódicas (conversas individuais) e promove para LTM permanente. Oferece também cálculo de impact score e estatísticas de curadoria (total proposto, aceito, rejeitado).
 
@@ -25,6 +46,21 @@ Quarto, calcula impact score usando IA: análise de recorrência, impacto estrut
 Se conteúdo refinado ainda for verboso, aplica compressão adicional para 80 palavras. Retorna resultado estruturado: aceito/rejeitado, razão, conteúdo curado e impact score.
 
 A função `extractHighImpact()` analisa memórias episódicas usando IA, identificando informações dignas de promoção para LTM. Extrai candidatos com reasoning explicando por que cada um tem alto impacto.
+
+### category-definitions.js
+Define as 10 categorias de LTM com prompts especializados para cada uma. Cada categoria tem:
+
+- **Nome identificador** e **label em português**
+- **Prompt especializado** que instrui a IA sobre o que extrair e como formular memórias ideais
+- **Exemplos** de boas memórias para a categoria
+- **Critérios de impact score** específicos
+
+Prompts são usados por `memory-curator.js` durante extração e curadoria. Cada prompt instrui sobre:
+- Que informações são valiosas naquela categoria
+- Como formular memórias (usar nome do usuário, ser específico, incluir datas/valores)
+- O que evitar (genericidade, informações temporárias)
+
+Categorias são balanceadas: cada uma pode armazenar 350 palavras, permitindo profundidade adequada sem desperdício de orçamento.
 
 ### memory-merger.js
 Detecta e funde memórias duplicadas ou muito similares para evitar redundância no perfil de longo prazo.
@@ -74,6 +110,6 @@ Camada de abstração para armazenamento vetorial (Pinecone/Qdrant), permitindo 
 
 **Importante**: O arquivo está configurado para usar Pinecone ou Qdrant mas a integração real ainda não está implementada. Atualmente usa armazenamento em memória volátil (Map global) como fallback temporário. Logs CRÍTICOS alertam que memórias serão perdidas em restart do servidor.
 
-A implementação real requer configurar variáveis de ambiente: `VECTOR_STORE_PROVIDER` (pinecone/qdrant), `VECTOR_STORE_URL`, `VECTOR_STORE_API_KEY`, `VECTOR_INDEX_NAME`. Comentários no código mostram estrutura das chamadas SDK para implementação futura.
+A implementação real requer configurar variáveis de ambiente: `VECTOR_STORE_PROVIDER` (pinecone), `VECTOR_STORE_URL`, `VECTOR_STORE_API_KEY`, `VECTOR_INDEX_NAME`. Comentários no código mostram estrutura das chamadas SDK para implementação futura.
 
 Usado por `long-term-memory.js` para armazenamento e busca, e por `memory-merger.js` para detecção de similaridade.

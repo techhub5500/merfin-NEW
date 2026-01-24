@@ -6,6 +6,8 @@
  * Integration notes: Uses hard-rules.js, memory-compressor.js, relevance-calculator.js, and DeepSeek v3.
  */
 
+const { getCategoryDefinition } = require('./category-definitions');
+
 const hardRules = require('../shared/hard-rules');
 const memoryCompressor = require('../shared/memory-compressor');
 const relevanceCalculator = require('./relevance-calculator');
@@ -140,28 +142,44 @@ Return refined version (max 100 words):`;
  * @returns {Promise<Array>} - Candidate memories
  */
 async function extractHighImpact(episodicData) {
+  const { getCategoryDefinition, getAllCategories } = require('./category-definitions');
+  const userName = episodicData.userName || 'Usuário';
   try {
-    const systemPrompt = `You are a memory extraction AI for a financial investment system.
-Analyze episodic memory data and extract high-impact information worthy of permanent storage.
+     const systemPrompt = `Você é um extrator de memórias de longo prazo para sistema financeiro.
+Analise a memória episódica e extraia informações de ALTO IMPACTO para armazenamento permanente.
 
-Look for:
-- User preferences and risk tolerance
-- Strategic goals and financial objectives
-- Recurring behavioral patterns
-- Important investment decisions
-- Valuable domain knowledge and insights
+IMPORTANTE: Use sempre o NOME DO USUÁRIO ao formular memórias.
+NOME DO USUÁRIO: ${userName}
 
-Return structured candidates for long-term memory.`;
+Ao formular memórias, sempre use "${userName}" ao invés de "o usuário" ou "ele/ela".
+
+CATEGORIAS DISPONÍVEIS:
+${getAllCategories().map(cat => {
+  const def = getCategoryDefinition(cat);
+  return `- ${cat}: ${def.description}`;
+}).join('\n')}
+
+Para cada informação valiosa encontrada:
+1. Identifique a categoria mais apropriada
+2. Formule a memória usando o NOME do usuário (${userName})
+3. Seja específico com valores e datas
+4. Avalie o impact score (0.0-1.0)
+
+Extraia apenas informações que:
+- Sejam duradouras e relevantes
+- Tenham impacto em decisões futuras
+- Sejam específicas e acionáveis
+- Mereçam armazenamento permanente (score >= 0.7)`;
 
     const userPrompt = `Extract high-impact information from this episodic memory:
 
 ${JSON.stringify(episodicData, null, 2)}
 
-Return JSON array of candidates:
+Return JSON array of candidates com o nome "${userName}":
 [
   {
-    "content": "<extracted information>",
-    "category": "<one of: user_preferences, strategic_goals, behavior_patterns, critical_decisions, domain_knowledge>",
+    "content": "<extracted information usando '${userName}'>",
+    "category": "<uma das categorias listadas acima>",
     "reasoning": "<why this is high-impact>"
   }
 ]`;
@@ -243,14 +261,17 @@ async function extractHighImpactFallback(episodicData) {
  */
 function mapKeyToCategory(key) {
   const mapping = {
-    preferences: LTM_CATEGORIES.USER_PREFERENCES,
-    goals: LTM_CATEGORIES.STRATEGIC_GOALS,
-    patterns: LTM_CATEGORIES.BEHAVIOR_PATTERNS,
-    decisions: LTM_CATEGORIES.CRITICAL_DECISIONS,
-    learnings: LTM_CATEGORIES.DOMAIN_KNOWLEDGE
+    // Map common episodic keys to the canonical LTM categories defined
+    // in `shared/memory-types.js` / `category-definitions.js`.
+    preferences: LTM_CATEGORIES.RELACAO_PLATAFORMA,
+    goals: LTM_CATEGORIES.OBJETIVOS_METAS,
+    patterns: LTM_CATEGORIES.COMPORTAMENTO_GASTOS,
+    decisions: LTM_CATEGORIES.PLANEJAMENTO_FUTURO,
+    learnings: LTM_CATEGORIES.CONHECIMENTO_FINANCEIRO
   };
 
-  return mapping[key] || LTM_CATEGORIES.USER_PREFERENCES;
+  // Default to a safe, broad category for generic preferences
+  return mapping[key] || LTM_CATEGORIES.RELACAO_PLATAFORMA;
 }
 
 /**
