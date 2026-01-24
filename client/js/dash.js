@@ -19,6 +19,7 @@
  * - dash-data.js (dados e funções de renderização)
  * - lucide (ícones)
  * - main.js (funcionalidades compartilhadas)
+ * - chat-history-modal.js (modal de histórico de chats)
  * 
  * ESTRUTURA:
  * 1. Chat
@@ -29,6 +30,11 @@
  * 
  * ============================================================================
  */
+
+// ============================================================================
+// IMPORTS
+// ============================================================================
+import { initChatHistoryModal } from './chat-history-modal.js';
 
 'use strict';
 
@@ -1021,7 +1027,12 @@ function initDashboard(){
 
 // Executar quando DOM estiver pronto
 if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', initDashboard);
+  document.addEventListener('DOMContentLoaded', () => {
+    initDashboard();
+    initChatHistoryModal();
+  });
 } else {
   initDashboard();
+  initChatHistoryModal();
 }
+

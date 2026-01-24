@@ -6,6 +6,11 @@
  */
 
 // ============================================================================
+// IMPORTS
+// ============================================================================
+import { initChatHistoryModal } from './chat-history-modal.js';
+
+// ============================================================================
 // CONSTANTS & CONFIGURATION
 // ============================================================================
 
@@ -63,7 +68,7 @@ const getUserId = () => {
         return null;
     }
 }
-};
+
 
 // ============================================================================
 // SIDEBAR MANAGER MODULE
@@ -501,78 +506,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const app = new InvestmentDashboardApp();
     app.init();
 
-    // Make app instance globally accessible for debugging
+    // Make app instance and chat manager globally accessible
     if (typeof window !== 'undefined') {
         window.investApp = app;
+        // Expose InvestmentDashboard with chatManager for cross-module access
+        window.InvestmentDashboard = {
+            chatManager: app.chatManager
+        };
     }
+    
+    // Initialize chat history modal
+    initChatHistoryModal();
 });
 
-/* === CHAT HISTORY MODAL INITIALIZER (for pages without main.js) === */
-function initChatHistoryModalForInvest() {
-    const historyButtons = document.querySelectorAll('.chat-quick-btn--history');
-    const modal = document.getElementById('chat-history-modal');
-
-    if (!modal) return; // nothing to do
-
-    const overlayCloseEls = modal.querySelectorAll('[data-action="close"]');
-    const closeBtn = modal.querySelector('.chat-history-close');
-    const tabs = Array.from(modal.querySelectorAll('.chat-tab'));
-    const contentSection = modal.querySelector('.chat-history-content');
-    const memoriesSection = modal.querySelector('.chat-memories');
-    const btnMemories = modal.querySelector('.btn-memories');
-    const btnExitMemories = modal.querySelector('.btn-exit-memories');
-
-    const selectTab = (tabEl) => {
-        if (!tabEl) return;
-        tabs.forEach(t => {
-            t.classList.remove('active');
-            t.setAttribute('aria-selected', 'false');
-        });
-        tabEl.classList.add('active');
-        tabEl.setAttribute('aria-selected', 'true');
-        const list = modal.querySelector('.chat-history-list');
-        if (list) list.innerHTML = `<p class="muted">Conversas de <strong>${tabEl.dataset.chat}</strong> (carregamento não implementado)</p>`;
-    };
-
-    const openModal = (pageName) => {
-        modal.setAttribute('aria-hidden', 'false');
-        modal.classList.add('open');
-        const target = tabs.find(t => t.dataset.chat === pageName) || tabs[0];
-        selectTab(target);
-    };
-
-    const closeModal = () => {
-        modal.setAttribute('aria-hidden', 'true');
-        modal.classList.remove('open');
-        if (memoriesSection) memoriesSection.hidden = true;
-        if (contentSection) contentSection.hidden = false;
-    };
-
-    tabs.forEach(t => t.addEventListener('click', () => selectTab(t)));
-
-    historyButtons.forEach(btn => btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const pageName = document.documentElement.dataset.page || 'Home';
-        openModal(pageName);
-    }));
-
-    overlayCloseEls.forEach(el => el.addEventListener('click', closeModal));
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-
-    if (btnMemories) btnMemories.addEventListener('click', () => {
-        if (contentSection) contentSection.hidden = true;
-        if (memoriesSection) memoriesSection.hidden = false;
-    });
-
-    if (btnExitMemories) btnExitMemories.addEventListener('click', () => {
-        if (memoriesSection) memoriesSection.hidden = true;
-        if (contentSection) contentSection.hidden = false;
-    });
-}
-
-// Ensure modal initializer runs on invest page
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initChatHistoryModalForInvest);
-} else {
-    initChatHistoryModalForInvest();
-}
