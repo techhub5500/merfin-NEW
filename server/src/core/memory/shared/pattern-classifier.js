@@ -1,12 +1,13 @@
 /**
  * NOTE (pattern-classifier.js):
- * Purpose: Classificação inteligente de memórias usando padrões (substitui chamada de IA)
- * Controls: 15 regras estratégicas cobrindo ~70% dos casos, fallback para casos complexos
- * Behavior: Analisa texto e classifica em working/episodic/longTerm usando regex + keywords
- * Integration notes: Substitui classifyInteraction() com IA, economizando ~1800 tokens/mensagem
+ * Purpose: Classificação inteligente de memórias usando padrões + category detector
+ * Controls: Sistema híbrido com detecção avançada de categorias por scoring
+ * Behavior: Usa category-detector para LTM, mantém lógica para working/episodic
+ * Integration notes: 100% sem IA, economia de ~1800 tokens/mensagem, alta precisão
  */
 
 const { LTM_CATEGORIES } = require('./memory-types');
+const categoryDetector = require('./category-detector');
 
 /**
  * Core patterns estratégicos (10-15 regras cobrindo 60-70% dos casos)
@@ -185,61 +186,32 @@ function classifyInteraction({ userMessage, aiResponse, history = [], userName =
     }
   }
 
-  // 2. LONG-TERM MEMORY - Informações duradouras
-  const ltmCandidates = [];
+  // 2. LONG-TERM MEMORY - Usa category detector inteligente com scoring
+  console.log('[PatternClassifier] 🎯 Detectando categorias relevantes...');
+  
+  // Detecta top 3 categorias usando scoring inteligente
+  const detectedCategories = categoryDetector.detectCategories(userMessage, {
+    workingMemory: result.working.length > 0 ? {} : null // passa contexto se houver
+  });
 
-  // Verifica padrões duráveis (sempre, nunca, prefiro)
-  for (const pattern of PATTERNS.longTerm.durable) {
-    if (pattern.test(userMessage)) {
-      ltmCandidates.push({
-        content: extractRelevantSentence(userMessage, pattern),
-        category: categorizeByKeywords(userMessage),
-        reason: 'Padrão durável identificado (sempre/nunca/prefiro)'
-      });
-      break; // Um padrão durável é suficiente
-    }
-  }
+  console.log('[PatternClassifier] 📊 Categorias detectadas:', detectedCategories.map(d => `${d.category} (score: ${d.score})`).join(', '));
 
-  // Verifica informações financeiras estruturais
-  for (const pattern of PATTERNS.longTerm.financial) {
-    if (pattern.test(userMessage)) {
-      ltmCandidates.push({
-        content: extractRelevantSentence(userMessage, pattern),
-        category: LTM_CATEGORIES.SITUACAO_FINANCEIRA,
-        reason: 'Informação financeira estrutural (renda/investimento/patrimônio)'
-      });
-      break;
-    }
-  }
-
-  // Verifica perfil profissional
-  for (const pattern of PATTERNS.longTerm.professional) {
-    if (pattern.test(userMessage)) {
-      ltmCandidates.push({
-        content: extractRelevantSentence(userMessage, pattern),
-        category: LTM_CATEGORIES.PERFIL_PROFISSIONAL,
-        reason: 'Informação profissional identificada'
-      });
-      break;
-    }
-  }
-
-  // Verifica objetivos e metas
-  for (const pattern of PATTERNS.longTerm.goals) {
-    if (pattern.test(userMessage)) {
-      ltmCandidates.push({
-        content: extractRelevantSentence(userMessage, pattern),
-        category: LTM_CATEGORIES.OBJETIVOS_METAS,
-        reason: 'Objetivo ou meta identificado'
-      });
-      break;
-    }
-  }
+  // Cria candidatos LTM apenas para categorias com score > 30 (confiança mínima)
+  const ltmCandidates = detectedCategories
+    .filter(d => d.score >= 30) // filtra scores muito baixos
+    .map(d => ({
+      content: categoryDetector.extractRelevantInfo(userMessage, d.category),
+      category: d.category,
+      reason: d.reason,
+      score: d.score
+    }));
 
   // Formata com nome do usuário
   result.longTerm = ltmCandidates.map(c => ({
-    ...c,
-    content: `${userName} ${c.content}`
+    content: `${userName} ${c.content}`,
+    category: c.category,
+    reason: c.reason,
+    score: c.score
   }));
 
   console.log('[PatternClassifier] 📊 Long-term candidates encontrados:', result.longTerm.length);

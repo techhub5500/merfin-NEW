@@ -19,10 +19,12 @@ class JuniorAgent extends BaseAgent {
     super('JuniorAgent');
 
     this.model = 'gpt-5-nano';
-    // Limite de tokens de saída (aumentado para garantir espaço após reasoning)
-    this.max_output_tokens = 800;
-    // Esforço médio de reasoning para balancear qualidade e tokens disponíveis
-    this.reasoning_effort = 'medium';
+    // Limite de tokens de saída (aumentado significativamente para evitar truncamento)
+    // 2000 tokens garante espaço suficiente mesmo com reasoning habilitado
+    this.max_output_tokens = 2000;
+    // Esforço baixo de reasoning para economizar tokens e garantir resposta completa
+    // "low" usa menos tokens de reasoning, deixando mais espaço para a resposta
+    this.reasoning_effort = 'low';
 
   }
 
@@ -84,34 +86,44 @@ class JuniorAgent extends BaseAgent {
         }
       }
 
-      // Converte histórico para formato do agente
-      const agentHistory = chatIntegration.convertHistoryForAgent(history || []);
+      // Converte histórico para formato do agente (limita a últimas 5 mensagens para economizar tokens)
+      const agentHistory = chatIntegration.convertHistoryForAgent(history || []).slice(-5);
 
-      // Construir contexto com histórico + memória - System Prompt otimizado
-      let contextualInput = 'Você é um assistente financeiro prestativo. Responda de forma clara, objetiva e concisa em português brasileiro. Seja direto e útil.\n\n';
+      // Construir contexto com histórico + memória - System Prompt ultra otimizado
+      let contextualInput = 'Assistente financeiro. Respostas claras e concisas em português.\n\n';
       
-      // Add memory context if available
+      // Add memory context if available (formato compacto)
       if (memoryContext) {
         const formattedContext = memoryIntegration.formatContextForPrompt(memoryContext);
         if (formattedContext) {
-          contextualInput += '## Contexto da Memória:\n';
+          contextualInput += '## Contexto:\n';
           contextualInput += formattedContext;
-          contextualInput += '---\n\n';
+          contextualInput += '\n';
         }
       }
       
-      // Adiciona histórico ao contexto
+      // Adiciona histórico ao contexto (formato compacto, apenas se houver)
       if (agentHistory.length > 0) {
-        contextualInput += 'Histórico da conversa:\n';
+        contextualInput += 'Histórico:\n';
         agentHistory.forEach(msg => {
-          const role = msg.role === 'user' ? 'Usuário' : 'Assistente';
-          contextualInput += `${role}: ${msg.content}\n`;
+          const prefix = msg.role === 'user' ? 'U:' : 'A:';
+          contextualInput += `${prefix} ${msg.content}\n`;
         });
         contextualInput += '\n';
       }
       
       // Adiciona mensagem atual
-      contextualInput += `Usuário: ${message}\n\nAssistente:`;
+      contextualInput += `U: ${message}\nA:`;
+
+      // Log breakdown do prompt (para análise de tokens)
+      console.log('[JuniorAgent] 📝 PROMPT BREAKDOWN:', {
+        total_chars: contextualInput.length,
+        system_prompt_chars: 'Assistente financeiro. Respostas claras e concisas em português.\n\n'.length,
+        has_memory_context: !!memoryContext,
+        history_messages: agentHistory.length,
+        message_chars: message.length,
+        estimated_tokens: Math.ceil(contextualInput.length / 4)
+      });
 
       // Generate response using gpt-5-nano API
       const response = await openai.responses.create({
@@ -120,10 +132,65 @@ class JuniorAgent extends BaseAgent {
         max_output_tokens: this.max_output_tokens,
         reasoning: { effort: this.reasoning_effort },
       });
+      
+      // Log detalhado de consumo de tokens (SEMPRE)
+      if (response?.usage) {
+        const usage = response.usage;
+        const inputTokens = usage.input_tokens || 0;
+        const outputTokens = usage.output_tokens || 0;
+        const reasoningTokens = usage.output_tokens_details?.reasoning_tokens || 0;
+        const totalTokens = usage.total_tokens || 0;
+        
+        // Cálculo de custo (valores para gpt-5-nano)
+        const inputCost = (inputTokens / 1000) * 0.0002;
+        const reasoningCost = (reasoningTokens / 1000) * 0.0032;
+        const outputCost = ((outputTokens - reasoningTokens) / 1000) * 0.0008;
+        const totalCost = inputCost + reasoningCost + outputCost;
+        
+        console.log('[JuniorAgent] 💰 CONSUMO DE TOKENS:', {
+          input: inputTokens,
+          output: outputTokens,
+          reasoning: reasoningTokens,
+          output_real: outputTokens - reasoningTokens,
+          total: totalTokens,
+          custo_input: `$${inputCost.toFixed(6)}`,
+          custo_reasoning: `$${reasoningCost.toFixed(6)}`,
+          custo_output: `$${outputCost.toFixed(6)}`,
+          custo_total: `$${totalCost.toFixed(6)}`
+        });
+      }
+      
       const responseText = this._extractResponseText(response);
 
+      // Log detalhado se resposta vazia
       if (!responseText) {
-        console.error('[JuniorAgent] Resposta vazia da API:', JSON.stringify(response));
+        console.error('[JuniorAgent] ❌ Resposta vazia da API');
+        console.error('[JuniorAgent] 📊 Status:', response?.status || 'unknown');
+        console.error('[JuniorAgent] 📊 Incomplete reason:', response?.incomplete_details?.reason || 'none');
+        
+        // Se foi por max_output_tokens, tenta novamente sem reasoning
+        if (response?.incomplete_details?.reason === 'max_output_tokens') {
+          console.log('[JuniorAgent] 🔄 Tentando novamente SEM reasoning...');
+          try {
+            const retryResponse = await openai.responses.create({
+              model: this.model,
+              input: contextualInput,
+              max_output_tokens: this.max_output_tokens,
+              // Sem reasoning desta vez
+            });
+            const retryText = this._extractResponseText(retryResponse);
+            if (retryText) {
+              console.log('[JuniorAgent] ✅ Retry bem-sucedido!');
+              return {
+                response: retryText,
+                sessionId: sessionId,
+                timestamp: new Date().toISOString()
+              };
+            }
+          } catch (retryError) {
+            console.error('[JuniorAgent] ❌ Retry falhou:', retryError.message);
+          }
+        }
       }
 
       const finalResponse = responseText || 'Desculpe, não consegui gerar uma resposta.';

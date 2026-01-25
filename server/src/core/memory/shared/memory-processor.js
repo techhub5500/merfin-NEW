@@ -12,6 +12,7 @@ const longTermMemory = require('../longTerm/long-term-memory');
 const { callOpenAIJSON } = require('../../../config/openai-config');
 const { LTM_CATEGORIES } = require('./memory-types');
 const patternClassifier = require('./pattern-classifier');
+const narrativeEngine = require('./narrative-engine');
 
 /**
  * Processar memórias após interação
@@ -81,11 +82,15 @@ async function processMemories(context) {
       console.log('[MemoryProcessor] ⏭️ Nenhum item para Working Memory');
     }
     
-    // Episodic Memory - armazena contexto da conversa
+    // Episodic Memory - armazena contexto da conversa com eventos estruturados
     if (classification.episodic) {
       console.log('[MemoryProcessor] 📖 Adicionando Episodic Memory ao processamento');
       promises.push(
-        processEpisodicMemory(chatId, userId, classification.episodic)
+        processEpisodicMemory(chatId, userId, classification.episodic, {
+          userMessage,
+          aiResponse,
+          history
+        })
       );
     } else {
       console.log('[MemoryProcessor] ⏭️ Nenhum dado para Episodic Memory');
@@ -261,34 +266,80 @@ async function processWorkingMemory(sessionId, userId, workingData) {
 }
 
 /**
- * Processar Episodic Memory
+ * Processar Episodic Memory com eventos estruturados e resumo narrativo
  */
-async function processEpisodicMemory(chatId, userId, episodicData) {
+async function processEpisodicMemory(chatId, userId, episodicData, rawInteraction) {
   console.log('[Episodic] 🚀 INÍCIO - Processando Episodic Memory');
   console.log('[Episodic] 📊 Chat ID:', chatId);
-  console.log('[Episodic] 📦 Dados episódicos:', episodicData);
   
   try {
     // Verifica se chat já tem memória
     console.log('[Episodic] 🔍 Verificando se chat já possui memória...');
     const existing = await episodicMemory.get(chatId);
     
+    // Extrai evento estruturado da interação atual
+    const event = narrativeEngine.extractEvent(
+      rawInteraction.userMessage,
+      rawInteraction.aiResponse,
+      { category: episodicData.categoria_principal || 'geral' }
+    );
+    
+    console.log('[Episodic] 🎯 Evento extraído:', event);
+    
+    let narrative = '';
+    let events = [event];
+    
     if (existing) {
       console.log('[Episodic] ✏️ Chat possui memória existente, atualizando...');
-      console.log('[Episodic] 📝 Memória atual:', existing.episodicMemory);
-      // Atualiza memória existente
-      await episodicMemory.update(chatId, episodicData, {
+      
+      // Recupera eventos anteriores (se estiverem armazenados)
+      if (existing.episodicMemory.events) {
+        events = [...existing.episodicMemory.events, event];
+      }
+      
+      // Reconstrói narrativa completa com limite de 750 palavras
+      narrative = narrativeEngine.eventsToNarrative(events, 750);
+      
+      console.log('[Episodic] 📝 Narrativa atualizada:', {
+        total_events: events.length,
+        palavras: narrative.split(' ').length
+      });
+      
+      // Atualiza memória com evento + narrativa compacta
+      const updatedData = {
+        ...episodicData,
+        narrative_summary: narrative,
+        events: events.slice(-20), // mantém últimos 20 eventos estruturados
+        last_interaction: new Date().toISOString()
+      };
+      
+      await episodicMemory.update(chatId, updatedData, {
         merge: true,
         autoCompress: true
       });
+      
       console.log('[Episodic] ✅ Memória atualizada com sucesso');
-      return { type: 'episodic', status: 'updated', chatId };
+      return { type: 'episodic', status: 'updated', chatId, events_count: events.length };
+      
     } else {
       console.log('[Episodic] 🆕 Chat sem memória, criando nova...');
-      // Cria nova memória para o chat
-      await episodicMemory.create(chatId, userId, episodicData);
+      
+      // Cria narrativa inicial
+      narrative = narrativeEngine.eventsToNarrative([event], 750);
+      
+      // Cria nova memória com evento + narrativa
+      const initialData = {
+        ...episodicData,
+        narrative_summary: narrative,
+        events: [event],
+        created_at: new Date().toISOString(),
+        last_interaction: new Date().toISOString()
+      };
+      
+      await episodicMemory.create(chatId, userId, initialData);
+      
       console.log('[Episodic] ✅ Nova memória criada com sucesso');
-      return { type: 'episodic', status: 'created', chatId };
+      return { type: 'episodic', status: 'created', chatId, events_count: 1 };
     }
     
   } catch (error) {

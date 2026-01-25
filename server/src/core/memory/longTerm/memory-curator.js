@@ -92,18 +92,12 @@ async function curate(content, category, context = {}) {
   }
   console.log('[Curator] ✅ Step 4 - Impact score aceitável');
 
-  // Step 5: Refine content with LLM
-  console.log('[Curator] 🤖 Step 5 - Refinando conteúdo com LLM...');
-  let refinedContent = content;
-  
-  try {
-    refinedContent = await refineWithLLM(content, category, impactScore);
-    console.log('[Curator] ✅ Step 5 - Conteúdo refinado com sucesso');
-    console.log('[Curator] 📝 Antes:', content.substring(0, 100) + '...');
-    console.log('[Curator] 📝 Depois:', refinedContent.substring(0, 100) + '...');
-  } catch (error) {
-    console.warn('[Curator] ⚠️ Step 5 - Refinamento LLM falhou, usando original:', error.message);
-  }
+  // Step 5: Refine content (RULE-BASED, sem AI)
+  console.log('[Curator] 🔧 Step 5 - Refinando conteúdo com regras...');
+  let refinedContent = refineWithRules(content, category, impactScore);
+  console.log('[Curator] ✅ Step 5 - Conteúdo refinado');
+  console.log('[Curator] 📝 Antes:', content.substring(0, 100) + '...');
+  console.log('[Curator] 📝 Depois:', refinedContent.substring(0, 100) + '...');
 
   // Step 6: Compress if too verbose
   const wordCount = refinedContent.split(/\s+/).length;
@@ -137,13 +131,105 @@ async function curate(content, category, context = {}) {
 }
 
 /**
- * Refine content with DeepSeek AI
+ * Refine content using RULE-BASED logic (substitui AI, zero custo)
+ * @param {string} content - Original content
+ * @param {string} category - Memory category
+ * @param {number} impactScore - Impact score
+ * @returns {string} - Refined content
+ */
+function refineWithRules(content, category, impactScore) {
+  console.log('[Curator.Rules] 🔧 Refinando com lógica baseada em regras...');
+  
+  let refined = content;
+
+  // 1. Remove ruído e redundâncias
+  refined = refined
+    .replace(/\b(muito|bastante|bem|super|mega)\s+/gi, '') // intensificadores desnecessários
+    .replace(/\b(tipo|assim|né|sabe)\b/gi, '') // gírias
+    .replace(/\s{2,}/g, ' ') // espaços duplos
+    .trim();
+
+  // 2. Padroniza valores monetários
+  refined = refined.replace(/R\$\s*(\d+)[.,](\d+)/g, 'R$ $1.$2');
+  refined = refined.replace(/reais/gi, 'R$');
+
+  // 3. Remove timestamps se presentes (já temos metadata)
+  refined = refined.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/g, '');
+  refined = refined.replace(/\d{2}\/\d{2}\/\d{4}/g, '');
+
+  // 4. Extrai informação estrutural chave por categoria
+  if (category === LTM_CATEGORIES.SITUACAO_FINANCEIRA) {
+    // Mantém apenas: nome + valor + periodicidade
+    const match = refined.match(/(\w+).*?(R\$\s*[\d.,]+).*?(mensal|anual|por mês|ao ano)?/i);
+    if (match) {
+      const name = match[1];
+      const value = match[2];
+      const period = match[3] || 'mensal';
+      refined = `${name} possui renda de ${value} ${period}`;
+    }
+  }
+
+  if (category === LTM_CATEGORIES.OBJETIVOS_METAS) {
+    // Mantém: nome + objetivo + prazo
+    const match = refined.match(/(\w+).*?(comprar|adquirir|juntar|economizar|investir).*?(\d+\s*(anos?|meses?))?/i);
+    if (match) {
+      const name = match[1];
+      const goal = match[2];
+      const timeframe = match[3] || 'futuro';
+      refined = `${name} deseja ${goal} em ${timeframe}`;
+    }
+  }
+
+  if (category === LTM_CATEGORIES.PERFIL_RISCO) {
+    // Mantém: nome + perfil
+    const match = refined.match(/(\w+).*?(conservador|moderado|arrojado|agressivo)/i);
+    if (match) {
+      refined = `${match[1]} possui perfil ${match[2].toLowerCase()}`;
+    }
+  }
+
+  if (category === LTM_CATEGORIES.INVESTIMENTOS) {
+    // Mantém: nome + tipo + valor
+    const typeMatch = refined.match(/(CDB|tesouro|ações|fundos|LCI|LCA|poupança)/i);
+    const valueMatch = refined.match(/R\$\s*[\d.,]+/);
+    if (typeMatch) {
+      const investment = typeMatch[0];
+      const value = valueMatch ? valueMatch[0] : '';
+      const nameMatch = refined.match(/^(\w+)/);
+      const name = nameMatch ? nameMatch[1] : 'Usuário';
+      refined = value 
+        ? `${name} possui ${value} em ${investment}`
+        : `${name} investe em ${investment}`;
+    }
+  }
+
+  // 5. Capitaliza primeira letra
+  refined = refined.charAt(0).toUpperCase() + refined.slice(1);
+
+  // 6. Garante ponto final
+  if (!/[.!?]$/.test(refined)) {
+    refined += '.';
+  }
+
+  console.log('[Curator.Rules] ✅ Refinamento concluído');
+  console.log('[Curator.Rules] 📊 Redução:', {
+    antes: content.length,
+    depois: refined.length,
+    economia: `${(((content.length - refined.length) / content.length) * 100).toFixed(1)}%`
+  });
+
+  return refined;
+}
+
+/**
+ * DEPRECATED: Refine content with AI (substituído por regras)
+ * Mantido para rollback se necessário
  * @param {string} content - Original content
  * @param {string} category - Memory category
  * @param {number} impactScore - Impact score
  * @returns {Promise<string>} - Refined content
  */
-async function refineWithLLM(content, category, impactScore) {
+async function refineWithLLM_DEPRECATED(content, category, impactScore) {
   console.log('[Curator.LLM] 🤖 Chamando OpenAI para refinamento...');
   console.log('[Curator.LLM] 📊 Parâmetros:', { category, impactScore: impactScore.toFixed(2) });
   

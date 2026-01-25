@@ -256,52 +256,64 @@ async function endSession(sessionId) {
 }
 
 /**
- * Format context for AI prompt
+ * Format context for AI prompt (VERSÃO COMPACTA COM RESUMO NARRATIVO)
  * @param {object} context - Context from buildAgentContext
  * @returns {string} - Formatted context string for prompt
  */
 function formatContextForPrompt(context) {
   let formatted = '';
 
-  // Working Memory
+  // Working Memory (compacto)
   if (context.workingMemory && Object.keys(context.workingMemory).length > 0) {
-    formatted += '## Memória de Trabalho (Sessão Atual):\n';
+    formatted += '### Sessão:\n';
     for (const [key, value] of Object.entries(context.workingMemory)) {
-      formatted += `- ${key}: ${JSON.stringify(value)}\n`;
+      formatted += `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}\n`;
     }
     formatted += '\n';
   }
 
-  // Episodic Memory
+  // Episodic Memory - NOVO: Usa resumo narrativo ao invés de JSON completo
   if (context.episodicMemory) {
-    formatted += '## Contexto da Conversa:\n';
-    formatted += JSON.stringify(context.episodicMemory, null, 2) + '\n\n';
-  }
-
-  // Category Descriptions (NEW: Dynamic summaries of user profile by category)
-  if (context.categoryDescriptions && Object.keys(context.categoryDescriptions).length > 0) {
-    formatted += '## Resumo do Perfil do Usuário:\n';
-    for (const [category, description] of Object.entries(context.categoryDescriptions)) {
-      // Format category name (convert snake_case to Title Case)
-      const categoryLabel = category
-        .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-      formatted += `- **${categoryLabel}**: ${description}\n`;
+    formatted += '### Resumo da Conversa:\n';
+    
+    // Prioriza narrative_summary se disponível (mais compacto!)
+    if (context.episodicMemory.narrative_summary) {
+      formatted += context.episodicMemory.narrative_summary + '\n';
+    } else {
+      // Fallback: formato antigo (apenas campos não vazios)
+      if (context.episodicMemory.contexto_conversa && 
+          context.episodicMemory.contexto_conversa !== 'Nenhum contexto disponível') {
+        formatted += context.episodicMemory.contexto_conversa + '\n';
+      }
+      if (context.episodicMemory.preferencias_mencionadas && 
+          context.episodicMemory.preferencias_mencionadas !== 'Nenhuma preferência explícita') {
+        formatted += `Preferências: ${context.episodicMemory.preferencias_mencionadas}\n`;
+      }
+      if (context.episodicMemory.decisoes_tomadas && 
+          context.episodicMemory.decisoes_tomadas !== 'Nenhuma decisão explícita') {
+        formatted += `Decisões: ${context.episodicMemory.decisoes_tomadas}\n`;
+      }
     }
     formatted += '\n';
   }
 
-  // Long-Term Memory
+  // Category Descriptions (compacto - máximo 2 categorias mais relevantes)
+  if (context.categoryDescriptions && Object.keys(context.categoryDescriptions).length > 0) {
+    formatted += '### Perfil:\n';
+    const entries = Object.entries(context.categoryDescriptions).slice(0, 2);
+    for (const [category, description] of entries) {
+      const label = category.replace(/_/g, ' ');
+      formatted += `${label}: ${description}\n`;
+    }
+    formatted += '\n';
+  }
+
+  // Long-Term Memory (compacto - máximo 3 memórias)
   if (context.longTermMemory && context.longTermMemory.length > 0) {
-    formatted += '## Informações Importantes sobre o Usuário:\n';
-    for (const memory of context.longTermMemory) {
-      // Format category name
-      const categoryLabel = memory.category
-        .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-      formatted += `- [${categoryLabel}] ${memory.content}\n`;
+    formatted += '### Info Importante:\n';
+    const topMemories = context.longTermMemory.slice(0, 3);
+    for (const memory of topMemories) {
+      formatted += `• ${memory.content}\n`;
     }
     formatted += '\n';
   }
