@@ -407,9 +407,9 @@ Qualidade: ✅ MELHOR (scoring mais preciso)
 ### Se algo não funcionar:
 
 1. **Rollback disponível:**
-   - `category-detector.js` → pattern-classifier.js (antigo)
-   - `refineWithRules()` → `refineWithLLM_DEPRECATED()`
-   - `narrative-engine.js` → desabilitar events, usar formato antigo
+  - `category-detector.js` → pattern-classifier.js (antigo)
+  - `refineWithRules()` → (antigo: refineWithLLM) — versão AI removida
+  - `narrative-engine.js` → desabilitar events, usar formato antigo
 
 2. **Logs para debug:**
    - Todos os componentes logam entrada/saída

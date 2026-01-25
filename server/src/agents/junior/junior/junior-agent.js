@@ -18,7 +18,7 @@ class JuniorAgent extends BaseAgent {
   constructor() {
     super('JuniorAgent');
 
-    this.model = 'gpt-5-nano';
+    this.model = 'gpt-5-mini';
     // Limite de tokens de saída (aumentado significativamente para evitar truncamento)
     // 2000 tokens garante espaço suficiente mesmo com reasoning habilitado
     this.max_output_tokens = 2000;
@@ -125,7 +125,7 @@ class JuniorAgent extends BaseAgent {
         estimated_tokens: Math.ceil(contextualInput.length / 4)
       });
 
-      // Generate response using gpt-5-nano API
+      // Generate response using gpt-5-mini API
       const response = await openai.responses.create({
         model: this.model,
         input: contextualInput,
@@ -141,7 +141,7 @@ class JuniorAgent extends BaseAgent {
         const reasoningTokens = usage.output_tokens_details?.reasoning_tokens || 0;
         const totalTokens = usage.total_tokens || 0;
         
-        // Cálculo de custo (valores para gpt-5-nano)
+        // Cálculo de custo (valores para gpt-5-mini)
         const inputCost = (inputTokens / 1000) * 0.0002;
         const reasoningCost = (reasoningTokens / 1000) * 0.0032;
         const outputCost = ((outputTokens - reasoningTokens) / 1000) * 0.0008;

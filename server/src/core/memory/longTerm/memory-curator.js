@@ -229,52 +229,7 @@ function refineWithRules(content, category, impactScore) {
  * @param {number} impactScore - Impact score
  * @returns {Promise<string>} - Refined content
  */
-async function refineWithLLM_DEPRECATED(content, category, impactScore) {
-  console.log('[Curator.LLM] 🤖 Chamando OpenAI para refinamento...');
-  console.log('[Curator.LLM] 📊 Parâmetros:', { category, impactScore: impactScore.toFixed(2) });
-  
-  try {
-    const systemPrompt = `You are a memory curator for a financial investment system.
-Refine memories for long-term storage by keeping only the most essential and impactful information.
-
-Guidelines:
-- Preserve key facts, preferences, and strategic information
-- Remove noise, redundancy, and temporary details
-- Keep actionable insights and patterns
-- Maintain clarity and specificity
-- Identify event date from context (or use today's date if unclear)
-- Memory MUST start with "Em DD/MM/YYYY, " prefix
-- Maximum 60 words (including date prefix)`;
-
-    const userPrompt = `Refine this memory for long-term storage:
-
-Category: ${category}
-Impact Score: ${impactScore.toFixed(2)}
-Original: ${content}
-
-MANDATORY FORMAT:
-- Start with "Em DD/MM/YYYY, " where date is the event date (extract from context or use today)
-- Follow with refined content
-- Total max 60 words
-
-Return refined version:`;
-
-    console.log('[Curator.LLM] 📤 Enviando para OpenAI...');
-    const refined = await callOpenAI(systemPrompt, userPrompt, {
-      max_tokens: 200,
-      temperature: 0.3 // Low temperature for consistency
-    });
-
-    console.log('[Curator.LLM] ✅ Resposta recebida da OpenAI');
-    console.log('[Curator.LLM] 📊 Mudança de tamanho:', content.length, '→', refined.length, 'chars');
-    console.log('[Curator.LLM] 📝 Conteúdo refinado:', refined);
-    return refined;
-
-  } catch (error) {
-    console.error('[Curator.LLM] ❌ OpenAI refinement failed:', error.message);
-    return content; // Fallback to original
-  }
-}
+// (AI-based refinement removed - deprecated implementation deleted)
 
 /**
  * Extract high-impact information from episodic memory using AI

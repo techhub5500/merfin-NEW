@@ -274,28 +274,14 @@
 4. ✅ `relevance-calculator.js` - agora usa sempre fallback
 
 ### Funções IA Originais:
-- Renomeadas com sufixo `_AI_DEPRECATED`
-- Mantidas no código para referência/rollback
-- Não são mais chamadas por padrão
+-- Versões IA antigas foram removidas do código (implementações IA legadas removidas)
+- Operações agora usam implementações determinísticas/refatoradas
 
 ---
 
 ## 🔄 Rollback (se necessário)
 
-Para voltar a usar IA:
-```javascript
-// Em memory-processor.js:
-const classification = await classifyInteraction_AI_DEPRECATED({...});
-
-// Em working-memory.js:
-const result = await this._curateValue_AI_DEPRECATED(key, value);
-
-// Em episodic-memory.js:
-const result = await _curateContent_AI_DEPRECATED(content, chatId);
-
-// Em relevance-calculator.js:
-const score = await calculate_AI_DEPRECATED(content, context);
-```
+-- As implementações IA legadas foram removidas. Para rollback, restaure um commit anterior no controle de versão.
 
 ---
 

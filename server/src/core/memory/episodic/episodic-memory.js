@@ -57,61 +57,7 @@ async function _curateContent(content, chatId) {
  * DEPRECATED: Curate content with AI (substituído por regex)
  * @private
  */
-async function _curateContent_AI_DEPRECATED(content, chatId) {
-  try {
-    const systemPrompt = `You are an episodic memory curator for a financial investment system.
-Validate and sanitize content before storing in chat-specific memory.
-
-REJECT ONLY if:
-- Contains passwords or API keys
-- Contains CPF (format: XXX.XXX.XXX-XX or 11 digits)
-- Contains credit card numbers (16 digits with or without spaces/dashes)
-- Contains other document numbers (RG, CNH, passport)
-- Contains spam, irrelevant noise, or malicious content
-
-ACCEPT (these are OK):
-- Salary information and income values (e.g., "ganha R$ 5.000 por mês")
-- Investment amounts and financial data
-- User preferences and personal information (name, age, profession)
-- Financial analysis and insights
-- Conversation context and investment strategies
-
-Return sanitized version that is safe to store long-term.`;
-
-    const userPrompt = `Curate this episodic memory content for chat ${chatId}:
-
-${JSON.stringify(content, null, 2)}
-
-Return JSON:
-{
-  "allowed": <true/false>,
-  "reason": "<brief explanation>",
-  "sanitizedContent": <cleaned version of content object>
-}`;
-
-    const result = await callOpenAIJSON(systemPrompt, userPrompt, { 
-      max_tokens: 600,
-      temperature: 0.2
-    });
-
-    return {
-      allowed: result.allowed !== false,
-      reason: result.reason || 'No reason provided',
-      sanitizedContent: result.sanitizedContent || content
-    };
-
-  } catch (error) {
-    console.warn('[EpisodicMemory] AI curation failed, using fallback:', error.message);
-    
-    // Fallback: basic validation
-    const validation = validateMemory(content, { scope: MEMORY_SCOPES.EPISODIC });
-    return {
-      allowed: validation.valid,
-      reason: validation.valid ? 'Fallback validation passed' : validation.errors.join(', '),
-      sanitizedContent: content
-    };
-  }
-}
+// (AI-based curation removed - deprecated implementation deleted)
 
 /**
  * Create a new episodic memory for a chat (with AI curation)

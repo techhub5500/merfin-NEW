@@ -57,66 +57,7 @@ class WorkingMemory {
     }
   }
 
-  /**
-   * DEPRECATED: Validate value with AI curation (substituído por regex)
-   * @private
-   */
-  async _curateValue_AI_DEPRECATED(key, value) {
-    try {
-      const systemPrompt = `You are a working memory curator for a financial investment system.
-Validate if this data should be stored in temporary working memory.
-
-REJECT if:
-- Contains sensitive data (passwords, API keys, tokens, CPF, credit card numbers, CVV)
-- Is irrelevant noise or spam
-- Is duplicate/redundant information
-
-ACCEPT if:
-- User's first name or nickname (for personalization)
-- Temporary calculation results
-- Intermediate processing data
-- Current session context
-- User preferences for current action
-- Financial analysis intermediate results
-
-IMPORTANT: First names like "John", "Maria", "Edmar" are OK and should be ACCEPTED for personalization.`;
-
-      const userPrompt = `Validate this working memory entry:
-
-Key: "${key}"
-Value: ${JSON.stringify(value)}
-
-Return JSON:
-{
-  "allowed": <true/false>,
-  "reason": "<brief explanation>",
-  "sanitizedValue": <cleaned value if modifications needed, or original>
-}`;
-
-      const result = await callOpenAIJSON(systemPrompt, userPrompt, { 
-        max_tokens: 200,
-        temperature: 0.2 // Very deterministic for validation
-      });
-
-      return {
-        allowed: result.allowed !== false, // Default to true if not specified
-        reason: result.reason || 'No reason provided',
-        sanitizedValue: result.sanitizedValue !== undefined ? result.sanitizedValue : value
-      };
-
-    } catch (error) {
-      console.warn('[WorkingMemory] AI curation failed, using fallback validation:', error.message);
-      
-      // Fallback: simple validation
-      const validation = memoryValidator.validateMemory(value, { scope: 'working' });
-      
-      return {
-        allowed: validation.valid,
-        reason: validation.valid ? 'Fallback validation passed' : validation.errors.join(', '),
-        sanitizedValue: value
-      };
-    }
-  }
+  // (AI-based curation removed - deprecated implementation deleted)
 
   /**
    * Set a value in working memory for a session (with AI curation and MongoDB persistence)

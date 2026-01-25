@@ -143,101 +143,7 @@ async function processMemories(context) {
   }
 }
 
-/**
- * Classificar interação usando IA (DEPRECADO - usar pattern-classifier.js)
- * NOTA: Esta função está desabilitada para economizar tokens.
- * Use patternClassifier.classifyInteraction() ao invés.
- * Mantida apenas para referência/rollback se necessário.
- * @param {object} interaction - Dados da interação
- * @param {string} interaction.userName - Nome do usuário
- * @returns {Promise<object>} - Classificação { working: [], episodic: {}, longTerm: [] }
- */
-async function classifyInteraction_AI_DEPRECATED({ userMessage, aiResponse, history, userName = 'o usuário' }) {
-  const systemPrompt = `Você é um classificador de memórias para sistema financeiro.
-Analise a interação usuário-IA e classifique informações para armazenamento.
-
-TIPOS DE MEMÓRIA:
-
-1. WORKING MEMORY (temporária, sessão atual):
-   - Cálculos intermediários
-   - Parâmetros de ação atual
-   - Contexto imediato de raciocínio
-   - Dados que só importam AGORA
-
-2. EPISODIC MEMORY (contexto do chat):
-   - Preferências mencionadas na conversa
-   - Decisões tomadas neste chat
-   - Contexto específico desta interação
-   - Informações que podem ser úteis nas próximas mensagens DESTE chat
-   - Use PRIMEIRA PESSOA ao descrever suas respostas: "EU respondi" ao invés de "a IA respondeu"
-
-3. LONG-TERM MEMORY (perfil permanente):
-   - Informações duradouras sobre o usuário
-   - Padrões comportamentais identificados
-   - Decisões estratégicas importantes
-   - Dados que devem ser lembrados SEMPRE
-   - SEMPRE use o nome do usuário (${userName}) ao formular memórias long-term
-
-CATEGORIAS LONG-TERM (use exatamente estes nomes):
-${Object.values(LTM_CATEGORIES).map(cat => `- ${cat}`).join('\n')}
-
-REGRAS:
-- Mesma informação pode ir para múltiplas memórias
-- Working: apenas se cálculo/raciocínio precisa ser continuado
-- Episodic: sempre que houver contexto relevante para o chat
-- Long-term: apenas informações de ALTO IMPACTO e duradouras
-- Long-term: SEMPRE use "${userName}" ao invés de "o usuário"`;
-
-  const userPrompt = `Classifique esta interação:
-
-MENSAGEM DO USUÁRIO:
-${userMessage}
-
-RESPOSTA DA IA:
-${aiResponse}
-
-HISTÓRICO (últimas 3 mensagens):
-${JSON.stringify(history?.slice(-3) || [], null, 2)}
-
-Retorne JSON:
-{
-  "working": [
-    { "key": "nome_variavel", "value": "valor", "reason": "por que é working" }
-  ],
-  "episodic": {
-    "contexto_conversa": "resumo do que aconteceu (use primeira pessoa: 'EU respondi' ao invés de 'a IA respondeu')",
-    "preferencias_mencionadas": "preferências citadas",
-    "decisoes_tomadas": "decisões do usuário"
-  },
-  "longTerm": [
-    {
-      "content": "informação usando o nome ${userName}",
-      "category": "uma das categorias válidas",
-      "reason": "por que é long-term"
-    }
-  ]
-}
-
-Se não houver dados para algum tipo, retorne array/objeto vazio.`;
-
-  try {
-    const result = await callOpenAIJSON(systemPrompt, userPrompt, {
-      max_tokens: 1000,
-      temperature: 0.3
-    });
-    
-    return {
-      working: result.working || [],
-      episodic: result.episodic || {},
-      longTerm: result.longTerm || []
-    };
-    
-  } catch (error) {
-    console.error('[MemoryProcessor] Erro na classificação:', error);
-    // Fallback: classificação vazia
-    return { working: [], episodic: {}, longTerm: [] };
-  }
-}
+// (AI-based classification removed - deprecated implementation deleted)
 
 /**
  * Processar Working Memory
@@ -407,5 +313,4 @@ async function processLongTermMemory(userId, chatId, longTermData) {
 module.exports = {
   processMemories,
   classifyInteraction: patternClassifier.classifyInteraction
-  // classifyInteraction_AI_DEPRECATED disponível internamente para rollback se necessário
 };
