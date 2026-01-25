@@ -13,6 +13,7 @@ const { compress } = require('../shared/memory-compressor');
 const { MEMORY_SCOPES, MEMORY_BUDGETS } = require('../shared/memory-types');
 const { CLEANUP_RULES, COMPRESSION_TRIGGERS } = require('../shared/hard-rules');
 const { callOpenAIJSON } = require('../../../config/openai-config');
+const contentValidator = require('../shared/content-validator');
 
 // Debug: Verify CLEANUP_RULES is properly loaded
 console.log('[EpisodicMemory] 🔍 CLEANUP_RULES loaded:', {
@@ -22,7 +23,7 @@ console.log('[EpisodicMemory] 🔍 CLEANUP_RULES loaded:', {
 });
 
 /**
- * Curate content with AI before storing in episodic memory
+ * Curate content with REGEX PATTERNS (substitui IA, economiza ~600 tokens)
  * @param {object} content - Content to curate
  * @param {string} chatId - Chat identifier for context
  * @returns {Promise<Object>} - {allowed: boolean, reason: string, sanitizedContent: object}
@@ -30,19 +31,50 @@ console.log('[EpisodicMemory] 🔍 CLEANUP_RULES loaded:', {
  */
 async function _curateContent(content, chatId) {
   try {
+    console.log('[EpisodicMemory] 🔍 Validando com REGEX (sem IA)...');
+    
+    // Usa validação por padrões ao invés de IA
+    const result = contentValidator.validateEpisodicMemory(content, chatId);
+    
+    console.log('[EpisodicMemory] Validação:', result.allowed ? '✓ APROVADO' : '✗ REJEITADO', `-`, result.reason);
+    
+    return result;
+
+  } catch (error) {
+    console.warn('[EpisodicMemory] Erro na validação, usando fallback:', error.message);
+    
+    // Fallback: validação básica
+    const validation = validateMemory(content, { scope: MEMORY_SCOPES.EPISODIC });
+    return {
+      allowed: validation.valid,
+      reason: validation.valid ? 'Fallback validation passed' : validation.errors.join(', '),
+      sanitizedContent: content
+    };
+  }
+}
+
+/**
+ * DEPRECATED: Curate content with AI (substituído por regex)
+ * @private
+ */
+async function _curateContent_AI_DEPRECATED(content, chatId) {
+  try {
     const systemPrompt = `You are an episodic memory curator for a financial investment system.
 Validate and sanitize content before storing in chat-specific memory.
 
-REJECT if:
-- Contains sensitive data (passwords, API keys, CPF, credit card details)
+REJECT ONLY if:
+- Contains passwords or API keys
+- Contains CPF (format: XXX.XXX.XXX-XX or 11 digits)
+- Contains credit card numbers (16 digits with or without spaces/dashes)
+- Contains other document numbers (RG, CNH, passport)
 - Contains spam, irrelevant noise, or malicious content
-- Is completely generic with no specific value
 
-ACCEPT and SANITIZE if:
-- Contains user preferences (remove PII but keep preferences)
-- Contains financial analysis (remove sensitive numbers, keep insights)
-- Contains conversation context (clean but preserve meaning)
-- Contains investment strategies and decisions
+ACCEPT (these are OK):
+- Salary information and income values (e.g., "ganha R$ 5.000 por mês")
+- Investment amounts and financial data
+- User preferences and personal information (name, age, profession)
+- Financial analysis and insights
+- Conversation context and investment strategies
 
 Return sanitized version that is safe to store long-term.`;
 

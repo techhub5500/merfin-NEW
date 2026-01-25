@@ -34,6 +34,9 @@ function initializeSession(sessionId, userId, metadata = {}) {
  */
 async function buildAgentContext(sessionId, chatId, userId) {
   try {
+    console.log('[MemoryIntegration] 🚀 INÍCIO - Construindo contexto do agente');
+    console.log('[MemoryIntegration] 📋 Parâmetros:', { sessionId, chatId, userId });
+    
     // Build working memory context
     const workingContext = await contextBuilder.buildContext(sessionId, {
       includeMetadata: true
@@ -139,19 +142,44 @@ async function buildAgentContext(sessionId, chatId, userId) {
 async function processInteractionMemories(interaction) {
   const { sessionId, chatId, userId, userMessage, aiResponse, history } = interaction;
 
+  console.log('[MemoryIntegration] 🎯 INÍCIO - Processamento de memórias da interação');
+  console.log('[MemoryIntegration] 📊 Dados da interação:', {
+    sessionId,
+    chatId,
+    userId,
+    userMessageLength: userMessage?.length || 0,
+    aiResponseLength: aiResponse?.length || 0,
+    historyLength: history?.length || 0
+  });
+
   try {
     // Get user name for personalized LTM
     let userName = 'o usuário';
+    console.log('[MemoryIntegration] 👤 Buscando nome do usuário...');
     try {
       const user = await User.findById(userId);
       if (user && user.username) {
         userName = user.username;
+        console.log('[MemoryIntegration] ✅ Nome do usuário encontrado:', userName);
+      } else {
+        console.log('[MemoryIntegration] ⚠️ Usuário sem nome, usando padrão');
       }
     } catch (error) {
-      console.warn('[MemoryIntegration] Could not fetch user name:', error.message);
+      console.warn('[MemoryIntegration] ❌ Erro ao buscar nome do usuário:', error.message);
     }
 
     // Process memories in background (non-blocking)
+    console.log('[MemoryIntegration] 🔄 Iniciando processamento em background...');
+    console.log('[MemoryIntegration] 📦 Contexto enviado para processor:', {
+      sessionId,
+      userId,
+      chatId,
+      userName,
+      temUserMessage: !!userMessage,
+      temAiResponse: !!aiResponse,
+      temHistory: !!history
+    });
+    
     const processingPromise = memoryProcessor.processMemories({
       sessionId,
       userId,

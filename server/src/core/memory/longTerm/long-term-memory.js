@@ -25,30 +25,54 @@ const { updateCategoryDescription, shouldUpdateDescription } = require('./catego
  * @returns {Promise<object|null>} - Stored memory item or null if rejected
  */
 async function propose(userId, content, category, sourceChats = []) {
+  console.log('[LTM] 🎯 INÍCIO - Proposta de nova memória');
+  console.log('[LTM] 📋 Dados:', {
+    userId,
+    category,
+    contentLength: content?.length || 0,
+    content: content?.substring(0, 100) + '...',
+    sourceChats
+  });
+  
   // Validate with curator (hybrid rules + LLM)
+  console.log('[LTM] 🔍 Enviando para curadoria...');
   const curationResult = await memoryCurator.curate(content, category);
   
   if (!curationResult.accepted) {
-    console.log(`[LTM] Memory rejected: ${curationResult.reason}`);
+    console.log('[LTM] ❌ REJEITADO - Memória não aceita pela curadoria');
+    console.log('[LTM] 📝 Razão:', curationResult.reason);
+    console.log('[LTM] 📊 Score:', curationResult.impactScore);
     return null;
   }
+  
+  console.log('[LTM] ✅ ACEITO - Memória aprovada pela curadoria');
+  console.log('[LTM] 📊 Impact Score:', curationResult.impactScore);
+  console.log('[LTM] 📝 Conteúdo curado:', curationResult.content);
 
   // Use curated content (may be compressed/refined)
   let curatedContent = curationResult.content;
   const impactScore = curationResult.impactScore;
 
   // MANDATORY: Process date in content (extract or use current date, add "Em DD/MM/YYYY, " prefix)
+  console.log('[LTM] 📅 Processando data...');
   const { formattedContent, eventDate } = processDateInContent(curatedContent);
   curatedContent = formattedContent;
+  console.log('[LTM] ✅ Data processada:', eventDate);
+  console.log('[LTM] 📝 Conteúdo formatado:', formattedContent);
 
   // Check for duplicates and merge if needed
+  console.log('[LTM] 🔍 Verificando duplicatas e merge...');
   const ltm = await LongTermMemoryModel.findOne({ userId });
   if (ltm) {
     const mergeResult = await memoryMerger.checkAndMerge(ltm, curatedContent, category, impactScore);
     if (mergeResult.merged) {
-      console.log(`[LTM] Merged with existing memory`);
+      console.log('[LTM] 🔄 MERGED - Memória mesclada com existente');
+      console.log('[LTM] 📝 Item resultante:', mergeResult.memoryItem);
       return mergeResult.memoryItem;
     }
+    console.log('[LTM] ➕ Não houve merge, adicionando como nova memória');
+  } else {
+    console.log('[LTM] 🆕 Primeiro item de LTM para este usuário');
   }
 
   // Verificar orçamento POR CATEGORIA
@@ -138,7 +162,14 @@ async function propose(userId, content, category, sourceChats = []) {
     await updateAndSaveCategoryDescription(ltm, category);
   }
 
-  console.log(`[LTM] Memory stored: category=${category}, impact=${impactScore.toFixed(2)}`);
+  console.log('[LTM] ✅ FIM - Memória armazenada com sucesso');
+  console.log('[LTM] 📊 Resumo:', {
+    category,
+    impactScore: impactScore.toFixed(2),
+    wordCount: wordCounter.count(curatedContent),
+    eventDate,
+    content: curatedContent.substring(0, 100) + '...'
+  });
   return newItem;
 }
 

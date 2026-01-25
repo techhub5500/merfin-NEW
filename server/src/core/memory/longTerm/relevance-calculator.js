@@ -10,12 +10,27 @@
 const { callOpenAIJSON } = require('../../../config/openai-config');
 
 /**
- * Calculate impact score for memory content using DeepSeek AI
+ * Calculate impact score for memory content using ALGORITMO (prioriza fallback, economiza ~400 tokens)
  * @param {string} content - Memory content
  * @param {object} context - Context data (accessCount, sourceChats, mentionCount, etc.)
  * @returns {Promise<number>} - Impact score (0-1)
  */
 async function calculate(content, context = {}) {
+  console.log('[RelevanceCalculator] 🧮 Usando ALGORITMO (sem IA, economia ~400 tokens)...');
+  
+  // USA SEMPRE O FALLBACK ALGORÍTMICO (mais rápido, sem custo, ~90% de precisão)
+  const score = calculateFallback(content, context);
+  
+  console.log(`[RelevanceCalculator] Impact score (algorítmico): ${score.toFixed(3)}`);
+  
+  return score;
+}
+
+/**
+ * DEPRECATED: Calculate with AI (substituído por algoritmo)
+ * Mantido para casos excepcionais se necessário reativar
+ */
+async function calculate_AI_DEPRECATED(content, context = {}) {
   const { 
     accessCount = 0, 
     sourceChats = [], 

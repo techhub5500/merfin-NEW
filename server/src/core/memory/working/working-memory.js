@@ -12,6 +12,7 @@ const memoryValidator = require('../shared/memory-validator');
 const wordCounter = require('../shared/word-counter');
 const { MEMORY_BUDGETS } = require('../shared/memory-types');
 const WorkingMemoryModel = require('../../../database/schemas/working-memory-schema');
+const contentValidator = require('../shared/content-validator');
 // Note: sessionStore is imported lazily to avoid circular dependency
 let sessionStore = null;
 
@@ -25,13 +26,42 @@ class WorkingMemory {
   }
 
   /**
-   * Validate value with AI curation before storing
+   * Validate value with REGEX PATTERNS (substitui IA, economiza ~200 tokens)
    * @param {string} key - Key being stored
    * @param {*} value - Value being stored
    * @returns {Promise<Object>} - {allowed: boolean, reason: string, sanitizedValue: *}
    * @private
    */
   async _curateValue(key, value) {
+    try {
+      console.log('[WorkingMemory] 🔍 Validando com REGEX (sem IA)...');
+      
+      // Usa validação por padrões ao invés de IA
+      const result = contentValidator.validateWorkingMemory(key, value);
+      
+      console.log('[WorkingMemory] Validação:', result.allowed ? '✓ APROVADO' : '✗ REJEITADO', `-`, result.reason);
+      
+      return result;
+
+    } catch (error) {
+      console.warn('[WorkingMemory] Erro na validação, usando fallback:', error.message);
+      
+      // Fallback: validação básica
+      const validation = memoryValidator.validateMemory(value, { scope: 'working' });
+      
+      return {
+        allowed: validation.valid,
+        reason: validation.valid ? 'Fallback validation passed' : validation.errors.join(', '),
+        sanitizedValue: value
+      };
+    }
+  }
+
+  /**
+   * DEPRECATED: Validate value with AI curation (substituído por regex)
+   * @private
+   */
+  async _curateValue_AI_DEPRECATED(key, value) {
     try {
       const systemPrompt = `You are a working memory curator for a financial investment system.
 Validate if this data should be stored in temporary working memory.

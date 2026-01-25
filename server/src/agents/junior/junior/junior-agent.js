@@ -19,10 +19,10 @@ class JuniorAgent extends BaseAgent {
     super('JuniorAgent');
 
     this.model = 'gpt-5-nano';
-    // Limite de tokens de saída (aumentado para evitar corte durante reasoning)
-    this.max_output_tokens = 320;
-    // Reduz esforço de reasoning para sobrar tokens para a resposta textual
-    this.reasoning_effort = 'low';
+    // Limite de tokens de saída (aumentado para garantir espaço após reasoning)
+    this.max_output_tokens = 800;
+    // Esforço médio de reasoning para balancear qualidade e tokens disponíveis
+    this.reasoning_effort = 'medium';
 
   }
 
@@ -69,12 +69,16 @@ class JuniorAgent extends BaseAgent {
       let memoryContext = null;
       if (sessionId && chatId && userId) {
         try {
+          console.log('[JuniorAgent] 🔍 Carregando contexto de memória...');
           memoryContext = await memoryIntegration.buildAgentContext(sessionId, chatId, userId);
-          console.log('[JuniorAgent] Memory context loaded:', {
+          console.log('[JuniorAgent] ✅ Memory context loaded:', {
             hasWorking: Object.keys(memoryContext.workingMemory || {}).length > 0,
             hasEpisodic: !!memoryContext.episodicMemory,
             ltmCount: memoryContext.longTermMemory?.length || 0
           });
+          console.log('[JuniorAgent] 📊 Working Memory:', JSON.stringify(memoryContext.workingMemory, null, 2));
+          console.log('[JuniorAgent] 📖 Episodic Memory:', JSON.stringify(memoryContext.episodicMemory, null, 2));
+          console.log('[JuniorAgent] 💾 Long-term Memory:', JSON.stringify(memoryContext.longTermMemory, null, 2));
         } catch (error) {
           console.warn('[JuniorAgent] Error loading memory context:', error.message);
         }
@@ -126,6 +130,15 @@ class JuniorAgent extends BaseAgent {
 
       // Process memories in background (non-blocking)
       if (sessionId && chatId && userId) {
+        console.log('[JuniorAgent] 🔄 Iniciando processamento de memórias em background...');
+        console.log('[JuniorAgent] 📦 Dados para memória:', {
+          sessionId,
+          chatId,
+          userId,
+          userMessageLength: message.length,
+          aiResponseLength: finalResponse.length,
+          historyLength: agentHistory.length
+        });
         memoryIntegration.processInteractionMemories({
           sessionId,
           chatId,
@@ -134,7 +147,7 @@ class JuniorAgent extends BaseAgent {
           aiResponse: finalResponse,
           history: agentHistory
         }).catch(error => {
-          console.error('[JuniorAgent] Background memory processing error:', error);
+          console.error('[JuniorAgent] ❌ Background memory processing error:', error);
         });
       }
 

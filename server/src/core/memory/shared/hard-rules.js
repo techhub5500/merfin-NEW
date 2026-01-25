@@ -9,51 +9,50 @@
 // Forbidden patterns that must NEVER be stored in any memory
 const FORBIDDEN_PATTERNS = [
   // Authentication and credentials
-  /password/i,
-  /senha/i,
-  /token/i,
-  /auth.*key/i,
-  /api.*key/i,
-  /secret/i,
-  /bearer/i,
+  /password\s*[:\=]/i,
+  /senha\s*[:\=]/i,
+  /token\s*[:\=]/i,
+  /auth.*key\s*[:\=]/i,
+  /api.*key\s*[:\=]/i,
+  /secret\s*[:\=]/i,
+  /bearer\s+[a-zA-Z0-9]/i,
   
-  // Personal identification
-  /cpf/i,
-  /cnpj/i,
-  /rg\s*:/i,
-  /carteira.*identidade/i,
-  /passaporte/i,
+  // Personal identification (CPF with formatting)
+  /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/,  // CPF formato XXX.XXX.XXX-XX
+  /\bcpf\s*[:\=]\s*\d{11}\b/i,       // CPF: 11 dígitos
+  /\bcnpj\s*[:\=]/i,
+  /\brg\s*[:\=]/i,
+  /carteira.*identidade\s*[:\=]/i,
+  /passaporte\s*[:\=]/i,
   
-  // Financial sensitive data
-  /cart[ãa]o.*cr[ée]dito/i,
-  /cvv/i,
-  /c[óo]digo.*seguran[çc]a/i,
-  /n[úu]mero.*cart[ãa]o/i,
-  /ag[êe]ncia/i,
-  /conta.*corrente/i,
+  // Credit card numbers (16 digits)
+  /\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b/,
+  /\bcvv\s*[:\=]/i,
+  /c[óo]digo.*seguran[çc]a\s*[:\=]/i,
+  /\bn[úu]mero.*cart[ãa]o\s*[:\=]/i,
+  
+  // Bank account details (when formatted as sensitive)
+  /\bag[êe]ncia\s*[:\=]\s*\d{4}/i,
+  /\bconta\s*corrente\s*[:\=]\s*\d+/i,
   
   // System internals
   /mongodb.*uri/i,
   /connection.*string/i,
   /private.*key/i,
-  /jwt/i
+  /\bjwt\s*[:\=]/i
 ];
 
 // Forbidden keywords (simple string matching, case insensitive)
+// NOTE: Removed generic 'cpf' - only blocked when in sensitive format (see patterns)
 const FORBIDDEN_KEYWORDS = [
-  'password',
-  'senha',
-  'token',
+  'password=',
+  'senha=',
+  'token=',
   'api_key',
   'secret_key',
-  'bearer',
-  'authorization',
-  'cpf',
-  'cnpj',
+  'bearer ',
+  'authorization:',
   'cvv',
-  'credit_card',
-  'cartao_credito',
-  'numero_cartao',
   'mongodb_uri',
   'connection_string'
 ];

@@ -17,7 +17,7 @@ class ChatIntegration {
    */
   async sendToChatAPI(message, sessionId = null, history = [], userId = null, chatId = null) {
     try {
-      // URL do servidor do agente (porta 5000)
+      // URL do servidor do agente (porta 5000 - serverAgent.js)
       const baseUrl = 'http://localhost:5000';
       
       console.log('[ChatIntegration] ✅ Enviando mensagem para API:', { 

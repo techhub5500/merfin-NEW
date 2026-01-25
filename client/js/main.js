@@ -1066,6 +1066,37 @@ class MessageManager {
     }
 
     /**
+     * Starts a new chat (clears current chat state)
+     */
+    startNewChat() {
+        console.log('[MessageManager] 🆕 Iniciando novo chat...');
+        
+        // Reset chat state
+        this.sessionId = null;
+        this.currentChatId = null;
+        
+        // Clear chat log if in chat mode
+        if (this.inChatMode && this.bentoGrid) {
+            const chatLog = this.bentoGrid.querySelector('.chat-log');
+            if (chatLog) {
+                chatLog.innerHTML = '';
+            }
+        }
+        
+        // Exit chat mode to return to bento grid
+        this.exitChatMode();
+        
+        // Clear input
+        if (this.messageInput) {
+            this.messageInput.value = '';
+            this.syncCardsVisibility();
+            this.autoResizeTextarea();
+        }
+        
+        console.log('[MessageManager] ✅ Novo chat iniciado');
+    }
+
+    /**
      * Sends message
      */
     async sendMessage() {
@@ -1348,10 +1379,33 @@ class FinanceDashboardApp {
             );
             this.messageManager.init();
 
+            // Attach new chat button handler
+            this.initNewChatButton();
+
             console.info('[Finance Dashboard] Application initialized successfully');
         } catch (error) {
             console.error('[Finance Dashboard] Initialization error:', error);
         }
+    }
+
+    /**
+     * Initializes new chat button
+     */
+    initNewChatButton() {
+        const newChatButtons = safeQuerySelectorAll('.chat-quick-btn--new');
+        
+        newChatButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                if (this.messageManager && typeof this.messageManager.startNewChat === 'function') {
+                    this.messageManager.startNewChat();
+                    console.log('[Finance Dashboard] Novo chat iniciado via botão');
+                }
+            });
+        });
+        
+        console.log(`[Finance Dashboard] ${newChatButtons.length} botões de novo chat inicializados`);
     }
 
     /**

@@ -22,9 +22,19 @@ const { callOpenAI, callOpenAIJSON } = require('../../../config/openai-config');
  * @returns {Promise<object>} - Curation result
  */
 async function curate(content, category, context = {}) {
+  console.log('[Curator] 🚀 INÍCIO - Curadoria de memória');
+  console.log('[Curator] 📋 Entrada:', {
+    category,
+    contentLength: content?.length || 0,
+    content: content?.substring(0, 100) + '...',
+    context
+  });
+  
   // Step 1: Hard rules validation
+  console.log('[Curator] 🔒 Step 1 - Validando conteúdo proibido...');
   const forbidden = hardRules.containsForbiddenContent(content);
   if (forbidden.found) {
+    console.log('[Curator] ❌ REJEITADO - Conteúdo proibido detectado:', forbidden.type);
     return {
       accepted: false,
       reason: `Forbidden content detected: ${forbidden.type}`,
@@ -32,9 +42,12 @@ async function curate(content, category, context = {}) {
       impactScore: 0
     };
   }
+  console.log('[Curator] ✅ Step 1 - Nenhum conteúdo proibido');
 
   // Step 2: Category validation
+  console.log('[Curator] 📊 Step 2 - Validando categoria:', category);
   if (!Object.values(LTM_CATEGORIES).includes(category)) {
+    console.log('[Curator] ❌ REJEITADO - Categoria inválida:', category);
     return {
       accepted: false,
       reason: `Invalid category: ${category}`,
@@ -42,9 +55,12 @@ async function curate(content, category, context = {}) {
       impactScore: 0
     };
   }
+  console.log('[Curator] ✅ Step 2 - Categoria válida');
 
   // Step 3: Suitability check
+  console.log('[Curator] ✅ Step 3 - Verificando adequação para LTM...');
   if (!hardRules.isSuitableForLTM(content)) {
+    console.log('[Curator] ❌ REJEITADO - Conteúdo não adequado para LTM');
     return {
       accepted: false,
       reason: 'Content not suitable for long-term memory',
@@ -52,14 +68,21 @@ async function curate(content, category, context = {}) {
       impactScore: 0
     };
   }
+  console.log('[Curator] ✅ Step 3 - Conteúdo adequado para LTM');
 
   // Step 4: Calculate impact score
+  console.log('[Curator] 🎯 Step 4 - Calculando impact score...');
   const impactScore = await relevanceCalculator.calculate(content, {
     category,
     ...context
   });
+  console.log('[Curator] 📊 Impact Score calculado:', impactScore.toFixed(2));
 
   if (impactScore < IMPACT_THRESHOLDS.MIN_FOR_LTM) {
+    console.log('[Curator] ❌ REJEITADO - Impact score muito baixo:', {
+      score: impactScore.toFixed(2),
+      min: IMPACT_THRESHOLDS.MIN_FOR_LTM
+    });
     return {
       accepted: false,
       reason: `Impact score too low: ${impactScore.toFixed(2)} < ${IMPACT_THRESHOLDS.MIN_FOR_LTM}`,
@@ -67,25 +90,43 @@ async function curate(content, category, context = {}) {
       impactScore
     };
   }
+  console.log('[Curator] ✅ Step 4 - Impact score aceitável');
 
   // Step 5: Refine content with LLM
+  console.log('[Curator] 🤖 Step 5 - Refinando conteúdo com LLM...');
   let refinedContent = content;
   
   try {
     refinedContent = await refineWithLLM(content, category, impactScore);
+    console.log('[Curator] ✅ Step 5 - Conteúdo refinado com sucesso');
+    console.log('[Curator] 📝 Antes:', content.substring(0, 100) + '...');
+    console.log('[Curator] 📝 Depois:', refinedContent.substring(0, 100) + '...');
   } catch (error) {
-    console.warn('[Curator] LLM refinement failed, using original content:', error.message);
+    console.warn('[Curator] ⚠️ Step 5 - Refinamento LLM falhou, usando original:', error.message);
   }
 
   // Step 6: Compress if too verbose
   const wordCount = refinedContent.split(/\s+/).length;
+  console.log('[Curator] 📊 Step 6 - Verificando tamanho:', wordCount, 'palavras');
   if (wordCount > 60) {
+    console.log('[Curator] ✏️ Step 6 - Comprimindo conteúdo (>60 palavras)...');
     try {
       refinedContent = await memoryCompressor.compress(refinedContent, { targetWords: 40 });
+      console.log('[Curator] ✅ Conteúdo comprimido:', refinedContent.split(/\s+/).length, 'palavras');
     } catch (error) {
-      console.warn('[Curator] Compression failed:', error.message);
+      console.warn('[Curator] ⚠️ Compressão falhou:', error.message);
     }
+  } else {
+    console.log('[Curator] ✅ Step 6 - Tamanho adequado, não precisa comprimir');
   }
+
+  console.log('[Curator] ✅ FIM - Memória ACEITA');
+  console.log('[Curator] 📊 Resultado final:', {
+    accepted: true,
+    impactScore: impactScore.toFixed(2),
+    wordCount: refinedContent.split(/\s+/).length,
+    content: refinedContent
+  });
 
   return {
     accepted: true,
@@ -103,6 +144,9 @@ async function curate(content, category, context = {}) {
  * @returns {Promise<string>} - Refined content
  */
 async function refineWithLLM(content, category, impactScore) {
+  console.log('[Curator.LLM] 🤖 Chamando OpenAI para refinamento...');
+  console.log('[Curator.LLM] 📊 Parâmetros:', { category, impactScore: impactScore.toFixed(2) });
+  
   try {
     const systemPrompt = `You are a memory curator for a financial investment system.
 Refine memories for long-term storage by keeping only the most essential and impactful information.
@@ -129,16 +173,19 @@ MANDATORY FORMAT:
 
 Return refined version:`;
 
+    console.log('[Curator.LLM] 📤 Enviando para OpenAI...');
     const refined = await callOpenAI(systemPrompt, userPrompt, {
       max_tokens: 200,
       temperature: 0.3 // Low temperature for consistency
     });
 
-    console.log(`[Curator] Content refined from ${content.length} to ${refined.length} chars`);
+    console.log('[Curator.LLM] ✅ Resposta recebida da OpenAI');
+    console.log('[Curator.LLM] 📊 Mudança de tamanho:', content.length, '→', refined.length, 'chars');
+    console.log('[Curator.LLM] 📝 Conteúdo refinado:', refined);
     return refined;
 
   } catch (error) {
-    console.error('[Curator] OpenAI refinement failed:', error.message);
+    console.error('[Curator.LLM] ❌ OpenAI refinement failed:', error.message);
     return content; // Fallback to original
   }
 }

@@ -1003,6 +1003,49 @@ function initDebtDetailsModal() {
 }
 
 // ============================================================================
+// NEW CHAT - Função para iniciar um novo chat
+// ============================================================================
+
+function startNewChat() {
+  const chatMessages = document.getElementById('chatMessages');
+  
+  if (!chatMessages) {
+    console.warn('[startNewChat] chatMessages element not found');
+    return;
+  }
+  
+  // Limpar histórico de mensagens
+  chatMessages.innerHTML = '';
+  
+  // Resetar sessionId e chatId
+  if (window.dashSessionId) {
+    delete window.dashSessionId;
+  }
+  if (window.dashChatId) {
+    delete window.dashChatId;
+  }
+  
+  console.log('[Dash] 🆕 Novo chat iniciado - histórico limpo');
+}
+
+// ============================================================================
+// NEW CHAT BUTTON - Inicializa botão de novo chat
+// ============================================================================
+
+function initNewChatButton() {
+  const newChatButtons = document.querySelectorAll('.chat-quick-btn--new');
+  
+  newChatButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      startNewChat();
+    });
+  });
+  
+  console.log(`[Dash] ${newChatButtons.length} botões de novo chat inicializados`);
+}
+
+// ============================================================================
 // INICIALIZAÇÃO PRINCIPAL
 // ============================================================================
 
@@ -1014,6 +1057,7 @@ function initDashboard(){
   initEditModal();
   initAddDebtModal();
   initDebtDetailsModal();
+  initNewChatButton();
   
   // Inicializar ícones Lucide
   if (typeof lucide !== 'undefined' && lucide.createIcons) {

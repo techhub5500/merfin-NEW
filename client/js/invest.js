@@ -341,6 +341,30 @@ class ChatManager {
         });
     }
 
+    /**
+     * Start a new chat (clear current chat state)
+     */
+    startNewChat() {
+        console.log('[ChatManager] 🆕 Iniciando novo chat...');
+        
+        // Clear chat messages
+        if (this.messages) {
+            this.messages.innerHTML = '';
+        }
+        
+        // Reset sessionId and chatId
+        this.sessionId = null;
+        this.chatId = null;
+        
+        // Clear input
+        if (this.input) {
+            this.input.value = '';
+            this.autoResize();
+        }
+        
+        console.log('[ChatManager] ✅ Novo chat iniciado');
+    }
+
     send(){
         const text = this.input.value.trim();
         if (!text) return;
@@ -479,7 +503,30 @@ class InvestmentDashboardApp {
         });
         this.chatManager.init();
 
+        // Initialize New Chat Button
+        this.initNewChatButton();
+
         console.log('[Investment Dashboard] Application initialized successfully');
+    }
+
+    /**
+     * Initialize new chat button
+     */
+    initNewChatButton() {
+        const newChatButtons = document.querySelectorAll('.chat-quick-btn--new');
+        
+        newChatButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                if (this.chatManager && typeof this.chatManager.startNewChat === 'function') {
+                    this.chatManager.startNewChat();
+                    console.log('[Investment Dashboard] Novo chat iniciado via botão');
+                }
+            });
+        });
+        
+        console.log(`[Investment Dashboard] ${newChatButtons.length} botões de novo chat inicializados`);
     }
 
     /**
