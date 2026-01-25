@@ -1,11 +1,12 @@
 /**
- * Junior Agent - Simple User Response Agent
+ * Junior Agent - Simple User Response Agent with Memory Integration
  *
- * This agent responds to user messages using LLM.
+ * This agent responds to user messages using LLM with full memory context.
  */
 
 const BaseAgent = require('../../shared/base-agent');
 const chatIntegration = require('../../shared/chat-integration');
+const memoryIntegration = require('../../../core/memory/memory-integration');
 const OpenAI = require('openai');
 
 // Configuração da OpenAI
@@ -42,7 +43,7 @@ class JuniorAgent extends BaseAgent {
    * @returns {Promise<Object>} Resposta processada
    */
   async processChatMessage(params) {
-    const { message, sessionId, history } = params;
+    const { message, sessionId, history, userId, chatId } = params;
 
     try {
       // Valida mensagem usando integração comum
@@ -51,11 +52,49 @@ class JuniorAgent extends BaseAgent {
         throw new Error(validation.error);
       }
 
+      // Initialize session if needed
+      if (sessionId && userId) {
+        try {
+          memoryIntegration.initializeSession(sessionId, userId, {
+            startedAt: new Date().toISOString(),
+            chatId: chatId
+          });
+        } catch (error) {
+          // Session might already exist, that's OK
+          console.log('[JuniorAgent] Session already exists or error:', error.message);
+        }
+      }
+
+      // Build memory context
+      let memoryContext = null;
+      if (sessionId && chatId && userId) {
+        try {
+          memoryContext = await memoryIntegration.buildAgentContext(sessionId, chatId, userId);
+          console.log('[JuniorAgent] Memory context loaded:', {
+            hasWorking: Object.keys(memoryContext.workingMemory || {}).length > 0,
+            hasEpisodic: !!memoryContext.episodicMemory,
+            ltmCount: memoryContext.longTermMemory?.length || 0
+          });
+        } catch (error) {
+          console.warn('[JuniorAgent] Error loading memory context:', error.message);
+        }
+      }
+
       // Converte histórico para formato do agente
       const agentHistory = chatIntegration.convertHistoryForAgent(history || []);
 
-      // Construir contexto com histórico - System Prompt otimizado
+      // Construir contexto com histórico + memória - System Prompt otimizado
       let contextualInput = 'Você é um assistente financeiro prestativo. Responda de forma clara, objetiva e concisa em português brasileiro. Seja direto e útil.\n\n';
+      
+      // Add memory context if available
+      if (memoryContext) {
+        const formattedContext = memoryIntegration.formatContextForPrompt(memoryContext);
+        if (formattedContext) {
+          contextualInput += '## Contexto da Memória:\n';
+          contextualInput += formattedContext;
+          contextualInput += '---\n\n';
+        }
+      }
       
       // Adiciona histórico ao contexto
       if (agentHistory.length > 0) {
@@ -83,8 +122,24 @@ class JuniorAgent extends BaseAgent {
         console.error('[JuniorAgent] Resposta vazia da API:', JSON.stringify(response));
       }
 
+      const finalResponse = responseText || 'Desculpe, não consegui gerar uma resposta.';
+
+      // Process memories in background (non-blocking)
+      if (sessionId && chatId && userId) {
+        memoryIntegration.processInteractionMemories({
+          sessionId,
+          chatId,
+          userId,
+          userMessage: message,
+          aiResponse: finalResponse,
+          history: agentHistory
+        }).catch(error => {
+          console.error('[JuniorAgent] Background memory processing error:', error);
+        });
+      }
+
       return {
-        response: responseText || 'Desculpe, não consegui gerar uma resposta.',
+        response: finalResponse,
         sessionId: sessionId,
         timestamp: new Date().toISOString()
       };

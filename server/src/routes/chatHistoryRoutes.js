@@ -4,13 +4,27 @@ const chatHistory = require('../agents/shared/chatHistoryModal');
 
 // NOTE: In this project auth is handled elsewhere. For now expect `userId` in the body/query
 
-// Create a chat
+// Create a chat (or return existing if sessionId already exists)
 router.post('/create', async (req, res, next) => {
   try {
     const { userId, title, area, sessionId } = req.body;
+    console.log('[ChatHistory] POST /create:', { userId, title, area, sessionId });
+    
+    // Try to find existing chat with this sessionId first
+    if (sessionId) {
+      const existing = await chatHistory.fetchChatBySessionId({ userId, sessionId });
+      if (existing) {
+        console.log('[ChatHistory] Chat já existe, retornando existente:', existing._id);
+        return res.json({ success: true, chat: existing, existed: true });
+      }
+    }
+    
+    // Create new chat
     const chat = await chatHistory.createChat({ userId, title, area, sessionId });
+    console.log('[ChatHistory] ✅ Chat criado:', chat._id);
     res.json({ success: true, chat });
   } catch (err) {
+    console.error('[ChatHistory] ❌ Erro ao criar chat:', err.message);
     next(err);
   }
 });

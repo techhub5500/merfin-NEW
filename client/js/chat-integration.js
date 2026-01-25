@@ -11,25 +11,39 @@ class ChatIntegration {
    * @param {string} message - Mensagem do usuário
    * @param {string} sessionId - ID da sessão
    * @param {Array} history - Histórico de mensagens
+   * @param {string} userId - ID do usuário (obrigatório para sistema de memória)
+   * @param {string} chatId - ID do chat
    * @returns {Promise<Object>} Resposta do servidor
    */
-  async sendToChatAPI(message, sessionId = null, history = []) {
+  async sendToChatAPI(message, sessionId = null, history = [], userId = null, chatId = null) {
     try {
       // URL do servidor do agente (porta 5000)
       const baseUrl = 'http://localhost:5000';
       
-      console.log('[ChatIntegration] Enviando mensagem:', { message, sessionId, history });
+      console.log('[ChatIntegration] ✅ Enviando mensagem para API:', { 
+        message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+        sessionId, 
+        userId, 
+        chatId,
+        historyLength: history.length 
+      });
+      
+      const requestBody = {
+        message,
+        sessionId,
+        history,
+        userId,
+        chatId
+      };
+      
+      console.log('[ChatIntegration] 📦 Request Body completo:', requestBody);
       
       const response = await fetch(`${baseUrl}/api/chat/process`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          sessionId,
-          history
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {

@@ -3,16 +3,23 @@
  * Purpose: Manage persistent per-chat memories with AI curation and automatic compression.
  * Controls: CRUD operations for chat-specific context with AI validation, word budget enforcement (500 words),
  * automatic compression at 80% threshold, and expiration management.
- * Integration notes: Persists to MongoDB via episodic-memory-schema; uses DeepSeek AI for curation.
+ * Integration notes: Persists to MongoDB via episodic-memory-schema; uses OpenAI GPT-4.1 nano for curation.
  */
 
 const EpisodicMemoryModel = require('../../../database/schemas/episodic-memory-schema');
 const { count, isNearLimit } = require('../shared/word-counter');
 const { validateMemory } = require('../shared/memory-validator');
 const { compress } = require('../shared/memory-compressor');
-const { MEMORY_SCOPES, MEMORY_BUDGETS, COMPRESSION_TRIGGERS } = require('../shared/memory-types');
-const { CLEANUP_RULES } = require('../shared/hard-rules');
-const { callDeepSeekJSON } = require('../../../config/deepseek-config');
+const { MEMORY_SCOPES, MEMORY_BUDGETS } = require('../shared/memory-types');
+const { CLEANUP_RULES, COMPRESSION_TRIGGERS } = require('../shared/hard-rules');
+const { callOpenAIJSON } = require('../../../config/openai-config');
+
+// Debug: Verify CLEANUP_RULES is properly loaded
+console.log('[EpisodicMemory] 🔍 CLEANUP_RULES loaded:', {
+  exists: !!CLEANUP_RULES,
+  EPISODIC_INACTIVITY_DAYS: CLEANUP_RULES?.EPISODIC_INACTIVITY_DAYS,
+  allKeys: Object.keys(CLEANUP_RULES || {})
+});
 
 /**
  * Curate content with AI before storing in episodic memory
@@ -50,7 +57,7 @@ Return JSON:
   "sanitizedContent": <cleaned version of content object>
 }`;
 
-    const result = await callDeepSeekJSON(systemPrompt, userPrompt, { 
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, { 
       max_tokens: 600,
       temperature: 0.2
     });
@@ -192,6 +199,12 @@ async function update(chatId, content, options = {}) {
   // Check if still within budget after compression
   if (wordCount > budget) {
     throw new Error(`Memory exceeds budget after compression: ${wordCount} words (limit: ${budget})`);
+  }
+
+  // Verify CLEANUP_RULES is defined
+  if (!CLEANUP_RULES || !CLEANUP_RULES.EPISODIC_INACTIVITY_DAYS) {
+    console.error('[EpisodicMemory] ❌ CLEANUP_RULES.EPISODIC_INACTIVITY_DAYS is undefined!');
+    throw new Error('CLEANUP_RULES not properly imported or EPISODIC_INACTIVITY_DAYS undefined');
   }
 
   // Update memory

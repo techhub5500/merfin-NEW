@@ -8,6 +8,13 @@
 const path = require('path');
 // Forçar carregamento do .env na raiz do projeto quando o server é executado a partir de /server
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// ===== INICIALIZAR LOGGER ANTES DE TUDO =====
+const { initLogger } = require('./src/utils/logger');
+const logger = initLogger({
+  debugMode: process.env.DEBUG_MODE === 'true' // Lê do .env
+});
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -108,6 +115,21 @@ async function startServer() {
 process.on('unhandledRejection', (err) => {
   console.error('❌ Erro não tratado:', err);
   process.exit(1);
+});
+
+// Graceful shutdown para server.js
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Closing server...');
+  const { shutdownLogger } = require('./src/utils/logger');
+  shutdownLogger();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Closing server...');
+  const { shutdownLogger } = require('./src/utils/logger');
+  shutdownLogger();
+  process.exit(0);
 });
 
 startServer();

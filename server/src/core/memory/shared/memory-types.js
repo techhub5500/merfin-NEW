@@ -17,8 +17,8 @@ const MEMORY_SCOPES = {
 const MEMORY_BUDGETS = {
   WORKING: 700,
   EPISODIC: 500,
-  LONG_TERM: 3500,              // Total: 3500 palavras
-  LONG_TERM_PER_CATEGORY: 350   // Por categoria: 350 palavras
+  LONG_TERM: 1800,              // Total: 1800 palavras
+  LONG_TERM_PER_CATEGORY: 180   // Por categoria: 180 palavras
 };
 
 

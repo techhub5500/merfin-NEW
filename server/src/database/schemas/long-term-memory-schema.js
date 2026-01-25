@@ -2,7 +2,7 @@
  * NOTE (long-term-memory-schema.js):
  * Purpose: MongoDB schema for long-term persistent memories (cross-chat user profile).
  * Controls: Stores highly curated memories with impact scores, categories, and access tracking.
- * Behavior: Maximum 400 words total per user; only high-impact memories (score > 0.7) stored.
+ * Behavior: Total 1800 words (180 per category); only high-impact memories (score > 0.7) stored.
  * Integration notes: Used by long-term-memory.js; dual storage with vector database for semantic search.
  */
 
@@ -15,24 +15,90 @@ const memoryItemSchema = new Schema({
   category: { 
     type: String, 
     required: true,
-    enum: ['comunicacao', 'perfil_financeiro', 'comportamental', 'objetivos', 'relacao_plataforma']
+    enum: [
+      'perfil_profissional',
+      'situacao_financeira',
+      'investimentos',
+      'objetivos_metas',
+      'comportamento_gastos',
+      'perfil_risco',
+      'conhecimento_financeiro',
+      'planejamento_futuro',
+      'familia_dependentes',
+      'relacao_plataforma'
+    ]
   },
   impactScore: { type: Number, required: true, min: 0.0, max: 1.0 },
   sourceChats: [{ type: String }], // Array of chat IDs that contributed to this memory
   createdAt: { type: Date, default: Date.now },
+  eventDate: { type: Date, required: true }, // Data do evento descrito na memória
   lastAccessed: { type: Date, default: Date.now },
   accessCount: { type: Number, default: 0 },
   vectorId: { type: String } // Reference to vector in external vector store
 }, { _id: true });
 
 const longTermMemorySchema = new Schema({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   
   // Array of memory items
   memoryItems: { type: [memoryItemSchema], default: [] },
   
-  // Total word count across all items (budget: 400 words)
+  // Total word count across all items (budget: 1800 words total, 180 per category)
   totalWordCount: { type: Number, required: true, default: 0 },
+  
+  // Dynamic category descriptions (max 25 words each, ~150 chars)
+  categoryDescriptions: {
+    perfil_profissional: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    situacao_financeira: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    investimentos: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    objetivos_metas: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    comportamento_gastos: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    perfil_risco: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    conhecimento_financeiro: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    planejamento_futuro: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    familia_dependentes: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    },
+    relacao_plataforma: {
+      description: { type: String, default: '' },
+      lastUpdated: { type: Date },
+      updateCount: { type: Number, default: 0 }
+    }
+  },
   
   // Metadata
   createdAt: { type: Date, default: Date.now },
@@ -51,7 +117,6 @@ const longTermMemorySchema = new Schema({
 });
 
 // Indexes for efficient queries
-longTermMemorySchema.index({ userId: 1 });
 longTermMemorySchema.index({ 'memoryItems.impactScore': -1 });
 longTermMemorySchema.index({ 'memoryItems.category': 1 });
 longTermMemorySchema.index({ 'memoryItems.lastAccessed': -1 });

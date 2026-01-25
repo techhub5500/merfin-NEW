@@ -720,6 +720,10 @@ class MessageManager {
         this.initialInputHeight = Math.max(measuredHeight || 0, CONFIG.TEXTAREA.INITIAL_HEIGHT);
         this.maxInputHeight = Math.min(this.initialInputHeight * CONFIG.TEXTAREA.HEIGHT_MULTIPLIER, CONFIG.TEXTAREA.MAX_HEIGHT);
 
+        // Chat state (sessionId e chatId serão inicializados quando necessário)
+        this.sessionId = null;
+        this.currentChatId = null;
+
         // Insights rotation state
         this.insightsElement = this.insightsCard ? this.insightsCard.querySelector('.insights-text') : null;
         this.insightsMessages = [
@@ -1095,26 +1099,51 @@ class MessageManager {
                 this.sessionId = chatIntegration.generateSessionId();
             }
 
+            // Obter userId
+            const userId = typeof getUserId === 'function' ? getUserId() : null;
+            console.log('[MessageManager] 🔍 getUserId() retornou:', userId);
+            console.log('[MessageManager] 🔍 getUserId function exists:', typeof getUserId === 'function');
+            
+            // Validar userId
+            if (!userId) {
+                console.error('[MessageManager] ❌ Erro: usuário não autenticado');
+                this.appendAssistantMessage('Por favor, faça login para usar o chat.');
+                return;
+            }
+
+            // Gerar chatId se não existir
+            if (!this.currentChatId) {
+                this.currentChatId = `chat_${userId}_${Date.now()}`;
+                console.log('[MessageManager] 🆕 Novo chatId gerado:', this.currentChatId);
+            } else {
+                console.log('[MessageManager] ♻️ Usando chatId existente:', this.currentChatId);
+            }
+
                 // Persistir/garantir existência do chat no servidor principal (associa ao user)
                 try {
-                    const userId = typeof getUserId === 'function' ? getUserId() : null;
                     const area = document.documentElement.dataset.page || 'Home';
-                    if (userId) {
-                        const created = await chatIntegration.createChatOnMain(userId, this.sessionId, area, '');
-                        if (created && created.success && created.chat && created.chat._id) {
-                            this.currentChatId = created.chat._id;
-                            // record user message immediately
-                            await chatIntegration.addMessageToChatOnMain(this.currentChatId, userId, text, 'user', area);
-                        }
+                    const created = await chatIntegration.createChatOnMain(userId, this.sessionId, area, '');
+                    if (created && created.success && created.chat && created.chat._id) {
+                        this.currentChatId = created.chat._id;
+                        // record user message immediately
+                        await chatIntegration.addMessageToChatOnMain(this.currentChatId, userId, text, 'user', area);
                     }
                 } catch (err) {
                     console.warn('Falha ao registrar chat no servidor principal:', err);
                 }
 
-                // Enviar para API do agente
-                const response = await chatIntegration.sendToChatAPI(text, this.sessionId, history);
+                // Enviar para API do agente (AGORA COM userId E chatId)
+                console.log('[MessageManager] 📤 Chamando sendToChatAPI com:', {
+                    message: text.substring(0, 50),
+                    sessionId: this.sessionId,
+                    historyLength: history.length,
+                    userId: userId,
+                    chatId: this.currentChatId
+                });
+                
+                const response = await chatIntegration.sendToChatAPI(text, this.sessionId, history, userId, this.currentChatId);
             
-            console.log('Resposta recebida no index.html:', response);
+            console.log('[MessageManager] ✅ Resposta recebida:', response);
             
                 // Adicionar resposta do assistente ao chat
             // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }

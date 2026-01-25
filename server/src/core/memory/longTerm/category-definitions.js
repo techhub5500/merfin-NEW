@@ -1,7 +1,7 @@
 /**
  * NOTE (category-definitions.js):
  * Purpose: Define 10 categorias de Long-Term Memory com prompts especializados para curadoria.
- * Controls: Cada categoria tem orçamento de 350 palavras, prompt personalizado e critérios de impact.
+ * Controls: Cada categoria tem orçamento de 180 palavras, prompt personalizado e critérios de impact.
  * Integration notes: Usado por memory-curator.js durante extração e validação.
  */
 

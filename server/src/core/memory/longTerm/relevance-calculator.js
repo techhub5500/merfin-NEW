@@ -7,7 +7,7 @@
  * Uses DeepSeek v3 for cost-effective reasoning.
  */
 
-const { callDeepSeekJSON } = require('../../../config/deepseek-config');
+const { callOpenAIJSON } = require('../../../config/openai-config');
 
 /**
  * Calculate impact score for memory content using DeepSeek AI
@@ -61,7 +61,7 @@ Analyze each factor and return JSON:
 }`;
 
   try {
-    const result = await callDeepSeekJSON(systemPrompt, userPrompt, { max_tokens: 400 });
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_tokens: 400 });
     
     // Validate and calculate weighted score
     const factors = result.factors || {};

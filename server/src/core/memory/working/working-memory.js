@@ -7,11 +7,13 @@
  */
 
 const { CLEANUP_RULES } = require('../shared/hard-rules');
-const { callDeepSeekJSON } = require('../../../config/deepseek-config');
+const { callOpenAIJSON } = require('../../../config/openai-config');
 const memoryValidator = require('../shared/memory-validator');
 const wordCounter = require('../shared/word-counter');
 const { MEMORY_BUDGETS } = require('../shared/memory-types');
 const WorkingMemoryModel = require('../../../database/schemas/working-memory-schema');
+// Note: sessionStore is imported lazily to avoid circular dependency
+let sessionStore = null;
 
 /**
  * Working Memory - Persistent storage per session with AI curation and MongoDB
@@ -35,17 +37,19 @@ class WorkingMemory {
 Validate if this data should be stored in temporary working memory.
 
 REJECT if:
-- Contains sensitive data (passwords, API keys, tokens, CPF, credit card)
-- Contains personally identifiable information (PII)
+- Contains sensitive data (passwords, API keys, tokens, CPF, credit card numbers, CVV)
 - Is irrelevant noise or spam
 - Is duplicate/redundant information
 
 ACCEPT if:
+- User's first name or nickname (for personalization)
 - Temporary calculation results
 - Intermediate processing data
 - Current session context
 - User preferences for current action
-- Financial analysis intermediate results`;
+- Financial analysis intermediate results
+
+IMPORTANT: First names like "John", "Maria", "Edmar" are OK and should be ACCEPTED for personalization.`;
 
       const userPrompt = `Validate this working memory entry:
 
@@ -59,7 +63,7 @@ Return JSON:
   "sanitizedValue": <cleaned value if modifications needed, or original>
 }`;
 
-      const result = await callDeepSeekJSON(systemPrompt, userPrompt, { 
+      const result = await callOpenAIJSON(systemPrompt, userPrompt, { 
         max_tokens: 200,
         temperature: 0.2 // Very deterministic for validation
       });
@@ -100,6 +104,10 @@ Return JSON:
 
     // Get userId from session if not provided
     if (!userId) {
+      // Lazy load sessionStore to avoid circular dependency
+      if (!sessionStore) {
+        sessionStore = require('./session-store');
+      }
       const session = sessionStore.getSession(sessionId);
       if (session) {
         userId = session.userId;
@@ -119,7 +127,12 @@ Return JSON:
       
       // Use sanitized value if AI modified it
       value = curation.sanitizedValue;
-      console.log(`[WorkingMemory] Entry approved: ${curation.reason}`);
+      console.log('[WorkingMemory] ✅ Entry APPROVED for storage', {
+        sessionId,
+        key,
+        valuePreview: value.substring(0, 50) + '...',
+        reason: curation.reason
+      });
     }
 
     const wordCount = wordCounter.count(value);
@@ -137,6 +150,7 @@ Return JSON:
     const expiresAt = new Date(Date.now() + 500 * 60 * 60 * 1000);
     
     // Persist to MongoDB
+    console.log('[WorkingMemory] 💾 Salvando no MongoDB', { sessionId, key, wordCount, userId });
     try {
       await WorkingMemoryModel.findOneAndUpdate(
         { sessionId, key },
@@ -149,8 +163,9 @@ Return JSON:
         },
         { upsert: true, new: true }
       );
+      console.log('[WorkingMemory] ✅ MongoDB save SUCCESS', { sessionId, key });
     } catch (error) {
-      console.error(`[WorkingMemory] Failed to persist to MongoDB: ${error.message}`);
+      console.error(`[WorkingMemory] ❌ Failed to persist to MongoDB: ${error.message}`);
       return false;
     }
 

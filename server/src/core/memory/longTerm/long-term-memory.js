@@ -1,21 +1,20 @@
 /**
  * NOTE (long-term-memory.js):
  * Purpose: Core API for Long-Term Memory (LTM) - cross-chat curated user profile memories.
- * Controls: 400-word budget, impact score >0.7 required, category-based organization.
- * Behavior: propose() → curator validates → merge duplicates → store with vector embedding.
+ * Controls: 1800-word budget total, 180 per category, impact score >0.7 required.
+ * Behavior: propose() → curator validates → add date prefix → merge duplicates → store → update category description.
  * Integration notes: Uses LongTermMemory schema, vector-store.js for embeddings, memory-curator.js for validation.
  */
-
-const { getCategoryDefinition } = require('./category-definitions');
-const { MEMORY_BUDGETS } = require('../shared/memory-types');
-
 
 const LongTermMemoryModel = require('../../../database/schemas/long-term-memory-schema');
 const memoryCurator = require('./memory-curator');
 const memoryMerger = require('./memory-merger');
 const wordCounter = require('../shared/word-counter');
 const { MEMORY_BUDGETS } = require('../shared/memory-types');
-const vectorStore = require('./vector-store');
+const vectorStore = require('./vector-store'); // Old vector store (keep for backward compatibility)
+const pineconeStore = require('./pinecone-store'); // NEW: Pinecone Vector Store
+const { processDateInContent } = require('./memory-utils');
+const { updateCategoryDescription, shouldUpdateDescription } = require('./category-description-updater');
 
 /**
  * Propose memory for LTM storage
@@ -35,8 +34,12 @@ async function propose(userId, content, category, sourceChats = []) {
   }
 
   // Use curated content (may be compressed/refined)
-  const curatedContent = curationResult.content;
+  let curatedContent = curationResult.content;
   const impactScore = curationResult.impactScore;
+
+  // MANDATORY: Process date in content (extract or use current date, add "Em DD/MM/YYYY, " prefix)
+  const { formattedContent, eventDate } = processDateInContent(curatedContent);
+  curatedContent = formattedContent;
 
   // Check for duplicates and merge if needed
   const ltm = await LongTermMemoryModel.findOne({ userId });
@@ -49,19 +52,16 @@ async function propose(userId, content, category, sourceChats = []) {
   }
 
   // Verificar orçamento POR CATEGORIA
-const categoryBudget = MEMORY_BUDGETS.LONG_TERM_PER_CATEGORY;
-const categoryItems = ltm ? ltm.getByCategory(category) : [];
-const categoryWordCount = categoryItems.reduce((sum, item) => 
-  sum + wordCounter.count(item.content), 0
-);
+  const categoryBudget = MEMORY_BUDGETS.LONG_TERM_PER_CATEGORY;
+  const categoryItems = ltm ? ltm.getByCategory(category) : [];
+  const categoryWordCount = categoryItems.reduce((sum, item) => 
+    sum + wordCounter.count(item.content), 0
+  );
 
-if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
-  // Descartar memórias de menor impacto DESTA CATEGORIA
-  await discardLowImpactFromCategory(userId, category, wordCounter.count(curatedContent));
-}
-
-  // Generate vector embedding
-  const vectorId = await vectorStore.storeEmbedding(userId, curatedContent, { category, impactScore });
+  if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
+    // Descartar memórias de menor impacto DESTA CATEGORIA
+    await discardLowImpactFromCategory(userId, category, wordCounter.count(curatedContent));
+  }
 
   // Create new memory item
   const newItem = {
@@ -69,17 +69,18 @@ if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
     category,
     impactScore,
     sourceChats,
-    vectorId,
+    eventDate,  // Date of the event described in memory
     createdAt: new Date(),
     lastAccessed: new Date(),
     accessCount: 0
   };
 
-  // Add to LTM
+  // Add to LTM (MongoDB)
+  let savedLtm = null;
   if (!ltm) {
     // Create new LTM document
     const wordCount = wordCounter.count(curatedContent);
-    await LongTermMemoryModel.create({
+    savedLtm = await LongTermMemoryModel.create({
       userId,
       memoryItems: [newItem],
       totalWordCount: wordCount,
@@ -90,9 +91,22 @@ if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
         lastCuratedAt: new Date()
       }
     });
+
+    // Sync to Pinecone (upsert after MongoDB save)
+    try {
+      await pineconeStore.upsertMemory(userId, savedLtm.memoryItems[0]);
+    } catch (error) {
+      console.error('[LTM] Pinecone sync failed:', error.message);
+      // Continue even if Pinecone fails (MongoDB is source of truth)
+    }
+
+    // Update category description (initial)
+    await updateAndSaveCategoryDescription(savedLtm, category);
+    console.log(`[LTM] Memory stored: category=${category}, impact=${impactScore.toFixed(2)}`);
+    return savedLtm.memoryItems[0];
   } else {
-    // Check budget PER CATEGORY (não mais budget global)
-    const categoryBudget = MEMORY_BUDGETS.LONG_TERM_PER_CATEGORY; // 350 palavras
+    // Check budget PER CATEGORY
+    const categoryBudget = MEMORY_BUDGETS.LONG_TERM_PER_CATEGORY;
     const categoryItems = ltm.getByCategory(category);
     const categoryWordCount = categoryItems.reduce((sum, item) => 
       sum + wordCounter.count(item.content), 0
@@ -103,13 +117,25 @@ if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
       await discardLowImpactFromCategory(userId, category, wordCounter.count(curatedContent));
     }
 
-    // Add new item
+    // Add new item to MongoDB
     ltm.memoryItems.push(newItem);
     ltm.totalWordCount += wordCounter.count(curatedContent);
     ltm.curationStats.totalProposed += 1;
     ltm.curationStats.totalAccepted += 1;
     ltm.curationStats.lastCuratedAt = new Date();
     await ltm.save();
+
+    // Sync to Pinecone (upsert after MongoDB save)
+    try {
+      const savedItem = ltm.memoryItems[ltm.memoryItems.length - 1]; // Get the newly added item
+      await pineconeStore.upsertMemory(userId, savedItem);
+    } catch (error) {
+      console.error('[LTM] Pinecone sync failed:', error.message);
+      // Continue even if Pinecone fails (MongoDB is source of truth)
+    }
+
+    // Update category description (if needed)
+    await updateAndSaveCategoryDescription(ltm, category);
   }
 
   console.log(`[LTM] Memory stored: category=${category}, impact=${impactScore.toFixed(2)}`);
@@ -121,6 +147,10 @@ if (categoryWordCount + wordCounter.count(curatedContent) > categoryBudget) {
  * @param {string} userId - User ID
  * @param {string} query - Search query
  * @param {object} options - Retrieval options
+ * @param {string} options.category - Filter by category (optional)
+ * @param {number} options.minImpact - Minimum impact score (default: 0.5)
+ * @param {number} options.limit - Number of results (default: 5)
+ * @param {boolean} options.useVectorSearch - Use Pinecone vector search (default: true)
  * @returns {Promise<Array>} - Relevant memories
  */
 async function retrieve(userId, query, options = {}) {
@@ -139,30 +169,54 @@ async function retrieve(userId, query, options = {}) {
   let results = [];
 
   if (useVectorSearch && query) {
-    // Vector-based semantic search
-    const vectorResults = await vectorStore.search(userId, query, { limit: limit * 2 });
-    
-    // Map vectorIds to memory items
-    results = ltm.memoryItems.filter(item => 
-      vectorResults.some(v => v.id === item.vectorId)
-    );
+    try {
+      // Build Pinecone filter
+      const filter = {};
+      if (category) {
+        filter.category = { $eq: category };
+      }
+      if (minImpact > 0) {
+        filter.impactScore = { $gte: minImpact };
+      }
 
-    // Update access stats
-    for (const item of results) {
-      item.lastAccessed = new Date();
-      item.accessCount += 1;
+      // Pinecone semantic search with reranking
+      const pineconeResults = await pineconeStore.searchMemories(userId, query, {
+        topK: limit,
+        filter: Object.keys(filter).length > 0 ? filter : null
+      });
+
+      // Map Pinecone results back to MongoDB memory items and update access stats
+      const memoryMap = new Map(ltm.memoryItems.map(item => [item._id.toString(), item]));
+      
+      results = pineconeResults.map(pr => {
+        const item = memoryMap.get(pr.memoryId);
+        if (item) {
+          item.lastAccessed = new Date();
+          item.accessCount += 1;
+          return item;
+        }
+        return null;
+      }).filter(item => item !== null);
+
+      await ltm.save(); // Save updated access stats
+
+    } catch (error) {
+      console.error('[LTM] Pinecone search failed, falling back to MongoDB:', error.message);
+      // Fallback to MongoDB filtering
+      results = ltm.getByCategory(category);
+      results = results
+        .filter(item => item.impactScore >= minImpact)
+        .sort((a, b) => b.impactScore - a.impactScore)
+        .slice(0, limit);
     }
-    await ltm.save();
   } else {
-    // Fallback: category and impact filtering
-    results = ltm.getByCategory(category);
+    // Fallback: category and impact filtering (no vector search)
+    results = category ? ltm.getByCategory(category) : ltm.memoryItems;
+    results = results
+      .filter(item => item.impactScore >= minImpact)
+      .sort((a, b) => b.impactScore - a.impactScore)
+      .slice(0, limit);
   }
-
-  // Filter by impact and limit
-  results = results
-    .filter(item => item.impactScore >= minImpact)
-    .sort((a, b) => b.impactScore - a.impactScore)
-    .slice(0, limit);
 
   return results;
 }
@@ -236,10 +290,14 @@ async function discardLowImpact(userId, spaceNeeded) {
     const itemWords = wordCounter.count(item.content);
     wordsFreed += itemWords;
     toRemove.push(item._id);
+  }
 
-    // Delete vector embedding
-    if (item.vectorId) {
-      await vectorStore.deleteEmbedding(item.vectorId);
+  // Delete from Pinecone (batch delete)
+  if (toRemove.length > 0) {
+    try {
+      await pineconeStore.deleteMemoriesBatch(userId, toRemove.map(id => id.toString()));
+    } catch (error) {
+      console.error('[LTM] Pinecone batch delete failed:', error.message);
     }
   }
 
@@ -276,9 +334,14 @@ async function discardLowImpactFromCategory(userId, category, spaceNeeded) {
     const itemWords = wordCounter.count(item.content);
     wordsFreed += itemWords;
     toRemove.push(item._id);
+  }
 
-    if (item.vectorId) {
-      await vectorStore.deleteEmbedding(item.vectorId);
+  // Delete from Pinecone (batch delete)
+  if (toRemove.length > 0) {
+    try {
+      await pineconeStore.deleteMemoriesBatch(userId, toRemove.map(id => id.toString()));
+    } catch (error) {
+      console.error('[LTM] Pinecone batch delete failed:', error.message);
     }
   }
 
@@ -288,6 +351,43 @@ async function discardLowImpactFromCategory(userId, category, spaceNeeded) {
 
   console.log(`[LTM] Discarded ${toRemove.length} low-impact memories from category '${category}', freed ${wordsFreed} words`);
   return wordsFreed;
+}
+
+/**
+ * Update category description if needed and save to database
+ * @param {object} ltm - LongTermMemory document
+ * @param {string} category - Category to update
+ * @returns {Promise<void>}
+ */
+async function updateAndSaveCategoryDescription(ltm, category) {
+  const categoryMemories = ltm.getByCategory(category);
+  const currentDescription = ltm.categoryDescriptions[category];
+
+  // Check if update is needed
+  if (!shouldUpdateDescription(currentDescription, categoryMemories.length)) {
+    return;
+  }
+
+  try {
+    // Generate new description
+    const newDescription = await updateCategoryDescription(categoryMemories, category);
+
+    // Update in document
+    if (!ltm.categoryDescriptions[category]) {
+      ltm.categoryDescriptions[category] = {};
+    }
+    
+    ltm.categoryDescriptions[category].description = newDescription;
+    ltm.categoryDescriptions[category].lastUpdated = new Date();
+    ltm.categoryDescriptions[category].updateCount = (currentDescription?.updateCount || 0) + 1;
+
+    // Save changes
+    await ltm.save();
+    
+    console.log(`[LTM] Updated category description for '${category}': "${newDescription}"`);
+  } catch (error) {
+    console.error(`[LTM] Failed to update category description for '${category}':`, error.message);
+  }
 }
 
 

@@ -6,10 +6,11 @@
  * Integration notes: Chamado por serverAgent após JuniorAgent responder.
  */
 
-const workingMemory = require('./working/working-memory');
-const episodicMemory = require('./episodic/episodic-memory');
-const longTermMemory = require('./longTerm/long-term-memory');
-const { callDeepSeekJSON } = require('../../config/deepseek-config');
+const workingMemory = require('../working/working-memory');
+const episodicMemory = require('../episodic/episodic-memory');
+const longTermMemory = require('../longTerm/long-term-memory');
+const { callOpenAIJSON } = require('../../../config/openai-config');
+const { LTM_CATEGORIES } = require('./memory-types');
 
 /**
  * Processar memórias após interação
@@ -20,19 +21,29 @@ const { callDeepSeekJSON } = require('../../config/deepseek-config');
  * @param {string} context.userMessage - Mensagem do usuário
  * @param {string} context.aiResponse - Resposta da IA
  * @param {array} context.history - Histórico do chat
+ * @param {string} context.userName - Nome do usuário (para LTM personalizada)
  * @returns {Promise<object>} - Resultado do processamento
  */
 async function processMemories(context) {
-  const { sessionId, userId, chatId, userMessage, aiResponse, history } = context;
+  const { sessionId, userId, chatId, userMessage, aiResponse, history, userName } = context;
   
-  console.log(`[MemoryProcessor] Iniciando processamento para sessão ${sessionId}`);
+  console.log('[MemoryProcessor] 🚀 INÍCIO - Processamento de memórias iniciado', {
+    sessionId,
+    chatId,
+    userId,
+    userName: userName || 'não fornecido',
+    userMessageLength: userMessage?.length || 0,
+    aiResponseLength: aiResponse?.length || 0,
+    historyLength: history?.length || 0
+  });
   
   try {
     // Classificar interação
     const classification = await classifyInteraction({
       userMessage,
       aiResponse,
-      history
+      history,
+      userName: userName || 'o usuário'
     });
     
     console.log('[MemoryProcessor] Classificação:', classification);
@@ -72,14 +83,26 @@ async function processMemories(context) {
       }
     });
     
-    return {
+    const finalResult = {
       success: true,
       classification,
       results: results.map(r => r.status === 'fulfilled' ? r.value : { error: r.reason.message })
     };
+
+    console.log('[MemoryProcessor] ✅ FIM - Processamento concluído', {
+      success: true,
+      workingItemsProcessed: classification.working?.length || 0,
+      episodicProcessed: classification.episodic ? 'sim' : 'não',
+      longTermCandidates: classification.longTerm?.length || 0,
+      resultsCount: results.length,
+      successfulResults: results.filter(r => r.status === 'fulfilled').length,
+      failedResults: results.filter(r => r.status === 'rejected').length
+    });
+
+    return finalResult;
     
   } catch (error) {
-    console.error('[MemoryProcessor] Erro no processamento:', error);
+    console.error('[MemoryProcessor] ❌ Erro no processamento:', error);
     throw error;
   }
 }
@@ -87,9 +110,10 @@ async function processMemories(context) {
 /**
  * Classificar interação usando IA
  * @param {object} interaction - Dados da interação
+ * @param {string} interaction.userName - Nome do usuário
  * @returns {Promise<object>} - Classificação { working: [], episodic: {}, longTerm: [] }
  */
-async function classifyInteraction({ userMessage, aiResponse, history }) {
+async function classifyInteraction({ userMessage, aiResponse, history, userName = 'o usuário' }) {
   const systemPrompt = `Você é um classificador de memórias para sistema financeiro.
 Analise a interação usuário-IA e classifique informações para armazenamento.
 
@@ -112,12 +136,17 @@ TIPOS DE MEMÓRIA:
    - Padrões comportamentais identificados
    - Decisões estratégicas importantes
    - Dados que devem ser lembrados SEMPRE
+   - SEMPRE use o nome do usuário (${userName}) ao formular memórias long-term
+
+CATEGORIAS LONG-TERM (use exatamente estes nomes):
+${Object.values(LTM_CATEGORIES).map(cat => `- ${cat}`).join('\n')}
 
 REGRAS:
 - Mesma informação pode ir para múltiplas memórias
 - Working: apenas se cálculo/raciocínio precisa ser continuado
 - Episodic: sempre que houver contexto relevante para o chat
-- Long-term: apenas informações de ALTO IMPACTO e duradouras`;
+- Long-term: apenas informações de ALTO IMPACTO e duradouras
+- Long-term: SEMPRE use "${userName}" ao invés de "o usuário"`;
 
   const userPrompt = `Classifique esta interação:
 
@@ -142,8 +171,8 @@ Retorne JSON:
   },
   "longTerm": [
     {
-      "content": "informação a ser armazenada (use NOME do usuário)",
-      "category": "uma das 10 categorias",
+      "content": "informação usando o nome ${userName}",
+      "category": "uma das categorias válidas",
       "reason": "por que é long-term"
     }
   ]
@@ -152,7 +181,7 @@ Retorne JSON:
 Se não houver dados para algum tipo, retorne array/objeto vazio.`;
 
   try {
-    const result = await callDeepSeekJSON(systemPrompt, userPrompt, {
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, {
       max_tokens: 1000,
       temperature: 0.3
     });

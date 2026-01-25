@@ -1,15 +1,15 @@
 /**
  * NOTE (relevance-scorer.js):
- * Purpose: Score relevance of information in episodic memory using DeepSeek AI.
+ * Purpose: Score relevance of information in episodic memory using OpenAI GPT-4.1 nano.
  * Controls: AI-driven scoring to evaluate importance and relevance of memory fragments.
  * Integration notes: Used by compression-engine to prioritize important information.
- * Uses DeepSeek v3 for cost-effective reasoning.
+ * Uses OpenAI GPT-4.1 nano for cost-effective reasoning.
  */
 
-const { callDeepSeekJSON } = require('../../../config/deepseek-config');
+const { callOpenAIJSON } = require('../../../config/openai-config');
 
 /**
- * Score relevance of a memory fragment using DeepSeek AI
+ * Score relevance of a memory fragment using OpenAI GPT-4.1 nano
  * @param {string} fragment - Text fragment to score
  * @param {object} context - Scoring context
  * @param {string[]} context.keywords - Important keywords
@@ -44,7 +44,7 @@ Return JSON with:
 }`;
 
   try {
-    const result = await callDeepSeekJSON(systemPrompt, userPrompt, { max_tokens: 200 });
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_tokens: 200 });
     
     // Validate score
     const score = Math.max(0, Math.min(1, result.score || 0));
@@ -98,7 +98,7 @@ Return JSON with:
 }`;
 
   try {
-    const result = await callDeepSeekJSON(systemPrompt, userPrompt, { max_tokens: 500 });
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_tokens: 500 });
     console.log(`[RelevanceScorer] Prioritization: ${result.reasoning}`);
     return result.prioritized || memory;
     

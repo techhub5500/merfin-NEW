@@ -10,8 +10,8 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const episodicMemorySchema = new Schema({
-  chatId: { type: String, required: true, unique: true, index: true },
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  chatId: { type: String, required: true, unique: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   
   // Memory content (JSON object with structured information)
   episodicMemory: { type: Schema.Types.Mixed, required: true },
@@ -24,9 +24,9 @@ const episodicMemorySchema = new Schema({
   lastCompressedAt: { type: Date },
   
   // Timestamps
-  createdAt: { type: Date, default: Date.now, index: true },
+  createdAt: { type: Date, default: Date.now },
   lastUpdated: { type: Date, default: Date.now },
-  expiresAt: { type: Date, index: true } // TTL index for auto-deletion
+  expiresAt: { type: Date } // TTL index defined below with schema.index()
 }, {
   timestamps: false // Manual timestamp management
 });

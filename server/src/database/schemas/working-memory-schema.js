@@ -10,16 +10,16 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const workingMemorySchema = new Schema({
-  sessionId: { type: String, required: true, index: true },
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  sessionId: { type: String, required: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   key: { type: String, required: true },
   value: { type: Schema.Types.Mixed, required: true },
   wordCount: { type: Number, required: true, default: 0 },
   
   // Timestamps
-  createdAt: { type: Date, default: Date.now, index: true },
+  createdAt: { type: Date, default: Date.now },
   lastUpdated: { type: Date, default: Date.now },
-  expiresAt: { type: Date, index: true } // TTL index for auto-deletion
+  expiresAt: { type: Date } // TTL index defined below with schema.index()
 }, {
   timestamps: false // Manual timestamp management
 });

@@ -68,6 +68,13 @@
 const path = require('path');
 // Forçar carregamento do .env na raiz do projeto quando o serverAgent é executado
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// ===== INICIALIZAR LOGGER ANTES DE TUDO =====
+const { initLogger } = require('./src/utils/logger');
+const logger = initLogger({
+  debugMode: process.env.DEBUG_MODE === 'true' // Lê do .env
+});
+
 const express = require('express');
 const mongoose = require('mongoose');
 const helmet = require('helmet');
@@ -315,10 +322,21 @@ app.get('/api/agents/list', (req, res) => {
 // Processa mensagens de chat usando o JuniorAgent
 app.post('/api/chat/process', async (req, res) => {
 	try {
-		const { message, sessionId, history } = req.body;
+		console.log('[SERVER] 📥 POST /api/chat/process - Request Body completo:', JSON.stringify(req.body, null, 2));
+		
+		const { message, sessionId, history, userId, chatId } = req.body;
+		
+		console.log('[SERVER] 🔍 Campos extraídos:', {
+			message: message ? `${message.substring(0, 50)}...` : 'AUSENTE',
+			sessionId: sessionId || 'AUSENTE',
+			historyLength: Array.isArray(history) ? history.length : 'AUSENTE',
+			userId: userId || '❌ AUSENTE',
+			chatId: chatId || 'AUSENTE'
+		});
 
 		// Validação básica
 		if (!message || typeof message !== 'string') {
+			console.error('[SERVER] ❌ Validação falhou: mensagem inválida');
 			return res.status(400).json({
 				status: 'error',
 				error: {
@@ -329,19 +347,58 @@ app.post('/api/chat/process', async (req, res) => {
 			});
 		}
 
-		// Processa a mensagem usando JuniorAgent
-		const result = await agents['JuniorAgent'].run({
-			action: 'process_chat_message',
-			parameters: { message, sessionId, history }
+		// Validate required fields for memory system
+		if (!userId) {
+			console.error('[SERVER] ❌ Validação falhou: userId ausente no request body');
+			return res.status(400).json({
+				status: 'error',
+				error: {
+					code: 'MISSING_USER_ID',
+					message: 'userId é obrigatório para sistema de memória',
+					type: 'ValidationError'
+				}
+			});
+		}
+		
+		console.log('[SERVER] ✅ Validações passaram, processando mensagem...');
+
+		// Generate sessionId and chatId if not provided
+		const finalSessionId = sessionId || `session_${userId}_${Date.now()}`;
+		const finalChatId = chatId || `chat_${userId}_${Date.now()}`;
+
+		console.log('[SERVER] 🔧 IDs finalizados:', {
+			userId,
+			sessionId: finalSessionId,
+			chatId: finalChatId,
+			messageLength: message.length
 		});
 
-		console.log('[CHAT] Resultado do JuniorAgent:', JSON.stringify(result, null, 2));
+		// Processa a mensagem usando JuniorAgent
+		console.log('[SERVER] 📤 Enviando para JuniorAgent...');
+		const result = await agents['JuniorAgent'].run({
+			action: 'process_chat_message',
+			parameters: { 
+				message, 
+				sessionId: finalSessionId, 
+				chatId: finalChatId,
+				userId,
+				history 
+			}
+		});
+
+		console.log('[SERVER] ✅ JuniorAgent processou com sucesso:', {
+			status: result.status,
+			hasResponse: !!result.data?.response,
+			responseLength: result.data?.response?.length || 0
+		});
 
 		// Retorna resposta
 		// result tem a estrutura: { status: 'success', data: { response, sessionId, timestamp }, ... }
 		const responsePayload = {
 			status: 'success',
 			...result.data,
+			sessionId: finalSessionId,
+			chatId: finalChatId,
 			timestamp: new Date().toISOString()
 		};
 
@@ -372,8 +429,19 @@ if (!MONGO_URI) {
 
 // Remove deprecated options
 mongoose.connect(MONGO_URI)
-	.then(() => {
+	.then(async () => {
 		console.log('Connected to MongoDB');
+		
+		// Initialize Pinecone Vector Store
+		try {
+			const pineconeStore = require('./src/core/memory/longTerm/pinecone-store');
+			await pineconeStore.initialize();
+			console.log('Pinecone Vector Store initialized');
+		} catch (error) {
+			console.error('Failed to initialize Pinecone (will continue without vector search):', error.message);
+			// Continue without Pinecone - MongoDB is source of truth
+		}
+		
 		const server = app.listen(PORT, () => {
 			console.log(`serverAgent listening on port ${PORT}`);
 		});
@@ -388,6 +456,11 @@ mongoose.connect(MONGO_URI)
 				try {
 					await mongoose.connection.close();
 					console.log('MongoDB connection closed');
+					
+					// Encerrar logger
+					const { shutdownLogger } = require('./src/utils/logger');
+					shutdownLogger();
+					
 					process.exit(0);
 				} catch (err) {
 					console.error('Error during shutdown:', err);

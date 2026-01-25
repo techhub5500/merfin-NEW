@@ -138,9 +138,11 @@ class ChatIntegration {
    * @param {string} message - Mensagem do usuário
    * @param {string} sessionId - ID da sessão
    * @param {Array} history - Histórico de mensagens
+   * @param {string} userId - ID do usuário (obrigatório para memória)
+   * @param {string} chatId - ID do chat (para memória episódica)
    * @returns {Promise<Object>} Resposta do servidor
    */
-  async sendToChatAPI(message, sessionId = null, history = []) {
+  async sendToChatAPI(message, sessionId = null, history = [], userId = null, chatId = null) {
     try {
       const response = await fetch('/api/chat/process', {
         method: 'POST',
@@ -150,7 +152,9 @@ class ChatIntegration {
         body: JSON.stringify({
           message,
           sessionId,
-          history
+          history,
+          userId,
+          chatId
         })
       });
 

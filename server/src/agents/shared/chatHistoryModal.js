@@ -53,6 +53,13 @@ module.exports = {
     return chat;
   },
 
+  async fetchChatBySessionId({ userId, sessionId }) {
+    if (!userId) throw new Error('userId is required');
+    if (!sessionId) throw new Error('sessionId is required');
+    const chat = await Chat.findOne({ userId, sessionId }).lean();
+    return chat;
+  },
+
   async deleteChat({ userId, chatId }) {
     if (!userId) throw new Error('userId is required');
     const res = await Chat.deleteOne({ _id: chatId, userId });

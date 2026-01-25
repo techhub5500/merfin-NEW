@@ -1,9 +1,9 @@
 /**
  * NOTE (memory-curator.js):
- * Purpose: Hybrid curation system (rules + DeepSeek AI) to validate and refine memories for LTM storage.
+ * Purpose: Hybrid curation system (rules + OpenAI GPT-4.1 nano) to validate and refine memories for LTM storage.
  * Controls: Impact score >0.7 required, forbidden content blocked, category validation, content refinement.
  * Behavior: curate() → hard rules check → AI scoring → compress if needed → return curation result.
- * Integration notes: Uses hard-rules.js, memory-compressor.js, relevance-calculator.js, and DeepSeek v3.
+ * Integration notes: Uses hard-rules.js, memory-compressor.js, relevance-calculator.js, and OpenAI GPT-4.1 nano.
  */
 
 const { getCategoryDefinition } = require('./category-definitions');
@@ -12,7 +12,7 @@ const hardRules = require('../shared/hard-rules');
 const memoryCompressor = require('../shared/memory-compressor');
 const relevanceCalculator = require('./relevance-calculator');
 const { IMPACT_THRESHOLDS, LTM_CATEGORIES } = require('../shared/memory-types');
-const { callDeepSeek, callDeepSeekJSON } = require('../../../config/deepseek-config');
+const { callOpenAI, callOpenAIJSON } = require('../../../config/openai-config');
 
 /**
  * Curate memory for LTM storage
@@ -79,9 +79,9 @@ async function curate(content, category, context = {}) {
 
   // Step 6: Compress if too verbose
   const wordCount = refinedContent.split(/\s+/).length;
-  if (wordCount > 100) {
+  if (wordCount > 60) {
     try {
-      refinedContent = await memoryCompressor.compress(refinedContent, { targetWords: 80 });
+      refinedContent = await memoryCompressor.compress(refinedContent, { targetWords: 40 });
     } catch (error) {
       console.warn('[Curator] Compression failed:', error.message);
     }
@@ -112,7 +112,9 @@ Guidelines:
 - Remove noise, redundancy, and temporary details
 - Keep actionable insights and patterns
 - Maintain clarity and specificity
-- Maximum 100 words`;
+- Identify event date from context (or use today's date if unclear)
+- Memory MUST start with "Em DD/MM/YYYY, " prefix
+- Maximum 60 words (including date prefix)`;
 
     const userPrompt = `Refine this memory for long-term storage:
 
@@ -120,9 +122,14 @@ Category: ${category}
 Impact Score: ${impactScore.toFixed(2)}
 Original: ${content}
 
-Return refined version (max 100 words):`;
+MANDATORY FORMAT:
+- Start with "Em DD/MM/YYYY, " where date is the event date (extract from context or use today)
+- Follow with refined content
+- Total max 60 words
 
-    const refined = await callDeepSeek(systemPrompt, userPrompt, {
+Return refined version:`;
+
+    const refined = await callOpenAI(systemPrompt, userPrompt, {
       max_tokens: 200,
       temperature: 0.3 // Low temperature for consistency
     });
@@ -131,7 +138,7 @@ Return refined version (max 100 words):`;
     return refined;
 
   } catch (error) {
-    console.error('[Curator] DeepSeek refinement failed:', error.message);
+    console.error('[Curator] OpenAI refinement failed:', error.message);
     return content; // Fallback to original
   }
 }
@@ -184,7 +191,7 @@ Return JSON array of candidates com o nome "${userName}":
   }
 ]`;
 
-    const result = await callDeepSeekJSON(systemPrompt, userPrompt, {
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, {
       max_tokens: 800,
       temperature: 0.4
     });
