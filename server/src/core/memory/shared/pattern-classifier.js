@@ -1,34 +1,36 @@
 /**
  * NOTE (pattern-classifier.js):
- * Purpose: Classificação inteligente de memórias usando padrões + category detector
- * Controls: Sistema híbrido com detecção avançada de categorias por scoring
- * Behavior: Usa category-detector para LTM, mantém lógica para working/episodic
- * Integration notes: 100% sem IA, economia de ~1800 tokens/mensagem, alta precisão
+ * Purpose: Classificação inteligente de memórias usando padrões + IA híbrida
+ * Controls: Sistema híbrido com extração por REGEX + classificação por IA
+ * Behavior: Usa value-extractor para Working Memory, category-detector para LTM
+ * Integration notes: HÍBRIDO - Regex para extração, IA (gpt-5-nano) para classificação semântica
  */
 
 const { LTM_CATEGORIES } = require('./memory-types');
 const categoryDetector = require('./category-detector');
+const valueExtractor = require('./value-extractor');
 
 /**
- * Core patterns estratégicos (10-15 regras cobrindo 60-70% dos casos)
+ * Core patterns estratégicos - SIMPLIFICADO
+ * A lógica complexa de extração agora está em value-extractor.js
  */
 const PATTERNS = {
   // WORKING MEMORY - temporário, cálculos imediatos
   working: {
     keywords: [
-      /calcul(ar|o|ando)/i,
-      /consider(ar|ando)/i,
+      /calcul(ar|o|ando|e)/i,
+      /consider(ar|ando|e)/i,
       /\bagora\b/i,
       /\batual\b/i,
       /\btemp(orário|orariamente)\b/i,
       /\bneste momento\b/i,
-      /vamos (ver|analisar|calcular)/i
-    ],
-    // Extrai valores numéricos mencionados
-    extractValue: (text) => {
-      const matches = text.match(/R?\$?\s*\d+[\d.,]*/g);
-      return matches ? matches[0] : null;
-    }
+      /vamos (ver|analisar|calcular)/i,
+      /quanto.*render/i,
+      /render.*quanto/i,
+      /result(ado|ar)/i,
+      /some|soma|adicione/i,
+      /total|montante/i
+    ]
   },
 
   // LONG-TERM MEMORY - padrões permanentes e informações duradouras
@@ -139,16 +141,16 @@ const CATEGORY_KEYWORDS = {
 };
 
 /**
- * Classifica interação usando padrões inteligentes (substitui IA)
+ * Classifica interação usando padrões inteligentes + IA híbrida
  * @param {object} params - Parâmetros da interação
  * @param {string} params.userMessage - Mensagem do usuário
  * @param {string} params.aiResponse - Resposta da IA
  * @param {array} params.history - Histórico
  * @param {string} params.userName - Nome do usuário
- * @returns {object} - {working: [], episodic: {}, longTerm: []}
+ * @returns {Promise<object>} - {working: [], episodic: {}, longTerm: []}
  */
-function classifyInteraction({ userMessage, aiResponse, history = [], userName = 'o usuário' }) {
-  console.log('[PatternClassifier] 🧠 INÍCIO - Classificação por padrões');
+async function classifyInteraction({ userMessage, aiResponse, history = [], userName = 'o usuário' }) {
+  console.log('[PatternClassifier] 🧠 INÍCIO - Classificação por padrões HÍBRIDA');
   console.log('[PatternClassifier] 📥 Input:', {
     userMessageLength: userMessage.length,
     aiResponseLength: aiResponse.length,
@@ -162,27 +164,43 @@ function classifyInteraction({ userMessage, aiResponse, history = [], userName =
     longTerm: []
   };
 
-  const combinedText = `${userMessage} ${aiResponse}`.toLowerCase();
-  console.log('[PatternClassifier] 🔍 Texto combinado (primeiros 200 chars):', combinedText.substring(0, 200));
+  // CRITICAL FIX: Separa processamento por tipo de memória
+  // Working Memory: texto SEM userName (evita capturar "r3" de "edmaR3")
+  const cleanTextForWorking = `${userMessage} ${aiResponse}`.toLowerCase();
   
-  // 1. WORKING MEMORY - Temporário, cálculos, contexto imediato
+  // Long-term Memory: texto COM userName (necessário para contexto)
+  const textWithUserName = `${userName} ${userMessage}`.toLowerCase();
+  
+  console.log('[PatternClassifier] 🔍 Texto para Working (SEM userName, primeiros 200 chars):', cleanTextForWorking.substring(0, 200));
+  
+  // 1. WORKING MEMORY - Usa valueExtractor HÍBRIDO (Regex + IA)
   let hasWorkingContext = false;
   for (const pattern of PATTERNS.working.keywords) {
-    if (pattern.test(combinedText)) {
+    if (pattern.test(cleanTextForWorking)) {
       hasWorkingContext = true;
       break;
     }
   }
   
   if (hasWorkingContext) {
-    // Extrai valores numéricos mencionados
-    const value = PATTERNS.working.extractValue(combinedText);
-    if (value) {
-      result.working.push({
-        key: 'valor_calculo',
-        value: value,
-        reason: 'Valor numérico mencionado em contexto de cálculo'
+    // NOVA ABORDAGEM HÍBRIDA: Usa value-extractor com IA para classificação semântica
+    try {
+      const extractedValues = await valueExtractor.extractAndClassifyValues(aiResponse, userMessage, {
+        useAI: true, // Usa IA para classificação semântica
+        maxValues: 5  // Limita para economizar tokens
       });
+      
+      if (extractedValues.length > 0) {
+        console.log('[PatternClassifier] ✅ Valores extraídos para Working Memory:', extractedValues.length);
+        result.working.push(...extractedValues);
+        extractedValues.forEach(v => {
+          console.log(`[PatternClassifier]   - ${v.key}: ${v.value} (${v.category})`);
+        });
+      } else {
+        console.log('[PatternClassifier] ⚠️ Contexto de Working detectado mas nenhum valor válido extraído');
+      }
+    } catch (error) {
+      console.error('[PatternClassifier] ❌ Erro ao extrair valores:', error.message);
     }
   }
 
@@ -288,8 +306,8 @@ function categorizeByKeywords(text) {
  * Resume conversa para episodic memory
  */
 function summarizeConversation(userMsg, aiMsg) {
-  const userSnippet = userMsg.substring(0, 80);
-  const aiSnippet = aiMsg.substring(0, 80);
+  const userSnippet = userMsg.substring(0, 150);
+  const aiSnippet = aiMsg.substring(0, 150);
   return `Usuário perguntou sobre: "${userSnippet}". Eu respondi: "${aiSnippet}".`;
 }
 
@@ -297,17 +315,21 @@ function summarizeConversation(userMsg, aiMsg) {
  * Extrai preferências mencionadas
  */
 function extractPreferences(text) {
+  // Preservar valores monetários (10.000 -> 10_000)
+  const preservedText = text.replace(/(\d)\.(\d{3})/g, '$1_$2');
+  
   const prefPatterns = [
-    /prefiro\s+([^.!?]+)/i,
-    /gosto\s+de\s+([^.!?]+)/i,
-    /quero\s+([^.!?]+)/i
+    /prefiro\s+([^!?]+)/i,
+    /gosto\s+de\s+([^!?]+)/i,
+    /quero\s+([^!?]+)/i
   ];
   
   const prefs = [];
   for (const pattern of prefPatterns) {
-    const match = text.match(pattern);
+    const match = preservedText.match(pattern);
     if (match) {
-      prefs.push(match[1].trim());
+      // Restaurar pontos de milhar
+      prefs.push(match[1].replace(/_/g, '.').trim());
     }
   }
   
@@ -318,17 +340,21 @@ function extractPreferences(text) {
  * Extrai decisões tomadas
  */
 function extractDecisions(text) {
+  // Preservar valores monetários (10.000 -> 10_000)
+  const preservedText = text.replace(/(\d)\.(\d{3})/g, '$1_$2');
+  
   const decisionPatterns = [
-    /vou\s+([^.!?]+)/i,
-    /decidi\s+([^.!?]+)/i,
-    /escolhi\s+([^.!?]+)/i
+    /vou\s+([^!?]+)/i,
+    /decidi\s+([^!?]+)/i,
+    /escolhi\s+([^!?]+)/i
   ];
   
   const decisions = [];
   for (const pattern of decisionPatterns) {
-    const match = text.match(pattern);
+    const match = preservedText.match(pattern);
     if (match) {
-      decisions.push(match[1].trim());
+      // Restaurar pontos de milhar
+      decisions.push(match[1].replace(/_/g, '.').trim());
     }
   }
   

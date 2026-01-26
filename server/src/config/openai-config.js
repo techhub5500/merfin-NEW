@@ -1,9 +1,10 @@
 /**
  * NOTE (openai-config.js):
- * Purpose: Configure OpenAI GPT-4.1 nano for all AI-driven memory operations.
+ * Purpose: Configure OpenAI GPT-5 nano for all AI-driven memory operations.
  * Controls: API key, model version, endpoints, and request parameters.
  * Integration notes: Used by memory curator, impact scorer, and all AI reasoning operations.
- * Why GPT-4.1 nano: Fast, cost-effective, and excellent for memory curation tasks.
+ * Why GPT-5 nano: Fast, cost-effective, and excellent for memory curation tasks.
+ * API: Uses new responses.create() API (Jan 2026+)
  */
 
 const OpenAI = require('openai');
@@ -11,15 +12,11 @@ const OpenAI = require('openai');
 const OPENAI_CONFIG = {
   // API configuration
   API_KEY: process.env.OPENAI_API_KEY || '',
-  MODEL: 'gpt-4.1-nano', // GPT-4.1 nano model
+  MODEL: 'gpt-5-nano', // GPT-5 nano model (2026)
   
   // Request parameters for memory operations
   DEFAULT_PARAMS: {
-    temperature: 0.3,      // Low temperature for consistent reasoning
-    max_tokens: 1000,      // Sufficient for memory analysis
-    top_p: 0.95,
-    frequency_penalty: 0.0,
-    presence_penalty: 0.0
+    max_output_tokens: 1000,      // Sufficient for memory analysis
   },
   
   // Timeout configurations
@@ -47,40 +44,41 @@ function getClient() {
 }
 
 /**
- * Call OpenAI chat API
+ * Call OpenAI responses API (new 2026 API)
  * @param {string} systemPrompt - System instructions
  * @param {string} userPrompt - User message
- * @param {Object} options - Optional parameters (temperature, max_tokens, etc.)
+ * @param {Object} options - Optional parameters (max_output_tokens, etc.)
  * @returns {Promise<string>} - AI response
  */
 async function callOpenAI(systemPrompt, userPrompt, options = {}) {
   const client = getClient();
   
-  const params = {
-    model: OPENAI_CONFIG.MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    ...OPENAI_CONFIG.DEFAULT_PARAMS,
-    ...options
-  };
+  // Combina system + user prompt para a nova API
+  const combinedInput = `${systemPrompt}\n\n---\n\n${userPrompt}`;
   
   let lastError;
   for (let attempt = 1; attempt <= OPENAI_CONFIG.MAX_RETRIES; attempt++) {
     try {
-      console.log(`[OpenAI] Attempt ${attempt}/${OPENAI_CONFIG.MAX_RETRIES} - Calling ${OPENAI_CONFIG.MODEL}...`);
+      console.log(`[OpenAI] 🤖 Chamando ${OPENAI_CONFIG.MODEL} (tentativa ${attempt}/${OPENAI_CONFIG.MAX_RETRIES})`);
+      console.log(`[OpenAI] 📝 Input: ${combinedInput.substring(0, 150)}...`);
       
-      const response = await client.chat.completions.create(params);
+      // Nova API: responses.create()
+      const response = await client.responses.create({
+        model: OPENAI_CONFIG.MODEL,
+        input: combinedInput,
+        ...OPENAI_CONFIG.DEFAULT_PARAMS,
+        ...options
+      });
       
-      const content = response.choices[0].message.content.trim();
-      console.log(`[OpenAI] ✅ Success - ${content.length} chars`);
+      const content = response.output_text.trim();
+      console.log(`[OpenAI] ✅ Resposta recebida: ${content.length} chars`);
+      console.log(`[OpenAI] 📄 Conteúdo: ${content.substring(0, 100)}...`);
       
       return content;
       
     } catch (error) {
       lastError = error;
-      console.warn(`[OpenAI] ❌ Attempt ${attempt}/${OPENAI_CONFIG.MAX_RETRIES} failed:`, error.message);
+      console.warn(`[OpenAI] ❌ Tentativa ${attempt}/${OPENAI_CONFIG.MAX_RETRIES} falhou:`, error.message);
       
       if (attempt < OPENAI_CONFIG.MAX_RETRIES) {
         await new Promise(resolve => setTimeout(resolve, OPENAI_CONFIG.RETRY_DELAY * attempt));
@@ -88,7 +86,7 @@ async function callOpenAI(systemPrompt, userPrompt, options = {}) {
     }
   }
   
-  throw new Error(`OpenAI API failed after ${OPENAI_CONFIG.MAX_RETRIES} attempts: ${lastError.message}`);
+  throw new Error(`OpenAI API falhou após ${OPENAI_CONFIG.MAX_RETRIES} tentativas: ${lastError.message}`);
 }
 
 /**
@@ -128,7 +126,7 @@ async function testConnection() {
     const response = await callOpenAI(
       'You are a helpful assistant.',
       'Reply with a single word: OK',
-      { max_tokens: 10 }
+      { max_output_tokens: 10 }
     );
     
     return response.toLowerCase().includes('ok');

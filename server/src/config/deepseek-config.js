@@ -17,7 +17,7 @@ const DEEPSEEK_CONFIG = {
   // Request parameters for memory operations
   DEFAULT_PARAMS: {
     temperature: 0.3,      // Low temperature for consistent reasoning
-    max_tokens: 1000,      // Sufficient for memory analysis
+    max_completion_tokens: 1000,      // Sufficient for memory analysis
     top_p: 0.95,
     frequency_penalty: 0.0,
     presence_penalty: 0.0
@@ -35,7 +35,7 @@ const DEEPSEEK_CONFIG = {
  * Call DeepSeek chat API
  * @param {string} systemPrompt - System instructions
  * @param {string} userPrompt - User message
- * @param {Object} options - Optional parameters (temperature, max_tokens, etc.)
+ * @param {Object} options - Optional parameters (temperature, max_completion_tokens, etc.)
  * @returns {Promise<string>} - AI response
  */
 async function callDeepSeek(systemPrompt, userPrompt, options = {}) {
@@ -120,7 +120,7 @@ async function testConnection() {
     const response = await callDeepSeek(
       'You are a helpful assistant.',
       'Reply with a single word: OK',
-      { max_tokens: 10 }
+      { max_completion_tokens: 10 }
     );
     
     return response.toLowerCase().includes('ok');

@@ -39,13 +39,15 @@ async function calculate(content, context = {}) {
  * @returns {number} - Impact score (0-1)
  */
 function calculateFallback(content, context) {
-  const { accessCount = 0, sourceChats = [], mentionCount = 1 } = context;
+  const { accessCount = 0, sourceChats = [], mentionCount = 1, category = '' } = context;
   const lowerContent = content.toLowerCase();
 
   // Simple keyword-based scoring
   const highImpactKeywords = [
     'objetivo', 'meta', 'estratégia', 'investimento', 'dívida', 'receita',
-    'goal', 'strategy', 'investment', 'debt', 'income', 'preferência', 'preference'
+    'goal', 'strategy', 'investment', 'debt', 'income', 'preferência', 'preference',
+    // NOVOS: Palavras-chave para comparações financeiras
+    'comparando', 'taxa', 'rendimento', 'juros', 'liquidez', 'carência'
   ];
 
   const durableKeywords = ['sempre', 'nunca', 'prefiro', 'always', 'never', 'prefer', 'longo prazo'];
@@ -62,7 +64,65 @@ function calculateFallback(content, context) {
   const chatScore = Math.min(0.2, sourceChats.length / 5 * 0.2);
   const mentionScore = Math.min(0.1, mentionCount / 3 * 0.1);
 
-  return Math.min(1, Math.max(0, keywordScore + accessScore + chatScore + mentionScore + 0.2));
+  let baseScore = keywordScore + accessScore + chatScore + mentionScore + 0.2;
+  
+  // 🎯 BOOST CRÍTICO: Entidades essenciais de perfil NUNCA devem ser rejeitadas
+  let criticalBoost = 0;
+  
+  // Categoria situacao_financeira com RENDA ou PATRIMÔNIO → boost +0.5
+  if (category === 'situacao_financeira' || lowerContent.includes('situacao') || lowerContent.includes('financeira')) {
+    if (/\b(renda|salário|ganho|patrimônio|capital)\b/i.test(content)) {
+      criticalBoost += 0.5;
+      console.log('[RelevanceCalculator] 🎯 BOOST CRÍTICO: Renda/Patrimônio detectado (+0.5)');
+    }
+  }
+  
+  // NOME próprio do usuário (primeira menção) → boost +0.4
+  if (/\b(me chamo|meu nome|sou)\s+[A-Z][a-z]+/i.test(content)) {
+    criticalBoost += 0.4;
+    console.log('[RelevanceCalculator] 🎯 BOOST CRÍTICO: Nome do usuário detectado (+0.4)');
+  }
+  
+  // PERFIL DE RISCO explícito → boost +0.5
+  if (/\b(conservador|moderado|arrojado|agressivo)\b/i.test(content)) {
+    criticalBoost += 0.5;
+    console.log('[RelevanceCalculator] 🎯 BOOST CRÍTICO: Perfil de risco detectado (+0.5)');
+  }
+  
+  // OBJETIVOS/METAS explícitos → boost +0.4
+  if (category === 'objetivos_metas' || /\b(objetivo|meta|sonho|quero|pretendo)\b/i.test(content)) {
+    if (/\b(comprar|adquirir|juntar|poupar)\b/i.test(content)) {
+      criticalBoost += 0.4;
+      console.log('[RelevanceCalculator] 🎯 BOOST CRÍTICO: Objetivo/Meta detectado (+0.4)');
+    }
+  }
+  
+  // 🎯 NOVO: COMPARAÇÕES FINANCEIRAS (múltiplos produtos/taxas) → boost +0.3
+  if (category === 'investimentos' || /\b(investimento|investir)\b/i.test(content)) {
+    // Detecta comparações: "Banco A... Banco B... Banco C" ou múltiplas taxas
+    const hasBancoComparison = (content.match(/banco\s+[A-Z]/gi) || []).length >= 2;
+    const hasTaxaComparison = (content.match(/\d+%/g) || []).length >= 2;
+    const hasComparacaoWord = /\b(compar|versus|melhor|pior|diferença)\b/i.test(content);
+    
+    if ((hasBancoComparison || hasTaxaComparison) && hasComparacaoWord) {
+      criticalBoost += 0.3;
+      console.log('[RelevanceCalculator] 🎯 BOOST CRÍTICO: Comparação de produtos financeiros (+0.3)');
+    }
+  }
+  
+  // 🎯 NOVO: TAXAS/RENDIMENTOS explícitos → boost +0.25
+  if (/\b(taxa|rendimento|retorno|juros)\b/i.test(content) && /\d+[.,]?\d*%/.test(content)) {
+    criticalBoost += 0.25;
+    console.log('[RelevanceCalculator] 🎯 BOOST: Taxa/Rendimento com valor específico (+0.25)');
+  }
+
+  const finalScore = Math.min(1, Math.max(0, baseScore + criticalBoost));
+  
+  if (criticalBoost > 0) {
+    console.log(`[RelevanceCalculator] Score final: ${baseScore.toFixed(2)} + ${criticalBoost.toFixed(2)} (boost) = ${finalScore.toFixed(2)}`);
+  }
+  
+  return finalScore;
 }
 
 module.exports = {

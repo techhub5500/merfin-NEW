@@ -9,6 +9,33 @@
 const { count } = require('./word-counter');
 
 /**
+ * UTILITÁRIOS PARA PRESERVAÇÃO DE VALORES MONETÁRIOS BRASILEIROS
+ * Problema: Regex como [^.!?] para em pontos, truncando R$ 10.000 para R$ 10
+ * Solução: Substituir temporariamente separadores de milhar antes de aplicar regex
+ */
+
+/**
+ * Preserva valores monetários substituindo pontos de milhar por underscores
+ * Ex: "R$ 10.000,50" -> "R$ 10_000,50"
+ * @param {string} text - Texto original
+ * @returns {string} - Texto com pontos de milhar substituídos
+ */
+function preserveMonetaryValues(text) {
+  // Substitui ponto seguido de 3 dígitos (separador de milhar BR)
+  return text.replace(/(\d)\.(\d{3})/g, '$1_$2');
+}
+
+/**
+ * Restaura valores monetários convertendo underscores de volta para pontos
+ * Ex: "R$ 10_000,50" -> "R$ 10.000,50"
+ * @param {string} text - Texto com underscores
+ * @returns {string} - Texto original restaurado
+ */
+function restoreMonetaryValues(text) {
+  return text.replace(/_/g, '.');
+}
+
+/**
  * Extrai evento estruturado de um ciclo de conversa
  * @param {string} userMessage - Mensagem do usuário
  * @param {string} aiResponse - Resposta da IA
@@ -78,22 +105,27 @@ function extractUserAction(text) {
     .replace(/\b(por favor|obrigado|valeu|legal|beleza)\b/gi, '')
     .trim();
 
+  // CORREÇÃO: Preservar valores monetários ANTES de aplicar patterns
+  // Usa função utilitária para substituir pontos de milhar
+  const preservedText = preserveMonetaryValues(cleaned);
+
   // Extrai núcleo da ação (verbo + objeto direto)
   const actionPatterns = [
-    { pattern: /(quero|vou|pretendo)\s+([^,.!?]+)/i, extract: 2 },
-    { pattern: /(investo|gasto|ganho|tenho)\s+([^,.!?]+)/i, extract: 0 },
+    { pattern: /(quero|vou|pretendo)\s+([^,!?]+)/i, extract: 2 },
+    { pattern: /(investo|gasto|ganho|tenho)\s+([^,!?]+)/i, extract: 0 },
     { pattern: /(como|quanto|qual)\s+([^?]+)/i, extract: 0 }
   ];
 
   for (const { pattern, extract } of actionPatterns) {
-    const match = cleaned.match(pattern);
+    const match = preservedText.match(pattern);
     if (match) {
-      return match[extract].trim();
+      // Restaurar pontos de milhar usando função utilitária
+      return restoreMonetaryValues(match[extract]).trim();
     }
   }
 
-  // Fallback: primeiras 60 chars
-  return cleaned.substring(0, 60).trim();
+  // Fallback: primeiras 150 chars (preserva valores monetários completos)
+  return cleaned.substring(0, 150).trim();
 }
 
 /**
@@ -106,21 +138,31 @@ function extractValues(userMessage, aiResponse) {
   const values = {};
   const combinedText = `${userMessage} ${aiResponse}`;
 
-  // Padrões de valores
+  // Padrões de valores (formato BR correto: 10.000,50)
   const patterns = {
-    renda: /(renda|salário|ganho).*?R?\$?\s*([\d.,]+)/i,
-    investimento: /(invisto|aplicado|aplicação).*?R?\$?\s*([\d.,]+)/i,
-    divida: /(d[íi]vida|devo|parcela).*?R?\$?\s*([\d.,]+)/i,
-    gasto: /(gasto|pago|consumo).*?R?\$?\s*([\d.,]+)/i,
-    patrimonio: /(patrimônio|capital|total).*?R?\$?\s*([\d.,]+)/i,
-    percentual: /(rendimento|taxa|juros).*?([\d.,]+)%/i
+    renda: /(renda|salário|ganho).*?R?\$?\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})?)/i,
+    investimento: /(invisto|aplicado|aplicação|investir).*?R?\$?\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})?)/i,
+    divida: /(d[íi]vida|devo|parcela).*?R?\$?\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})?)/i,
+    gasto: /(gasto|pago|consumo).*?R?\$?\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})?)/i,
+    patrimonio: /(patrimônio|capital|total).*?R?\$?\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})?)/i,
+    percentual: /(rendimento|taxa|juros).*?(\d{1,3}(?:[.,]\d+)?)%/i
   };
 
   for (const [key, pattern] of Object.entries(patterns)) {
     const match = combinedText.match(pattern);
     if (match) {
-      const valueStr = match[2].replace(',', '.');
-      values[key] = parseFloat(valueStr) || match[2];
+      // Normaliza formato brasileiro (5.000,00 → 5000.00) e americano (5,000.00 → 5000.00)
+      let valueStr = match[2];
+      
+      // Se tem ponto seguido de 3 dígitos, é separador de milhar BR → remove
+      valueStr = valueStr.replace(/\.(\d{3})/g, '$1');
+      // Se tem vírgula seguida de 2 dígitos no final, é decimal BR → substitui por ponto
+      valueStr = valueStr.replace(/,(\d{2})$/, '.$1');
+      // Remove vírgulas restantes (separador de milhar US)
+      valueStr = valueStr.replace(/,/g, '');
+      
+      const numValue = parseFloat(valueStr);
+      values[key] = !isNaN(numValue) ? numValue : match[2];
     }
   }
 

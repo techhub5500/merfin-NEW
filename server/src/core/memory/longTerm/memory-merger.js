@@ -108,7 +108,7 @@ Merged memory (preserve all unique information, max 100 words):`;
   const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: 150,
+    max_completion_tokens: 150,
     temperature: 0.3
   });
 

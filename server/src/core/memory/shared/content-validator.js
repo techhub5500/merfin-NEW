@@ -96,8 +96,8 @@ function validateWorkingMemory(key, value) {
     };
   }
   
-  // Verifica se é spam/ruído
-  if (isNoise(valueStr)) {
+  // Verifica se é spam/ruído (passa key como contexto)
+  if (isNoise(valueStr, key)) {
     return {
       allowed: false,
       reason: 'Conteúdo irrelevante ou spam',
@@ -209,7 +209,7 @@ function isFirstName(text) {
 /**
  * Verifica se é ruído/spam
  */
-function isNoise(text) {
+function isNoise(text, key = '') {
   const lower = text.toLowerCase().trim();
   
   // Texto muito curto (< 2 caracteres)
@@ -217,9 +217,27 @@ function isNoise(text) {
     return true;
   }
   
-  // Apenas números sem contexto
-  if (/^\d+$/.test(lower) && lower.length < 4) {
-    return true;
+  // ✅ ALLOWLIST: Números no contexto de cálculos/valores NÃO são spam
+  // Se a chave indica contexto matemático/financeiro, aceita números puros
+  const numericalContextKeys = [
+    'valor', 'calculo', 'resultado', 'percentual', 'taxa', 
+    'porcentagem', 'quantidade', 'numero', 'montante'
+  ];
+  
+  if (/^\d+(\.\d+)?$/.test(lower)) {
+    // É um número puro - verifica contexto pela chave
+    const keyLower = key.toLowerCase();
+    for (const contextKey of numericalContextKeys) {
+      if (keyLower.includes(contextKey)) {
+        console.log(`[ContentValidator] ✅ Número ${text} aceito (contexto: ${key})`);
+        return false; // NÃO é ruído
+      }
+    }
+    
+    // Se número muito curto sem contexto, ainda é suspeito
+    if (lower.length < 4) {
+      return true;
+    }
   }
   
   // Spam patterns

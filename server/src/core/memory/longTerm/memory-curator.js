@@ -280,7 +280,7 @@ Return JSON array of candidates com o nome "${userName}":
 ]`;
 
     const result = await callOpenAIJSON(systemPrompt, userPrompt, {
-      max_tokens: 800,
+      max_completion_tokens: 800,
       temperature: 0.4
     });
 

@@ -44,7 +44,7 @@ Return JSON with:
 }`;
 
   try {
-    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_tokens: 200 });
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_completion_tokens: 200 });
     
     // Validate score
     const score = Math.max(0, Math.min(1, result.score || 0));
@@ -98,7 +98,7 @@ Return JSON with:
 }`;
 
   try {
-    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_tokens: 500 });
+    const result = await callOpenAIJSON(systemPrompt, userPrompt, { max_completion_tokens: 500 });
     console.log(`[RelevanceScorer] Prioritization: ${result.reasoning}`);
     return result.prioritized || memory;
     

@@ -29,8 +29,10 @@ const narrativeEngine = require('./narrative-engine');
 async function processMemories(context) {
   const { sessionId, userId, chatId, userMessage, aiResponse, history, userName } = context;
   
-  console.log('[MemoryProcessor] 🚀 INÍCIO - Processamento de memórias iniciado');
-  console.log('[MemoryProcessor] 📊 Contexto:', {
+  console.log('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
+  console.log('[MemoryProcessor] 🚀 INÍCIO - Processamento de memórias');
+  console.log('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
+  console.log('[MemoryProcessor] 📊 Contexto recebido:', {
     sessionId,
     chatId,
     userId,
@@ -40,36 +42,42 @@ async function processMemories(context) {
     historyLength: history?.length || 0
   });
   console.log('[MemoryProcessor] 💬 Mensagem do usuário:', userMessage);
-  console.log('[MemoryProcessor] 🤖 Resposta da IA:', aiResponse.substring(0, 200) + '...');
+  console.log('[MemoryProcessor] 🤖 Resposta da IA (primeiros 300 chars):', aiResponse.substring(0, 300) + '...');
   
   try {
-    // Classificar interação usando PADRÕES INTELIGENTES (sem IA, economiza ~1800 tokens)
-    console.log('[MemoryProcessor] 🧠 Usando pattern matching (sem IA)...');
-    const classification = patternClassifier.classifyInteraction({
+    // Classificar interação usando PADRÕES + IA HÍBRIDA
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    console.log('[MemoryProcessor] 🧠 ETAPA 1: Classificação (Pattern + IA Híbrida)');
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    const classification = await patternClassifier.classifyInteraction({
       userMessage,
       aiResponse,
       history,
       userName: userName || 'o usuário'
     });
     
-    console.log('[MemoryProcessor] ✅ Classificação (via patterns) concluída');
-    console.log('[MemoryProcessor] 📝 Working items:', classification.working.length);
-    console.log('[MemoryProcessor] 📖 Episodic:', JSON.stringify(classification.episodic, null, 2));
-    console.log('[MemoryProcessor] 💾 Long-term candidates:', classification.longTerm.length);
-    console.log('[MemoryProcessor] 🔍 DETALHES DA CLASSIFICAÇÃO:', {
-      working: classification.working,
-      episodic: classification.episodic,
-      longTerm: classification.longTerm
-    });
-    
+    console.log('[MemoryProcessor] ✅ Classificação concluída');
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    console.log('[MemoryProcessor] 📋 RESULTADO DA CLASSIFICAÇÃO:');
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    console.log('[MemoryProcessor] 📝 Working Memory items:', classification.working.length);
     if (classification.working.length > 0) {
-      console.log('[MemoryProcessor] 🔍 Working Memory detalhes:', classification.working);
+      classification.working.forEach((w, i) => {
+        console.log(`[MemoryProcessor]   ${i+1}. [${w.key}] = ${w.value} (${w.category || w.reason})`);
+      });
     }
+    console.log('[MemoryProcessor] 📖 Episodic Memory:', JSON.stringify(classification.episodic, null, 2));
+    console.log('[MemoryProcessor] 💾 Long-term candidates:', classification.longTerm.length);
     if (classification.longTerm.length > 0) {
-      console.log('[MemoryProcessor] 🔍 Long-term candidates detalhes:', classification.longTerm);
+      classification.longTerm.forEach((lt, i) => {
+        console.log(`[MemoryProcessor]   ${i+1}. [${lt.category}] ${lt.content.substring(0, 80)}...`);
+      });
     }
     
     // Processar em paralelo (mais rápido)
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    console.log('[MemoryProcessor] 🔄 ETAPA 2: Processamento das memórias');
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
     const promises = [];
     
     // Working Memory - sempre processa se houver dados relevantes
@@ -106,14 +114,25 @@ async function processMemories(context) {
       console.log('[MemoryProcessor] ⏭️ Nenhum candidate para Long-Term Memory');
     }
     
+    console.log('[MemoryProcessor] ⏳ Aguardando processamento paralelo...');
     const results = await Promise.allSettled(promises);
     
     // Log resultados
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    console.log('[MemoryProcessor] 📊 ETAPA 3: Resultados do processamento');
+    console.log('[MemoryProcessor] ───────────────────────────────────────────────────────────────');
+    
     results.forEach((result, idx) => {
       if (result.status === 'fulfilled') {
-        console.log(`[MemoryProcessor] Processamento ${idx + 1} concluído:`, result.value);
+        const r = result.value;
+        console.log(`[MemoryProcessor] ✅ Processamento ${idx + 1}: ${r.type || 'unknown'}`);
+        if (r.results) {
+          r.results.forEach(item => {
+            console.log(`[MemoryProcessor]    - ${item.key || item.category}: ${item.status}`);
+          });
+        }
       } else {
-        console.error(`[MemoryProcessor] Processamento ${idx + 1} falhou:`, result.reason);
+        console.error(`[MemoryProcessor] ❌ Processamento ${idx + 1} FALHOU:`, result.reason);
       }
     });
     
@@ -123,22 +142,27 @@ async function processMemories(context) {
       results: results.map(r => r.status === 'fulfilled' ? r.value : { error: r.reason.message })
     };
 
-    console.log('[MemoryProcessor] ✅ FIM - Processamento concluído');
-    console.log('[MemoryProcessor] 📊 Estatísticas:', {
-      success: true,
-      workingItemsProcessed: classification.working?.length || 0,
-      episodicProcessed: classification.episodic ? 'sim' : 'não',
-      longTermCandidates: classification.longTerm?.length || 0,
-      resultsCount: results.length,
-      successfulResults: results.filter(r => r.status === 'fulfilled').length,
-      failedResults: results.filter(r => r.status === 'rejected').length
-    });
-    console.log('[MemoryProcessor] 📋 Resultado detalhado:', JSON.stringify(finalResult, null, 2));
+    console.log('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
+    console.log('[MemoryProcessor] ✅ FIM - Processamento de memórias concluído');
+    console.log('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
+    
+    const workingProcessed = classification.working?.length || 0;
+    const longTermProcessed = classification.longTerm?.length || 0;
+    
+    console.log('[MemoryProcessor] 📊 RESUMO FINAL:');
+    console.log(`[MemoryProcessor]   📝 Working Memory: ${workingProcessed} itens`);
+    console.log(`[MemoryProcessor]   📖 Episodic Memory: ${classification.episodic ? 'processado' : 'não'}`);
+    console.log(`[MemoryProcessor]   💾 Long-term Memory: ${longTermProcessed} candidatos`);
+    console.log(`[MemoryProcessor]   ✅ Sucesso: ${results.filter(r => r.status === 'fulfilled').length}`);
+    console.log(`[MemoryProcessor]   ❌ Falhas: ${results.filter(r => r.status === 'rejected').length}`);
+    console.log('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
 
     return finalResult;
     
   } catch (error) {
-    console.error('[MemoryProcessor] ❌ Erro no processamento:', error);
+    console.error('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
+    console.error('[MemoryProcessor] ❌ ERRO CRÍTICO no processamento:', error);
+    console.error('[MemoryProcessor] ═══════════════════════════════════════════════════════════════');
     throw error;
   }
 }
@@ -146,28 +170,111 @@ async function processMemories(context) {
 // (AI-based classification removed - deprecated implementation deleted)
 
 /**
- * Processar Working Memory
+ * Processar Working Memory com filtro anti-duplicação
+ * Filtra valores que já existem na LTM para evitar redundância
  */
 async function processWorkingMemory(sessionId, userId, workingData) {
+  console.log('[Working] ═══════════════════════════════════════════════════════════════');
   console.log('[Working] 🚀 INÍCIO - Processando Working Memory');
-  console.log('[Working] 📊 Total de itens:', workingData.length);
-  console.log('[Working] 📦 Dados:', workingData);
+  console.log('[Working] ═══════════════════════════════════════════════════════════════');
+  console.log('[Working] 📊 SessionId:', sessionId);
+  console.log('[Working] 👤 UserId:', userId);
+  console.log('[Working] 📦 Total de itens a processar:', workingData.length);
+  if (workingData.length > 0) {
+    console.log('[Working] 📋 Itens recebidos:');
+    workingData.forEach((item, i) => {
+      console.log(`[Working]   ${i+1}. [${item.key}] = ${item.value} (${item.category || item.reason})`);
+    });
+  }
+  
+  // Carregar LTM do usuário para verificar duplicações
+  console.log('[Working] ───────────────────────────────────────────────────────────────');
+  console.log('[Working] 🔍 Verificando duplicatas na LTM...');
+  let ltmValues = [];
+  try {
+    // CORREÇÃO: caminho correto do schema (shared → memory → core → src → database)
+    const LongTermMemoryModel = require('../../../database/schemas/long-term-memory-schema');
+    const ltm = await LongTermMemoryModel.findOne({ userId });
+    
+    if (ltm && ltm.memoryItems) {
+      console.log('[Working] 📂 LTM encontrada com', ltm.memoryItems.length, 'items');
+      
+      // Extrair todos os valores monetários da LTM
+      ltmValues = ltm.memoryItems
+        .map(item => item.content)
+        .join(' ')
+        .match(/R\$?\s*\d{1,3}(?:[.]\d{3})*(?:,\d{2})?/gi) || [];
+      
+      // Normalizar valores para comparação (remover espaços, R$, etc)
+      ltmValues = ltmValues.map(v => 
+        v.replace(/[R$\s]/gi, '').trim()
+      );
+      
+      console.log('[Working] 💰 Valores monetários encontrados na LTM:', ltmValues.length);
+      if (ltmValues.length > 0) {
+        console.log('[Working] 📋 Exemplos de valores na LTM:', ltmValues.slice(0, 5));
+      }
+    } else {
+      console.log('[Working] 📭 LTM vazia ou não encontrada para este usuário');
+    }
+  } catch (error) {
+    console.warn('[Working] ⚠️ Erro ao carregar LTM para verificação:', error.message);
+    // Continua sem filtro se houver erro
+  }
+  
+  console.log('[Working] ───────────────────────────────────────────────────────────────');
+  console.log('[Working] 💾 Salvando itens no Working Memory...');
   
   const results = [];
   for (const item of workingData) {
     try {
-      console.log('[Working] 💾 Salvando item:', { key: item.key, value: item.value, reason: item.reason });
+      console.log(`[Working] 🔄 Processando: [${item.key}] = ${item.value}`);
+      
+      // Normalizar valor do item para comparação
+      const normalizedValue = item.value
+        .replace(/[R$\s]/gi, '')
+        .trim();
+      
+      console.log(`[Working]   📐 Valor normalizado: "${normalizedValue}"`);
+      
+      // Verificar se valor já existe na LTM
+      const isDuplicate = ltmValues.some(ltmValue => {
+        // Comparação flexível: aceita pequenas diferenças de formatação
+        return ltmValue === normalizedValue || 
+               ltmValue.replace(/[.,]/g, '') === normalizedValue.replace(/[.,]/g, '');
+      });
+      
+      if (isDuplicate) {
+        console.log(`[Working]   ⏭️ IGNORADO - Valor já existe na LTM: ${item.value}`);
+        results.push({ 
+          key: item.key, 
+          status: 'skipped', 
+          reason: 'Valor já existe na Long-Term Memory' 
+        });
+        continue;
+      }
+      
+      console.log(`[Working]   💾 Salvando no banco: key=${item.key}, value=${item.value}`);
       await workingMemory.set(sessionId, item.key, item.value, false, userId);
-      console.log('[Working] ✅ Item salvo com sucesso:', item.key);
+      console.log(`[Working]   ✅ SALVO COM SUCESSO: [${item.key}]`);
       results.push({ key: item.key, status: 'stored' });
     } catch (error) {
-      console.error('[Working] ❌ Erro ao armazenar:', item.key, error.message);
+      console.error(`[Working]   ❌ ERRO ao armazenar [${item.key}]:`, error.message);
       results.push({ key: item.key, status: 'error', error: error.message });
     }
   }
   
+  console.log('[Working] ═══════════════════════════════════════════════════════════════');
   console.log('[Working] ✅ FIM - Working Memory processada');
-  console.log('[Working] 📊 Resultados:', results);
+  console.log('[Working] 📊 Resumo:');
+  const stored = results.filter(r => r.status === 'stored').length;
+  const skipped = results.filter(r => r.status === 'skipped').length;
+  const errors = results.filter(r => r.status === 'error').length;
+  console.log(`[Working]   ✅ Salvos: ${stored}`);
+  console.log(`[Working]   ⏭️ Ignorados (duplicatas): ${skipped}`);
+  console.log(`[Working]   ❌ Erros: ${errors}`);
+  console.log('[Working] ═══════════════════════════════════════════════════════════════');
+  
   return { type: 'working', results };
 }
 
@@ -175,8 +282,12 @@ async function processWorkingMemory(sessionId, userId, workingData) {
  * Processar Episodic Memory com eventos estruturados e resumo narrativo
  */
 async function processEpisodicMemory(chatId, userId, episodicData, rawInteraction) {
+  console.log('[Episodic] ═══════════════════════════════════════════════════════════════');
   console.log('[Episodic] 🚀 INÍCIO - Processando Episodic Memory');
+  console.log('[Episodic] ═══════════════════════════════════════════════════════════════');
   console.log('[Episodic] 📊 Chat ID:', chatId);
+  console.log('[Episodic] 👤 User ID:', userId);
+  console.log('[Episodic] 📋 Dados episódicos recebidos:', JSON.stringify(episodicData, null, 2));
   
   try {
     // Verifica se chat já tem memória
@@ -184,23 +295,26 @@ async function processEpisodicMemory(chatId, userId, episodicData, rawInteractio
     const existing = await episodicMemory.get(chatId);
     
     // Extrai evento estruturado da interação atual
+    console.log('[Episodic] 🎯 Extraindo evento estruturado...');
     const event = narrativeEngine.extractEvent(
       rawInteraction.userMessage,
       rawInteraction.aiResponse,
       { category: episodicData.categoria_principal || 'geral' }
     );
     
-    console.log('[Episodic] 🎯 Evento extraído:', event);
+    console.log('[Episodic] 📝 Evento extraído:', JSON.stringify(event, null, 2));
     
     let narrative = '';
     let events = [event];
     
     if (existing) {
-      console.log('[Episodic] ✏️ Chat possui memória existente, atualizando...');
+      console.log('[Episodic] ───────────────────────────────────────────────────────────────');
+      console.log('[Episodic] ✏️ Chat possui memória existente, ATUALIZANDO...');
       
       // Recupera eventos anteriores (se estiverem armazenados)
       if (existing.episodicMemory.events) {
         events = [...existing.episodicMemory.events, event];
+        console.log('[Episodic] 📚 Eventos anteriores:', existing.episodicMemory.events.length);
       }
       
       // Reconstrói narrativa completa com limite de 750 palavras
@@ -224,11 +338,13 @@ async function processEpisodicMemory(chatId, userId, episodicData, rawInteractio
         autoCompress: true
       });
       
-      console.log('[Episodic] ✅ Memória atualizada com sucesso');
+      console.log('[Episodic] ✅ Memória ATUALIZADA com sucesso');
+      console.log('[Episodic] ═══════════════════════════════════════════════════════════════');
       return { type: 'episodic', status: 'updated', chatId, events_count: events.length };
       
     } else {
-      console.log('[Episodic] 🆕 Chat sem memória, criando nova...');
+      console.log('[Episodic] ───────────────────────────────────────────────────────────────');
+      console.log('[Episodic] 🆕 Chat sem memória, CRIANDO NOVA...');
       
       // Cria narrativa inicial
       narrative = narrativeEngine.eventsToNarrative([event], 750);
@@ -244,12 +360,14 @@ async function processEpisodicMemory(chatId, userId, episodicData, rawInteractio
       
       await episodicMemory.create(chatId, userId, initialData);
       
-      console.log('[Episodic] ✅ Nova memória criada com sucesso');
+      console.log('[Episodic] ✅ Nova memória CRIADA com sucesso');
+      console.log('[Episodic] ═══════════════════════════════════════════════════════════════');
       return { type: 'episodic', status: 'created', chatId, events_count: 1 };
     }
     
   } catch (error) {
     console.error('[Episodic] ❌ Erro no processamento:', error.message);
+    console.log('[Episodic] ═══════════════════════════════════════════════════════════════');
     return { type: 'episodic', status: 'error', error: error.message };
   }
 }
@@ -258,17 +376,28 @@ async function processEpisodicMemory(chatId, userId, episodicData, rawInteractio
  * Processar Long-Term Memory
  */
 async function processLongTermMemory(userId, chatId, longTermData) {
+  console.log('[LongTerm] ═══════════════════════════════════════════════════════════════');
   console.log('[LongTerm] 🚀 INÍCIO - Processando Long-Term Memory');
-  console.log('[LongTerm] 📊 Total de candidatos:', longTermData.length);
-  console.log('[LongTerm] 📦 Candidatos:', longTermData);
+  console.log('[LongTerm] ═══════════════════════════════════════════════════════════════');
+  console.log('[LongTerm] 👤 User ID:', userId);
+  console.log('[LongTerm] 💬 Chat ID:', chatId);
+  console.log('[LongTerm] 📦 Total de candidatos:', longTermData.length);
+  if (longTermData.length > 0) {
+    console.log('[LongTerm] 📋 Candidatos recebidos:');
+    longTermData.forEach((item, i) => {
+      console.log(`[LongTerm]   ${i+1}. [${item.category}] ${item.content.substring(0, 80)}...`);
+      console.log(`[LongTerm]      Score: ${item.score || 'N/A'} | Razão: ${item.reason}`);
+    });
+  }
+  
+  console.log('[LongTerm] ───────────────────────────────────────────────────────────────');
+  console.log('[LongTerm] 🔄 Propondo candidatos para curadoria...');
   
   const results = [];
   for (const item of longTermData) {
-    console.log('[LongTerm] 🎯 Propondo memória:', {
-      category: item.category,
-      content: item.content.substring(0, 100) + '...',
-      reason: item.reason
-    });
+    console.log('[LongTerm] ───────────────────────────────────────────────────────────────');
+    console.log(`[LongTerm] 🎯 Propondo: [${item.category}]`);
+    console.log(`[LongTerm]    Conteúdo: ${item.content.substring(0, 100)}...`);
     
     try {
       const stored = await longTermMemory.propose(
@@ -279,15 +408,14 @@ async function processLongTermMemory(userId, chatId, longTermData) {
       );
       
       if (stored) {
-        console.log('[LongTerm] ✅ Memória ACEITA e armazenada');
-        console.log('[LongTerm] 📊 Impact Score:', stored.impactScore);
+        console.log(`[LongTerm]    ✅ ACEITA - Impact Score: ${stored.impactScore}`);
         results.push({ 
           category: item.category, 
           status: 'accepted',
           impactScore: stored.impactScore 
         });
       } else {
-        console.log('[LongTerm] ❌ Memória REJEITADA pela curadoria');
+        console.log('[LongTerm]    ❌ REJEITADA - Não passou na curadoria');
         results.push({ 
           category: item.category, 
           status: 'rejected',
@@ -296,7 +424,7 @@ async function processLongTermMemory(userId, chatId, longTermData) {
       }
       
     } catch (error) {
-      console.error('[LongTerm] ❌ Erro ao propor memória:', error.message);
+      console.error(`[LongTerm]    ❌ ERRO: ${error.message}`);
       results.push({ 
         category: item.category, 
         status: 'error', 
@@ -305,8 +433,17 @@ async function processLongTermMemory(userId, chatId, longTermData) {
     }
   }
   
+  console.log('[LongTerm] ═══════════════════════════════════════════════════════════════');
   console.log('[LongTerm] ✅ FIM - Long-Term Memory processada');
-  console.log('[LongTerm] 📊 Resultados:', results);
+  console.log('[LongTerm] 📊 Resumo:');
+  const accepted = results.filter(r => r.status === 'accepted').length;
+  const rejected = results.filter(r => r.status === 'rejected').length;
+  const errors = results.filter(r => r.status === 'error').length;
+  console.log(`[LongTerm]   ✅ Aceitas: ${accepted}`);
+  console.log(`[LongTerm]   ❌ Rejeitadas: ${rejected}`);
+  console.log(`[LongTerm]   ⚠️ Erros: ${errors}`);
+  console.log('[LongTerm] ═══════════════════════════════════════════════════════════════');
+  
   return { type: 'longTerm', results };
 }
 

@@ -322,7 +322,14 @@ app.get('/api/agents/list', (req, res) => {
 // Processa mensagens de chat usando o JuniorAgent
 app.post('/api/chat/process', async (req, res) => {
 	try {
-		console.log('[SERVER] 📥 POST /api/chat/process - Request Body completo:', JSON.stringify(req.body, null, 2));
+		// Log apenas campos essenciais (não o body completo)
+		console.log('[SERVER] 📥 POST /api/chat/process - Campos extraídos:', {
+			message: req.body.message?.substring(0, 50) + (req.body.message?.length > 50 ? '...' : ''),
+			sessionId: req.body.sessionId,
+			historyLength: req.body.history?.length || 0,
+			userId: req.body.userId,
+			chatId: req.body.chatId
+		});
 		
 		const { message, sessionId, history, userId, chatId } = req.body;
 		

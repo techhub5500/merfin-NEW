@@ -57,24 +57,66 @@ async function buildAgentContext(sessionId, chatId, userId) {
       console.warn('[MemoryIntegration] Error loading episodic memory:', error.message);
     }
 
-    // Get relevant long-term memories (top 5 by impact)
+    // Get relevant long-term memories with category-based filtering (RAG Refinado)
     let ltmContext = [];
     let categoryDescriptions = {};
+    let relevanceFilter = { categories: [], scores: [] }; // Log de filtragem
+    
     try {
       const LongTermMemoryModel = require('../../database/schemas/long-term-memory-schema');
       const ltm = await LongTermMemoryModel.findOne({ userId });
       
       if (ltm) {
-        // Get top memories
-        const ltmData = await longTermMemory.retrieve(userId, '', {
-          limit: 5,
-          useVectorSearch: false
-        });
-        ltmContext = ltmData.map(item => ({
-          content: item.content,
-          category: item.category,
-          impactScore: item.impactScore
-        }));
+        // Detect relevant categories from current interaction context
+        const categoryDetector = require('./shared/category-detector');
+        const episodicText = episodicContext ? 
+          `${episodicContext.contexto_conversa || ''} ${episodicContext.narrative_summary || ''}`.slice(0, 500) : '';
+        
+        const detectedCategories = categoryDetector.detectCategories(episodicText, {});
+        const relevantCategories = detectedCategories
+          .filter(c => c.score >= 20) // Minimum relevance threshold
+          .map(c => c.category)
+          .slice(0, 3); // Top 3 categories
+        
+        relevanceFilter.categories = relevantCategories;
+        relevanceFilter.scores = detectedCategories.filter(c => c.score >= 20).map(c => c.score);
+        
+        console.log('[MemoryIntegration] 🎯 Categorias relevantes detectadas:', relevantCategories.join(', '), '(scores:', relevanceFilter.scores.join(', ') + ')');
+        
+        // Retrieve memories with category filtering (if categories detected)
+        if (relevantCategories.length > 0) {
+          // Filter by relevant categories + impact score
+          let filteredMemories = ltm.memoryItems
+            .filter(item => relevantCategories.includes(item.category))
+            .filter(item => item.impactScore >= 0.5)
+            .sort((a, b) => b.impactScore - a.impactScore)
+            .slice(0, 5);
+          
+          ltmContext = filteredMemories.map(item => ({
+            content: item.content,
+            category: item.category,
+            impactScore: item.impactScore,
+            createdAt: item.createdAt,
+            eventDate: item.eventDate
+          }));
+          
+          console.log('[MemoryIntegration] 📦 Filtro categórico: mantidas', ltmContext.length, 'de', ltm.memoryItems.length, 'memórias');
+        } else {
+          // Fallback: top memories by impact
+          const ltmData = await longTermMemory.retrieve(userId, '', {
+            limit: 5,
+            useVectorSearch: false
+          });
+          ltmContext = ltmData.map(item => ({
+            content: item.content,
+            category: item.category,
+            impactScore: item.impactScore,
+            createdAt: item.createdAt,
+            eventDate: item.eventDate
+          }));
+          
+          console.log('[MemoryIntegration] 📦 Sem filtro categórico: usando top', ltmContext.length, 'por impacto');
+        }
         
         // Extract category descriptions (only non-empty ones)
         categoryDescriptions = {};
@@ -256,23 +298,23 @@ async function endSession(sessionId) {
 }
 
 /**
- * Format context for AI prompt (VERSÃO COMPACTA COM RESUMO NARRATIVO)
+ * Format context for AI prompt with temporal inference and truth hierarchy
  * @param {object} context - Context from buildAgentContext
  * @returns {string} - Formatted context string for prompt
  */
 function formatContextForPrompt(context) {
   let formatted = '';
 
-  // Working Memory (compacto)
+  // Working Memory (prioridade MÁXIMA - dados imediatos)
   if (context.workingMemory && Object.keys(context.workingMemory).length > 0) {
-    formatted += '### Sessão:\n';
+    formatted += '### Sessão (Dados Imediatos):\n';
     for (const [key, value] of Object.entries(context.workingMemory)) {
       formatted += `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}\n`;
     }
     formatted += '\n';
   }
 
-  // Episodic Memory - NOVO: Usa resumo narrativo ao invés de JSON completo
+  // Episodic Memory - PRIORIDADE ALTA (conversa atual)
   if (context.episodicMemory) {
     formatted += '### Resumo da Conversa:\n';
     
@@ -308,17 +350,37 @@ function formatContextForPrompt(context) {
     formatted += '\n';
   }
 
-  // Long-Term Memory (compacto - máximo 3 memórias)
+  // Long-Term Memory with Temporal Inference (prioridade MÉDIA - histórico)
   if (context.longTermMemory && context.longTermMemory.length > 0) {
-    formatted += '### Info Importante:\n';
-    const topMemories = context.longTermMemory.slice(0, 3);
-    for (const memory of topMemories) {
-      formatted += `• ${memory.content}\n`;
+    formatted += '### Memórias de Longo Prazo (Histórico):\n';
+    formatted += '**HIERARQUIA DE VERDADE**: Conversa Atual > Sessão > LTM. Se houver conflito, priorize dados mais recentes.\n\n';
+    
+    const now = new Date();
+    for (let i = 0; i < Math.min(context.longTermMemory.length, 5); i++) {
+      const mem = context.longTermMemory[i];
+      
+      // Calcular tempo decorrido
+      const createdAt = mem.createdAt ? new Date(mem.createdAt) : (mem.eventDate ? new Date(mem.eventDate) : now);
+      const diffMs = now - createdAt;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffMonths = Math.floor(diffDays / 30);
+      
+      let timeInfo = '';
+      if (diffMonths > 0) {
+        timeInfo = `(há ${diffMonths} ${diffMonths === 1 ? 'mês' : 'meses'})`;
+      } else if (diffDays > 0) {
+        timeInfo = `(há ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'})`;
+      } else {
+        timeInfo = '(hoje)';
+      }
+      
+      const score = mem.impactScore ? mem.impactScore.toFixed(2) : 'N/A';
+      formatted += `${i + 1}. ${timeInfo} ${mem.content} [${mem.category}, score: ${score}]\n`;
     }
-    formatted += '\n';
+    formatted += '\n**INFERÊNCIA TEMPORAL**: Use o tempo decorrido para inferir mudanças. Ex: "grávida de 3 meses há 6 meses" = bebê provavelmente nasceu.\n';
   }
 
-  return formatted;
+    return formatted.trim();
 }
 
 module.exports = {

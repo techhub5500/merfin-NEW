@@ -63,7 +63,7 @@ RETORNE APENAS A DESCRIÇÃO, SEM EXPLICAÇÕES OU FORMATAÇÃO ADICIONAL.`;
   try {
     let description = await callOpenAI(systemPrompt, userPrompt, {
       temperature: 0.3, // Lower temperature for more consistent outputs
-      max_tokens: 150
+      max_completion_tokens: 150
     });
     
     // Remove aspas se houver

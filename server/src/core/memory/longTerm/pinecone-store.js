@@ -69,7 +69,8 @@ async function upsertMemory(userId, memoryItem) {
   
   const record = {
     id: memoryItem._id.toString(),
-    values: [], // Inference API generates embeddings automatically from metadata.content
+    // Use 'data' for Inference API (automatic embeddings) instead of 'values'
+    data: memoryItem.content,
     metadata: {
       content: memoryItem.content,
       category: memoryItem.category,
@@ -110,7 +111,8 @@ async function upsertMemoriesBatch(userId, memoryItems) {
     
     const records = batch.map(mem => ({
       id: mem._id.toString(),
-      values: [],
+      // Use 'data' for Inference API (automatic embeddings) instead of 'values'
+      data: mem.content,
       metadata: {
         content: mem.content,
         category: mem.category,
