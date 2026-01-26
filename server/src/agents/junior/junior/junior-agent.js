@@ -98,6 +98,18 @@ class JuniorAgent extends BaseAgent {
         estimatedTokens: Math.ceil((systemPrompt.length + contextualInput.length) / 4)
       });
 
+      // Log do prompt completo enviado à IA
+      console.log('[AI_PROMPT] 🤖 PROMPT COMPLETO ENVIADO PARA IA:', {
+        model: this.model,
+        system_prompt: systemPrompt,
+        user_context: contextualInput,
+        max_tokens: this.max_output_tokens,
+        temperature: 0.7,
+        sessionId,
+        chatId,
+        userId
+      });
+
       // Gera resposta usando OpenAI Chat Completions
       const response = await getOpenAI().chat.completions.create({
         model: this.model,

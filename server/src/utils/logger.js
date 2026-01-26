@@ -27,13 +27,14 @@ class Logger {
     
     // Categorias de logs permitidos (filtro)
     this.allowedCategories = new Set([
-      'BOUNDARY',  // Input/Output do sistema
-      'DECISION',  // Decisões do sistema
-      'STATE',     // Mudanças de estado completo
-      'SUMMARY',   // Resumos finais
-      'COST',      // Consumo de recursos
-      'ERROR',     // Erros sempre são registrados
-      'WARN'       // Warnings sempre são registrados
+      'BOUNDARY',    // Input/Output do sistema
+      'DECISION',    // Decisões do sistema
+      'STATE',       // Mudanças de estado completo
+      'SUMMARY',     // Resumos finais
+      'COST',        // Consumo de recursos
+      'AI_PROMPT',   // Prompts completos enviados à IA
+      'ERROR',       // Erros sempre são registrados
+      'WARN'         // Warnings sempre são registrados
     ]);
     
     // Padrões de logs intermediários para IGNORAR
@@ -90,7 +91,8 @@ class Logger {
     // Log inicial minimalista
     this.logDirect('INFO', '📋 Sistema de logging inicializado (modo observabilidade)', {
       debugMode: this.debugMode,
-      autoCleanup: '5 minutos'
+      autoCleanup: '5 minutos',
+      aiPromptLogging: 'ATIVO'
     });
   }
 
@@ -113,7 +115,7 @@ class Logger {
     this.writeStream = fs.createWriteStream(this.currentLogFile, { flags: 'a' });
 
     // Cabeçalho simplificado
-    const header = `# 📋 LOG DE OBSERVABILIDADE\n\n**Data/Hora:** ${now.toLocaleString('pt-BR')}  \n**Modo:** ${this.debugMode ? 'DEBUG' : 'OBSERVABILIDADE'}  \n**Filtro:** BOUNDARY | DECISION | STATE | SUMMARY | COST\n\n---\n\n`;
+    const header = `# 📋 LOG DE OBSERVABILIDADE\n\n**Data/Hora:** ${now.toLocaleString('pt-BR')}  \n**Modo:** ${this.debugMode ? 'DEBUG' : 'OBSERVABILIDADE'}  \n**Filtro:** BOUNDARY | DECISION | STATE | SUMMARY | COST | AI_PROMPT\n\n---\n\n`;
     this.writeStream.write(header);
   }
 
@@ -177,6 +179,11 @@ class Logger {
     // COST: consumo de recursos
     if (/(tokens consumidos|custo total|consumo final)/i.test(msg)) {
       return 'COST';
+    }
+    
+    // AI_PROMPT: prompts enviados à IA
+    if (/(prompt completo|enviando para ia|contexto da ia)/i.test(msg)) {
+      return 'AI_PROMPT';
     }
     
     // ERROR/WARN sempre passam
@@ -408,6 +415,25 @@ class Logger {
   toggleDebugMode(enabled) {
     this.debugMode = enabled;
     this.logDirect('INFO', `🔧 Modo debug ${enabled ? 'ATIVADO' : 'DESATIVADO'}`);
+  }
+
+  /**
+   * Log específico para prompts enviados à IA
+   * @param {string} model - Modelo da IA
+   * @param {string} systemPrompt - System prompt
+   * @param {string} userContext - Contexto/mensagem do usuário
+   * @param {object} metadata - Metadados adicionais
+   */
+  logAIPrompt(model, systemPrompt, userContext, metadata = {}) {
+    this.logDirect('AI_PROMPT', '🤖 PROMPT COMPLETO ENVIADO PARA IA', {
+      model,
+      timestamp: new Date().toISOString(),
+      ...metadata,
+      prompt: {
+        system: systemPrompt,
+        user: userContext
+      }
+    });
   }
 
   /**
