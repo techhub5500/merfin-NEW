@@ -1,0 +1,7 @@
+{
+  "prompts": [
+    { "id": "p_metodologia_50_30_20", "contexto": "Foca em divisão de renda para quem precisa de organização básica." },
+    { "id": "p_estrategia_agressiva", "contexto": "Foca em maximização de lucros para perfis de alto risco." },
+    { "id": "p_quitacao_dividas", "contexto": "Foca em método bola de neve ou juros altos primeiro." }
+  ]
+}

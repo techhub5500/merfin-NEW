@@ -32,51 +32,92 @@ Este agente é responsável por receber todas as queries do usuário e classific
 
 ## 5. 🧠 Processo de Triagem Inteligente
 
-O Agente Junior segue um processo de classificação em camadas:
+O Agente Junior segue um processo em camadas:
 
-### 📥 ETAPA 1 — Recebimento e Análise Inicial
-- Recebe query natural do usuário
-- Verifica se há contexto de diálogo ativo
-- Se há contexto → direciona diretamente ao agente em diálogo
 
-### 🔍 ETAPA 2 — Classificação Primária
-Analisa se a query se encaixa em categorias básicas:
+### 📊 ETAPA 1 — Processamento por Categoria
 
-- **Trivial:** Saudações, perguntas sobre o sistema, contextos simples
-- **Lançamento:** Registro de transações financeiras
-- **Simplista:** Consultas operacionais diretas sobre dados
-- **Complexa:** Análises, planejamentos, decisões estratégicas
-
-### 📊 ETAPA 3 — Processamento por Categoria
+{aqui o sistema (logica) vai identificar se essa conversa tem contexto (memoria) se tiver os sitema guarda essa memória pois ela pode ser usada por outros agentes. }
 
 **Para Trivial:**
 - Responde diretamente
 - Encerra sem acionar outros agentes
+- sistema envia o contexto  (memoria + prompt atual) para poder responder
 
 **Para Lançamento:**
 - Chama Agente Lançador via Message Bus
 - Recebe confirmação e repassa ao usuário
+- O contexto  (memoria + prompt atual) da conversa nao é enviado, somente o prompt atual.
 
 **Para Simplista:**
 - Chama Agente Simplista via Message Bus
-- Recebe resposta e repassa ao usuário
+- O agente  simplista recebe o contexto (memoria + prompt atual) e elabora a resposta e envia para o usuario.
 
 **Para Complexa:**
-- Continua para análise secundária
+- Continua com o junior para análise secundária
+- a memoria fica preservada para ser enviada quando passar para o agente coordenador.
 
-### 🎯 ETAPA 4 — Análise Secundária (Queries Complexas)
+Após analisar ele responde com o ID, se o ID for o "Trivial" o sistema (logica) envia para o agente junior responder, agora se for o "Lançamento" ou "Simplista" o sistema envia para o agente de lançamento ou simplista responder, agora se for o ID de "Complexa", o sistema envia o agente junior para a terceira etapa.
+
+### 🎯 ETAPA 2 — Análise Secundária (Queries Complexas)
 Para queries que passam da triagem primária:
 
-- Identifica domínio financeiro principal
-- Escolhe até 2 coordenadores candidatos
-- Atribui scores de confiança (0-100)
-- Seleciona prompts de orquestração apropriados
+- Identifica domínio principal (dominio detalhado abaixo)
+- Escolhe um agente coordenadores ( detalhados abaixo)
+- Seleciona prompts de orquestração apropriados (prompts de orquestração detalhados abaixo)
 
-### 📤 ETAPA 5 — Encaminhamento para Orquestrador
-- Monta pacote com sugestões
-- Envia para Orquestrador via Message Bus
-- Recebe decisão final e coordenada a execução
+### Dominio 
+- O Domínio é o tema central e a intenção principal do prompt do usuário.
+Ele representa sobre o que o usuário realmente quer resolver ou entender, funcionando como a categoria que guia a análise secundária.
+O domínio deve ser específico, direto e funcional, evitando descrições vagas
 
+Exemplos de Prompts e Domínios
+Prompt: "Quero entender como organizar meu orçamento mensal para conseguir guardar dinheiro sem deixar de aproveitar a vida."
+Domínio: Gestao_orcamento_pessoal
+
+Prompt: "Explique quais são os principais tipos de investimentos de baixo risco disponíveis no Brasil."
+Domínio: Educacao_investimentos_basicos
+
+Prompt: "Preciso de ajuda para calcular quanto devo investir por mês para alcançar 500 mil reais em 20 anos."
+Domínio: Planejamento_financeiro_de_longoprazo
+
+- (📏 Prompt maior)
+Prompt: "Estou começando a investir e gostaria de uma análise detalhada sobre como equilibrar minha carteira entre renda fixa, ações e fundos imobiliários, levando em conta meu perfil conservador e objetivo de aposentadoria tranquila."
+Domínio: Analise_carteira_investimentos
+
+Prompt: "Quais aplicativos de finanças pessoais são mais recomendados para controlar gastos e planejar investimentos?"
+Domínio: Comparacao_ferramentas_financeiras
+
+- (📏 Prompt maior)
+Prompt: "Tenho dívidas no cartão de crédito e ao mesmo tempo quero começar a investir. Preciso de uma estratégia clara para quitar minhas dívidas sem perder a oportunidade de iniciar aportes em investimentos simples e seguros."
+Domínio: Estrategia_dividas_e_investimentos
+
+Prompt: "Mostre como calcular o impacto da inflação sobre um investimento de renda fixa ao longo de 10 anos."
+Domínio: Analise_inflacao_investimentos
+
+- (📏 Prompt maior)
+Prompt: "Gostaria de um plano financeiro completo que inclua reserva de emergência, investimentos para médio prazo e estratégias para aposentadoria, considerando que tenho renda variável como autônomo e preciso de estabilidade futura."
+Domínio: Planejamento_financeiro_integrado
+
+Na Etapa 2, o agente júnior receberá três arquivos JSON:
+- Um arquivo com os IDs dos domínios disponíveis, para que ele escolha o mais adequado.
+- Um arquivo com o “contrato” dos três agentes coordenadores, permitindo que, com base no domínio escolhido e no prompt do usuário, selecione o coordenador que melhor se encaixa.
+- Um arquivo com os prompts de orquestração, dos quais ele deverá escolher o mais apropriado. ele poderá escolher até 2, o recomendado é um, porem se ele identificar que 2 prompts do sistema pode ser ultil ele pode selecionar até 2.
+a logica por tras disso é que o agente coordenador escolhido receba o system prompt mais adequado para ele saber coordenar o processo de orquestraçaõ de tarefas. é melhor o agente junior poder escolher o prompt do sistema mais adequado do que o agente coordenador ter 1 prompt unico para tudo. a titulo de ocntexto o papel do coordenador é estrturar o processo entre outros agentes que ele terá acesso inclusive outros coordenadores para fazer a melhor resposta possivel para o usuario.
+
+É fundamental que o system prompt do agente júnior seja estruturado de forma clara, mostrando a ordem correta do processo:
+- Primeiro, a escolha do domínio.
+- Em seguida, a escolha do agente coordenador.
+- Por fim, a escolha do prompt de orquestração.
+A resposta do agente júnior deve sempre ser um JSON indicando suas escolhas, para que a lógica do sistema consiga recuperar cada elemento e avançar para a próxima etapa.
+
+
+os agentes coordenadores são: agente de analises, investimentos e planejamentos.
+
+
+### 📤 ETAPA 3 — Encaminhamento para Orquestrador
+- O sistema monta o pacote com o system prompt escolhido + contexto (memoria do sistema + prompt atual)
+- Envia para Orquestrador escolhido
 ---
 
 ## 6. 📋 Exemplos de Classificação
@@ -104,72 +145,79 @@ Para queries que passam da triagem primária:
 - "Como melhorar minhas finanças?" → Análise secundária → Coordenadores
 - "Quero investir em ações" → Análise secundária → Coordenadores
 
----
+### MUITO IMPORTANTE:
 
-## 7. 🔗 Acesso Direto ao Serper
+Após implementar o agente júnior possuirá três funcionalidades principais:
 
-O Agente Junior possui **acesso direto à API do Serper** (parte do Agente de Pesquisa Externa) para consultas rápidas de informação externa quando necessário:
+- Classificação primária e processamento por categoria – responsável por identificar e organizar o domínio inicial da requisição.
 
-- **Quando usar:** Queries triviais que requerem verificação externa (ex.: "Qual a cotação do dólar hoje?")
-- **Acesso direto:** Pode consultar Serper sem passar pelo Agente de Pesquisa completo
-- **Limitações:** Apenas para informações factuais simples e rápidas
-- **Integração:** Resultados são incorporados na resposta direta
+- Resposta direta ao usuário (quando trivial) – utilizada em casos simples, sem necessidade de coordenação complexa.
 
-**Exemplo de uso:**
-1. Query: "Qual a cotação do dólar hoje?"
-2. Junior acessa Serper diretamente
-3. Recebe cotação atual
-4. Responde: "A cotação atual do dólar é R$ 5,23 (fonte: ...)"
-5. Encerra sem acionar outros agentes
+- Análise secundária – aplicada em queries mais elaboradas, que exigem encaminhamento para agentes coordenadores.
+Por questões de especificação, economia de tokens e redução de latência, o agente júnior terá um system prompt específico para cada funcionalidade.
 
-Este acesso direto permite respostas completas para queries triviais que precisam de dados externos atualizados.
+- O primeiro prompt enviado será sempre o de classificação primária e processamento por categoria.
+- Em seguida, apenas mais um system prompt será enviado, escolhido com base no ID retornado pelo agente júnior (podendo ser o de resposta trivial ou o de análise secundária).
 
----
+Ou seja, não são enviados os três prompts ao mesmo tempo. Apenas dois system prompts são utilizados, de forma escalonada e sequencial, conforme a etapa do processo.
 
-## 8. 💬 Sistema de Contexto de Diálogo
+Atualmente, o agente júnior está funcional, mas foi originalmente criado para atuar como único agente. Agora, é necessário adaptar sua lógica para que ele assuma apenas o papel de responder questões triviais e, ao mesmo tempo, incorporar suas novas funcionalidades de classificação e análise secundária. Além disso, o agente júnior nas novas etapas sempre utilizará o modelo GPT‑5 Mini, configurado com reasoning e verbosity low. Essa configuração já está implementada no código atual.
+A titulo de informação você pode acessar o arquivo "docs\junior-agent.md", pode ter informação ou outra desuatualizada, porém a ideia central de como ele funciona atualmente está completa.
 
-O Agente Junior gerencia o **Modo de Resposta Direta** para diálogos ativos:
+1. Foco Atual: Agente Junior Completo O Agente Junior deve estar 100% funcional antes da implementação profunda dos especialistas. Ele é o cérebro da triagem e deve ser capaz de:
 
-### 📝 Quando Ativar
-- Lançador ou Simplista iniciam esclarecimento
-- Sistema marca contexto ativo
-- Próximas respostas vão direto para o agente em diálogo
+Classificar em: Trivial, Lançamento, Simplista ou Complexa.
 
-### 🔄 Gerenciamento
-- **Verifica contexto:** Antes de qualquer triagem, checa se há diálogo ativo
-- **Direciona diretamente:** Se há contexto, envia para agente específico
-- **Detecta transição:** Se resposta indica complexidade, reseta e volta à triagem
-- **Mantém eficiência:** Evita retrabalho em conversas simples
+Executar a análise secundária para queries complexas com precisão cirúrgica.
 
-### 📝 Exemplo
-```
-Usuário: "Quanto gastei?"
-Junior: classifica como simplista → chama Simplista
-Simplista: "Qual período?" → marca contexto
-Sistema: "diálogo_ativo: simplista"
-Usuário: "Este mês"
-Junior: detecta contexto → direto para Simplista
-Simplista: responde com dados
-```
+Retornar o JSON de roteamento para a lógica do sistema.
 
----
+2. Status dos Agentes Especialistas (Mock-up de Teste) Enquanto os agentes coordenadores não são desenvolvidos em sua totalidade, utilizaremos "Agentes de Teste".
 
-## Colaboração com Outros Agentes
+Modelo: GPT-5 Mini (Reasoning: middle / Verbosity: middle).
 
-O Agente Junior é o hub central de comunicação:
+Comportamento: Devem apenas confirmar o recebimento do pacote e descrever brevemente o que fariam com os dados recebidos.
 
-- **Chama diretamente:** Lançador, Simplista para queries básicas
-- **Sugere para Orquestrador:** Coordenadores para queries complexas
-- **Acesso especial:** Serper para dados externos em queries triviais
-- **Gerencia contexto:** Diálogos ativos com Lançador e Simplista
+3. Lógica de Envio (Handover) O Agente Junior deve preparar o pacote de saída para a lógica do sistema seguindo o contrato:
 
-**Importante:** Junior nunca processa conteúdo - apenas classifica e direciona, garantindo que cada agente especializado receba exatamente o tipo de query que sabe lidar.
+Se Complexa: O sistema captura o coordenador_selecionado, busca o conteúdo dos prompts_orquestracao_ids escolhidos pelo Junior e injeta no system_prompt do coordenador junto com o contexto (Memória + Prompt atual).
 
-Este agente garante que o sistema multi-agente seja acessível e eficiente, respondendo rapidamente queries simples enquanto escala perfeitamente para análises complexas.
 
-## Memória e Contexto
+Novos Arquivos JSON (Conteúdo para Testes)
+em server\src\agents\jsons\prompts_orquestracao.json:
 
-- O Agente Junior consulta sempre o contexto unificado antes de tomar decisões de triagem. Esse contexto é construído pelo `context-builder` e contém: `workingMemory` (memória de sessão), `episodicSummary` (trechos relevantes da memória episódica) e `prompt_current` (texto do usuário).
-- Uso prático: o Junior usa `diálogo_ativo` vindo do `workingMemory`/`episodicSummary` para direcionar entradas subsequentes ao agente correto sem re-triagem.
-- Regras de acesso: o Junior pode ler `workingMemory` e `episodicSummary` e incluir um resumo do contexto ao encaminhar queries. Não envia memórias completas para o Agente Matemático ou para o Agente de Pesquisa Externa.
+Já temos os arquivos estruturados da seguinte forma:
+- Pasta: server\src\agents\jsons
+- Contém o arquivo domínios.json.
+- Contém o arquivo prompts_orquestracao.json.
+- Observação: Os arquivos JSON com o conteúdo dos prompts de orquestração ainda não foram criados. Eles devem ser gerados apenas para fins de teste.
+- Após a finalização de todo o processo, farei as modificações necessárias diretamente nos arquivos JSON, sem alterar a lógica do sistema.
+- A estrutura desses arquivos jsons é simples:
+- Utilizar o mesmo ID definido em prompts_orquestracao.json.
+- Incluir o conteúdo correspondente no campo "system_prompt".
+- Deve ser criado um JSON separado para cada system prompt.
+- Para saber quais prompts de orquestração precisam ser criados, siga exatamente o que está definido em prompts_orquestracao.json.
 
+
+- Pasta: server\src\agents\contratos
+- Contém os arquivos JSON dos contratos de cada agente.
+
+
+System Prompts Básicos (Para os Coordenadores de Teste)
+Estes prompts devem ser usados na sua lógica de backend apenas para validar se o Agente Junior está enviando as coisas certas para o lugar certo:
+
+Para o Agente de Análises:
+"Você é o Agente de Análises (VERSÃO DE TESTE). Sua função é receber dados de gastos e identificar padrões. Status atual: Aguardando implementação profunda. Sua tarefa agora: Apenas valide se você recebeu o domínio e o prompt de orquestração corretos do Agente Junior e dê um breve insight."
+
+Para o Agente de Investimentos:
+"Você é o Agente de Investimentos (VERSÃO DE TESTE). Sua função é sugerir alocações. Status atual: Aguardando implementação profunda. Sua tarefa agora: Liste os investimentos que você analisaria com base no domínio enviado pelo Junior."
+
+Para o Agente de Planejamentos:
+"Você é o Agente de Planejamento (VERSÃO DE TESTE). Sua função é criar planos de longo prazo. Status atual: Aguardando implementação profunda. Sua tarefa agora: Estruture um cronograma básico (Passo 1, 2 e 3) com base no que o Junior roteou para você."
+
+
+Todos os arquivos JSON (Domínios, Contratos e Prompts de Orquestração e +) criados nesta fase são exclusivamente para testes de funcionamento e validação de fluxo.
+
+A Lógica do Sistema: O código que lê os arquivos, chama as APIs e faz o roteamento (Handover) deve ser final e robusto.
+
+O Conteúdo: Os textos dentro dos JSONs serão modificados para "Produção" posteriormente. Nenhuma alteração na lógica de programação deve ser necessária quando trocarmos os textos dos prompts.

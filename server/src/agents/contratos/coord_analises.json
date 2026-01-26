@@ -1,0 +1,17 @@
+{
+  "id": "coord_analises",
+  "nome": "Coordenador de Análises Financeiras",
+  "descricao": "Especialista em diagnóstico, identificação de padrões de consumo e saúde financeira atual.",
+  "quando_chamar": [
+    "Queries que pedem diagnóstico da situação atual",
+    "Identificação de gargalos de gastos",
+    "Comparação de períodos (ex: este mês vs mês passado)",
+    "Avaliação de saúde financeira e fôlego de caixa"
+  ],
+  "ferramentas_disponiveis": [
+    "data_analyzer_tool (processamento de grandes volumes de logs)",
+    "pattern_recognition (identifica gastos recorrentes ou anomalias)",
+    "categorization_engine (revisão de categorias de gastos)"
+  ],
+  "objetivo_final": "Fornecer um diagnóstico preciso e insights sobre o comportamento financeiro do usuário."
+}

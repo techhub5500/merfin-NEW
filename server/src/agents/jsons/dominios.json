@@ -1,0 +1,9 @@
+{
+  "dominios": [
+    { "id": "gestao_orcamento_pessoal", "descricao": "Organização de gastos, teto de gastos e fluxo de caixa mensal." },
+    { "id": "educacao_investimentos_basicos", "descricao": "Explicações sobre tipos de investimentos e conceitos iniciais." },
+    { "id": "planejamento_financeiro_longoprazo", "descricao": "Cálculos e metas para aposentadoria ou grandes compras futuras." },
+    { "id": "analise_carteira_investimentos", "descricao": "Equilíbrio entre renda fixa, variável e perfil de risco." },
+    { "id": "estrategia_dividas_e_investimentos", "descricao": "Priorização entre pagar dívidas ou começar a investir." }
+  ]
+}
