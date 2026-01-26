@@ -5,7 +5,7 @@
  * usando GPT-5 Nano, mantendo informações cruciais compactadas.
  * 
  * Controls: Recebe resumo anterior + novas mensagens, retorna resumo atualizado.
- * Behavior: Usa GPT-5 Nano com verbosity:low e reasoning_effort:medium.
+ * Behavior: Usa GPT-5 Nano com verbosity:low e reasoning_effort:low.
  * Integration: Chamado pelo JuniorAgent quando threshold de tokens é atingido.
  */
 
@@ -114,7 +114,7 @@ class MemorySummaryService {
         ],
         max_completion_tokens: this.max_completion_tokens,
         verbosity: 'low',
-        reasoning_effort: 'medium'
+        reasoning_effort: 'low'
       });
 
       const summary = response.choices[0]?.message?.content?.trim();

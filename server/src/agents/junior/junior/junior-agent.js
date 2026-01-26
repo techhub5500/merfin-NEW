@@ -5,7 +5,7 @@
  * - Janela deslizante: Últimos 2 ciclos (4 mensagens) mantidos integralmente
  * - Resumo cumulativo: Histórico antigo compactado progressivamente pelo GPT-5 Nano
  * - Threshold: 3500 tokens gatilha resumo automático
- * - Modelo: GPT-5 Mini (verbosity: medium, reasoning_effort: medium)
+ * - Modelo: GPT-5 Mini (verbosity: medium, reasoning_effort: low)
  * 
  * ARQUITETURA:
  * - ConversationalMemory (MongoDB): Persiste resumos + janela recente
@@ -122,16 +122,27 @@ class JuniorAgent extends BaseAgent {
       }
 
       // ===== CHAMAR GPT-5 MINI =====
-      const response = await getOpenAI().chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: contextualInput }
-        ],
-        max_completion_tokens: this.max_completion_tokens,
-        verbosity: 'medium',
-        reasoning_effort: 'medium'
-      });
+      console.log('[JuniorAgent] 🚀 Enviando requisição para OpenAI...');
+      const startTime = Date.now();
+      
+      const response = await Promise.race([
+        getOpenAI().chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: contextualInput }
+          ],
+          max_completion_tokens: this.max_completion_tokens,
+          verbosity: 'low',
+          reasoning_effort: 'low'
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout: OpenAI não respondeu em 80 segundos')), 80000)
+        )
+      ]);
+
+      const elapsedTime = Date.now() - startTime;
+      console.log(`[JuniorAgent] ⏱️ Resposta recebida em ${elapsedTime}ms`);
 
       const responseText = response.choices[0]?.message?.content?.trim();
 
@@ -157,14 +168,56 @@ class JuniorAgent extends BaseAgent {
       };
 
     } catch (error) {
-      console.error('[JuniorAgent] ❌ Erro no processamento:', error);
+      // Log detalhado do erro para diagnóstico
+      console.error('[JuniorAgent] ❌ Erro no processamento:', {
+        message: error.message || 'Erro desconhecido',
+        name: error.name,
+        status: error.status, // Status HTTP (ex: 429 = rate limit)
+        type: error.type, // Tipo do erro OpenAI
+        code: error.code, // Código específico do erro
+        stack: error.stack?.split('\n').slice(0, 3).join('\n') // Primeiras 3 linhas do stack
+      });
+
+      // Log adicional se for erro da OpenAI
+      if (error.status) {
+        console.error('[JuniorAgent] 🔴 Erro da OpenAI API:', {
+          status: error.status,
+          statusText: this._getErrorStatusText(error.status),
+          type: error.type,
+          code: error.code
+        });
+      }
+
       return {
         response: 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente.',
         sessionId: sessionId,
         timestamp: new Date().toISOString(),
-        error: error.message
+        error: error.message || 'Erro desconhecido',
+        errorDetails: {
+          type: error.name || 'UnknownError',
+          status: error.status,
+          code: error.code
+        }
       };
     }
+  }
+
+  /**
+   * Interpreta códigos de status HTTP da OpenAI
+   * @param {number} status - Código HTTP
+   * @returns {string} Descrição do erro
+   */
+  _getErrorStatusText(status) {
+    const statusMap = {
+      400: 'Bad Request - Requisição inválida',
+      401: 'Unauthorized - API Key inválida',
+      403: 'Forbidden - Acesso negado',
+      404: 'Not Found - Modelo não encontrado',
+      429: 'Rate Limit - Muitas requisições (aguarde antes de tentar novamente)',
+      500: 'Internal Server Error - Erro interno da OpenAI',
+      503: 'Service Unavailable - Serviço temporariamente indisponível'
+    };
+    return statusMap[status] || `Erro HTTP ${status}`;
   }
 
   /**
