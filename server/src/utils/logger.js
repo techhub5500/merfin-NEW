@@ -425,15 +425,72 @@ class Logger {
    * @param {object} metadata - Metadados adicionais
    */
   logAIPrompt(model, systemPrompt, userContext, metadata = {}) {
+    // Extract memory info if provided or infer from prompts
+    const memoryInfo = metadata.memoryInfo || this._extractMemoryInfo(systemPrompt, userContext);
+    // Copy metadata without memoryInfo to avoid duplication
+    const metaCopy = { ...metadata };
+    delete metaCopy.memoryInfo;
+
+    // Truncate user context in observability logs when not in debug mode
+    // CORREÇÃO: Aumentado limite de 600 para 2000 para ver histórico completo
+    const userPreview = (typeof userContext === 'string')
+      ? (this.debugMode ? userContext : (userContext.length > 2000 ? userContext.slice(0, 2000) + '\n\n[...TRUNCADO...]' : userContext))
+      : userContext;
+
     this.logDirect('AI_PROMPT', '🤖 PROMPT COMPLETO ENVIADO PARA IA', {
       model,
       timestamp: new Date().toISOString(),
-      ...metadata,
+      memory: memoryInfo,
+      ...metaCopy,
       prompt: {
         system: systemPrompt,
-        user: userContext
+        user: userPreview
       }
     });
+  }
+
+  /**
+   * Extrai informações resumidas sobre o histórico de memória presente no contexto
+   * Isso fornece dados úteis para observabilidade sem persistir todo o texto
+   */
+  _extractMemoryInfo(systemPrompt, userContext) {
+    try {
+      const uc = typeof userContext === 'string' ? userContext : '';
+      const hasSummary = uc.includes('[HISTÓRICO_RESUMIDO]');
+      const hasWindow = uc.includes('[JANELA_ATUAL]');
+
+      // Count U: and A: occurrences as proxy for messages in the window
+      const userCount = (uc.match(/\n?U:/g) || []).length;
+      const assistantCount = (uc.match(/\n?A:/g) || []).length;
+      const recentWindowCount = userCount + assistantCount;
+
+      // Extract small previews
+      let summaryPreview = '';
+      if (hasSummary) {
+        const m = uc.match(/\[HISTÓRICO_RESUMIDO\]\n([\s\S]*?)(?:\n\n|$)/);
+        if (m && m[1]) summaryPreview = m[1].trim().slice(0, 300);
+      }
+
+      let recentPreview = '';
+      if (hasWindow) {
+        const m2 = uc.match(/\[JANELA_ATUAL\]\n([\s\S]*?)(?:\n\n|$)/);
+        if (m2 && m2[1]) recentPreview = m2[1].trim().slice(0, 300);
+      }
+
+      // Estimate tokens roughly (1 word = 0.75 tokens)
+      const words = (systemPrompt + ' ' + uc).trim().split(/\s+/).filter(Boolean).length;
+      const estimatedInputTokens = Math.ceil(words * 0.75);
+
+      return {
+        hasSummary,
+        summaryPreview,
+        recentWindowCount,
+        recentPreview,
+        estimatedInputTokens
+      };
+    } catch (err) {
+      return { hasSummary: false, summaryPreview: '', recentWindowCount: 0, recentPreview: '', estimatedInputTokens: 0 };
+    }
   }
 
   /**

@@ -25,7 +25,7 @@ function getOpenAI() {
 class MemorySummaryService {
   constructor() {
     this.model = 'gpt-5-nano';
-    this.max_completion_tokens = 500; // Resumo deve ser conciso
+    this.max_completion_tokens = 3000; // Permitir resumos de até ~3500 palavras
   }
 
   /**
@@ -35,8 +35,18 @@ class MemorySummaryService {
    */
   estimateTokens(text) {
     if (!text || typeof text !== 'string') return 0;
-    const wordCount = text.trim().split(/\s+/).length;
+    const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
     return Math.ceil(wordCount * 0.75);
+  }
+
+  /**
+   * Conta palavras em um texto
+   * @param {string} text - Texto para contar
+   * @returns {number} - Número de palavras
+   */
+  countWords(text) {
+    if (!text || typeof text !== 'string') return 0;
+    return text.trim().split(/\s+/).filter(Boolean).length;
   }
 
   /**
@@ -115,16 +125,40 @@ class MemorySummaryService {
       }
 
       const tokens = this.estimateTokens(summary);
+      const wordCount = this.countWords(summary);
+
+      // VALIDAÇÃO: Verificar se resumo ultrapassou 3500 palavras
+      if (wordCount > 3500) {
+        console.warn('[MemorySummaryService] ⚠️ Resumo ultrapassou 3500 palavras:', {
+          wordCount,
+          limite: 3500,
+          excesso: wordCount - 3500
+        });
+        // Truncar para 3500 palavras
+        const words = summary.split(/\s+/);
+        const truncatedSummary = words.slice(0, 3500).join(' ');
+        console.log('[MemorySummaryService] ✂️ Resumo truncado para 3500 palavras');
+        
+        return {
+          summary: truncatedSummary,
+          tokens: this.estimateTokens(truncatedSummary),
+          wordCount: 3500,
+          wasTruncated: true
+        };
+      }
 
       console.log('[MemorySummaryService] ✅ Resumo gerado:', {
         summaryLength: summary.length,
+        wordCount,
         tokens,
         usage: response.usage
       });
 
       return {
         summary,
-        tokens
+        tokens,
+        wordCount,
+        wasTruncated: false
       };
 
     } catch (error) {
@@ -144,34 +178,7 @@ class MemorySummaryService {
    * @returns {string} - System prompt
    */
   _buildSystemPrompt() {
-    return `Você é um módulo de memória conversacional. Seu objetivo é atualizar o [RESUMO ATUAL] incluindo as novas informações contidas nas [ÚLTIMAS MENSAGENS].
-
-## REGRAS CRÍTICAS:
-
-1. **Preservação de Fatos Cruciais**:
-   - NOMES de pessoas (usuário e outras mencionadas)
-   - VALORES monetários, saldos, metas financeiras
-   - DATAS importantes e prazos
-   - DECISÕES tomadas pelo usuário
-   - PREFERÊNCIAS explicitadas (gostos, aversões, objetivos)
-
-2. **Atualização Inteligente**:
-   - Se uma informação no resumo antigo for retificada nas mensagens novas, ATUALIZE-A
-   - Se uma informação for repetida, NÃO duplique
-   - Se uma informação for expandida, SUBSTITUA a versão antiga pela nova
-
-3. **Concisão Extrema**:
-   - Máximo de 400 palavras no resumo final
-   - Use frases curtas e diretas
-   - Elimine redundâncias
-   - Foque no essencial para continuidade conversacional
-
-4. **Formato de Saída**:
-   - Texto corrido, sem marcadores ou seções
-   - Português brasileiro natural
-   - Terceira pessoa ("O usuário mencionou que...")
-
-IMPORTANTE: Você NÃO é o assistente conversando com o usuário. Você é um sistema de memória que registra fatos para que OUTRO agente use depois.`;
+    return `Você é um módulo de memória. Seu objetivo é atualizar o [Resumo Atual] incluindo as novas informações contidas nas [Últimas Mensagens]. Mantenha fatos cruciais (nomes, valores, datas e decisões). Seja extremamente conciso. Se uma informação no resumo antigo for retificada nas mensagens novas, atualize-a.`;
   }
 
   /**

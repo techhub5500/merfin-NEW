@@ -35,8 +35,8 @@ class JuniorAgent extends BaseAgent {
     
     this.model = 'gpt-5-mini';
     this.max_completion_tokens = 1500;
-    this.TOKEN_THRESHOLD = 3500; // Gatilho para resumo
     this.RECENT_WINDOW_SIZE = 4; // 2 ciclos = 4 mensagens (2 user + 2 assistant)
+    this.MAX_SUMMARY_WORDS = 3500; // Limite de palavras no resumo cumulativo
   }
 
   /**
@@ -95,6 +95,31 @@ class JuniorAgent extends BaseAgent {
         contextLength: contextualInput.length,
         estimatedInputTokens: memorySummaryService.estimateTokens(systemPrompt + contextualInput)
       });
+
+      // Log detalhado para observabilidade da memória injetada (quando disponível)
+      try {
+        const { getLogger } = require('../../../utils/logger');
+        let logger = null;
+        try { logger = getLogger(); } catch (e) { /* logger não inicializado */ }
+
+        if (logger) {
+          const memoryInfo = {
+            hasSummary: !!memory.cumulativeSummary,
+            summaryPreview: memory.cumulativeSummary ? String(memory.cumulativeSummary).slice(0, 300) : '',
+            summaryTokens: memory.summaryTokens || 0,
+            recentWindowCount: memory.recentWindow ? memory.recentWindow.length : 0,
+            recentWindowPreview: Array.isArray(memory.recentWindow) ? memory.recentWindow.slice(-4).map(m => `${m.role}:${m.content}`).join(' | ').slice(0, 500) : '',
+            totalTokens: memory.totalTokens || 0,
+            sessionId,
+            chatId,
+            userId
+          };
+
+          logger.logAIPrompt(this.model, systemPrompt, contextualInput, { memoryInfo, sessionId, chatId, userId });
+        }
+      } catch (err) {
+        console.warn('[JuniorAgent] ⚠️ Não foi possível registrar prompt detalhado:', err.message);
+      }
 
       // ===== CHAMAR GPT-5 MINI =====
       const response = await getOpenAI().chat.completions.create({
@@ -207,18 +232,29 @@ class JuniorAgent extends BaseAgent {
       const recentWindowTokens = memory.recentWindow.reduce((sum, msg) => sum + msg.tokens, 0);
       memory.totalTokens = memory.summaryTokens + recentWindowTokens;
 
+      // Contar ciclos (1 ciclo = 1 user + 1 assistant)
+      const cycleCount = Math.floor(memory.recentWindow.length / 2);
+
       console.log('[JuniorAgent] 📊 Tokens após atualização:', {
         summaryTokens: memory.summaryTokens,
         recentWindowTokens,
         totalTokens: memory.totalTokens,
-        threshold: this.TOKEN_THRESHOLD
+        recentWindowLength: memory.recentWindow.length,
+        cycleCount,
+        summaryWordCount: memory.cumulativeSummary ? memory.cumulativeSummary.split(/\s+/).length : 0
       });
 
-      // Verificar se precisa fazer resumo (janela > 4 mensagens E total > threshold)
-      if (memory.recentWindow.length > this.RECENT_WINDOW_SIZE && 
-          memory.totalTokens >= this.TOKEN_THRESHOLD) {
+      // LÓGICA CORRETA: Resumir SEMPRE quando tiver mais de 2 ciclos (> 4 mensagens)
+      if (memory.recentWindow.length > this.RECENT_WINDOW_SIZE) {
         
-        console.log('[JuniorAgent] 🔄 Threshold atingido - iniciando resumo...');
+        console.log('[JuniorAgent] 🔄 Mais de 2 ciclos detectado - iniciando resumo cumulativo...');
+        console.log('[JuniorAgent] 📋 Mensagens a resumir:', {
+          totalMensagens: memory.recentWindow.length,
+          ciclosCompletos: cycleCount,
+          mensagensParaResumo: memory.recentWindow.length - this.RECENT_WINDOW_SIZE,
+          ultimosCiclosIntegros: 2
+        });
+        
         await this._performSummary(memory);
       }
 
@@ -246,9 +282,14 @@ class JuniorAgent extends BaseAgent {
       // Mensagens que vão sair da janela (todas exceto as 4 últimas)
       const messagesToSummarize = memory.recentWindow.slice(0, -this.RECENT_WINDOW_SIZE);
 
+      const previousWordCount = memory.cumulativeSummary ? 
+        memory.cumulativeSummary.split(/\s+/).filter(Boolean).length : 0;
+
       console.log('[JuniorAgent] 📋 Resumindo mensagens:', {
         count: messagesToSummarize.length,
-        previousSummaryLength: memory.cumulativeSummary?.length || 0
+        previousSummaryLength: memory.cumulativeSummary?.length || 0,
+        previousWordCount,
+        maxSummaryWords: this.MAX_SUMMARY_WORDS
       });
 
       // Gerar novo resumo cumulativo
@@ -268,7 +309,7 @@ class JuniorAgent extends BaseAgent {
       memory.lastSummaryAt = new Date();
       memory.summaryCount += 1;
 
-      // Manter apenas últimas 4 mensagens na janela
+      // Manter apenas últimas 4 mensagens na janela (2 ciclos)
       memory.recentWindow = memory.recentWindow.slice(-this.RECENT_WINDOW_SIZE);
 
       // Recalcular tokens
@@ -277,9 +318,12 @@ class JuniorAgent extends BaseAgent {
 
       console.log('[JuniorAgent] ✅ Resumo concluído:', {
         newSummaryLength: result.summary.length,
+        newSummaryWordCount: result.wordCount || 0,
+        wasTruncated: result.wasTruncated || false,
         newSummaryTokens: result.tokens,
         newTotalTokens: memory.totalTokens,
-        summaryCount: memory.summaryCount
+        summaryCount: memory.summaryCount,
+        recentWindowSize: memory.recentWindow.length
       });
 
     } catch (error) {
