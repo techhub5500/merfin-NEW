@@ -1,1 +1,0 @@
- - sistema de memroia novo, nao esta funcionando - o log esta acontecenod soment coma primeira mensagem e o contexto nao esta sendo enviado

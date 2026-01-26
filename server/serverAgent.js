@@ -354,14 +354,14 @@ app.post('/api/chat/process', async (req, res) => {
 			});
 		}
 
-		// Validate required fields for memory system
+		// Validate required fields
 		if (!userId) {
 			console.error('[SERVER] ❌ Validação falhou: userId ausente no request body');
 			return res.status(400).json({
 				status: 'error',
 				error: {
 					code: 'MISSING_USER_ID',
-					message: 'userId é obrigatório para sistema de memória',
+					message: 'userId é obrigatório',
 					type: 'ValidationError'
 				}
 			});
@@ -438,16 +438,6 @@ if (!MONGO_URI) {
 mongoose.connect(MONGO_URI)
 	.then(async () => {
 		console.log('Connected to MongoDB');
-		
-		// Initialize Pinecone Vector Store
-		try {
-			const pineconeStore = require('./src/core/memory/longTerm/pinecone-store');
-			await pineconeStore.initialize();
-			console.log('Pinecone Vector Store initialized');
-		} catch (error) {
-			console.error('Failed to initialize Pinecone (will continue without vector search):', error.message);
-			// Continue without Pinecone - MongoDB is source of truth
-		}
 		
 		const server = app.listen(PORT, () => {
 			console.log(`serverAgent listening on port ${PORT}`);

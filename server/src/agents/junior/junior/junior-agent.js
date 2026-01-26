@@ -1,16 +1,22 @@
 /**
- * Junior Agent - Simple User Response Agent with Conversational Memory
+ * Junior Agent - Conversational Agent with Persistent Memory
  *
- * NOVO SISTEMA DE MEMÓRIA:
- * - Memória conversacional simplificada baseada em ciclos
- * - Últimos 4 ciclos mantidos integralmente  
- * - Ciclos anteriores comprimidos progressivamente
- * - Limite máximo de 3.000 tokens de contexto
+ * SISTEMA DE MEMÓRIA PERSISTENTE:
+ * - Janela deslizante: Últimos 2 ciclos (4 mensagens) mantidos integralmente
+ * - Resumo cumulativo: Histórico antigo compactado progressivamente pelo GPT-5 Nano
+ * - Threshold: 3500 tokens gatilha resumo automático
+ * - Modelo: GPT-5 Mini (verbosity: medium, reasoning_effort: medium)
+ * 
+ * ARQUITETURA:
+ * - ConversationalMemory (MongoDB): Persiste resumos + janela recente
+ * - MemorySummaryService: Gera resumos usando GPT-5 Nano
+ * - Token estimation: 1 palavra = 0,75 tokens
  */
 
 const BaseAgent = require('../../shared/base-agent');
-const memoryIntegration = require('../../../core/memory/memory-integration-new');
 const OpenAI = require('openai');
+const ConversationalMemory = require('../../../database/schemas/conversational-memory-schema');
+const memorySummaryService = require('../../../services/memory-summary-service');
 
 // Inicialização lazy do cliente OpenAI
 let openai = null;
@@ -27,8 +33,10 @@ class JuniorAgent extends BaseAgent {
   constructor() {
     super('JuniorAgent');
     
-    this.model = 'gpt-4.1-mini';
-    this.max_output_tokens = 1500;
+    this.model = 'gpt-5-mini';
+    this.max_completion_tokens = 1500;
+    this.TOKEN_THRESHOLD = 3500; // Gatilho para resumo
+    this.RECENT_WINDOW_SIZE = 4; // 2 ciclos = 4 mensagens (2 user + 2 assistant)
   }
 
   /**
@@ -42,95 +50,64 @@ class JuniorAgent extends BaseAgent {
   }
 
   /**
-   * Processa uma mensagem de chat completa
+   * Processa uma mensagem de chat com memória persistente
    * @param {Object} params - Parâmetros da mensagem
    * @returns {Promise<Object>} Resposta processada
    */
   async processChatMessage(params) {
-    const { message, sessionId, history, userId, chatId } = params;
+    const { message, sessionId, chatId, userId } = params;
 
     try {
-      // Validação básica da mensagem
+      // ===== VALIDAÇÃO =====
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
         throw new Error('Mensagem inválida ou vazia');
       }
 
-      // Inicializa sessão se necessário
-      if (sessionId && userId) {
-        try {
-          memoryIntegration.initializeSession(sessionId, userId, {
-            startedAt: new Date().toISOString(),
-            chatId: chatId
-          });
-        } catch (error) {
-          console.log('[JuniorAgent] Sessão já existe:', error.message);
-        }
+      if (!chatId || !userId) {
+        throw new Error('chatId e userId são obrigatórios para memória persistente');
       }
 
-      // Constrói contexto de memória conversacional
-      let memoryContext = null;
-      if (sessionId && chatId && userId) {
-        try {
-          console.log('[JuniorAgent] 🔍 Carregando contexto de memória...');
-          memoryContext = await memoryIntegration.buildAgentContext(sessionId, chatId, userId);
-          console.log('[JuniorAgent] ✅ Contexto carregado:', memoryContext.stats);
-        } catch (error) {
-          console.warn('[JuniorAgent] Erro ao carregar memória:', error.message);
-        }
-      }
+      console.log('[JuniorAgent] 📨 Processando mensagem:', {
+        chatId,
+        userId,
+        sessionId,
+        messageLength: message.length
+      });
 
-      // Monta prompt do sistema
-      const systemPrompt = this._buildSystemPrompt();
-      
-      // Monta contexto de memória
-      let contextualInput = '';
-      if (memoryContext?.conversationalContext) {
-        contextualInput = memoryContext.conversationalContext + '\n\n';
-      }
-      
-      // Adiciona mensagem atual
-      contextualInput += `U: ${message}\nA:`;
+      // ===== CARREGAR/CRIAR MEMÓRIA =====
+      let memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
 
-      // Log do prompt
+      console.log('[JuniorAgent] 💾 Memória carregada:', {
+        hasSummary: !!memory.cumulativeSummary,
+        summaryTokens: memory.summaryTokens,
+        recentWindowSize: memory.recentWindow.length,
+        totalTokens: memory.totalTokens
+      });
+
+      // ===== CONSTRUIR CONTEXTO PARA IA =====
+      const { systemPrompt, contextualInput } = this._buildPromptWithMemory(
+        memory,
+        message
+      );
+
       console.log('[JuniorAgent] 📝 Prompt construído:', {
         systemLength: systemPrompt.length,
         contextLength: contextualInput.length,
-        estimatedTokens: Math.ceil((systemPrompt.length + contextualInput.length) / 4)
+        estimatedInputTokens: memorySummaryService.estimateTokens(systemPrompt + contextualInput)
       });
 
-      // Log do prompt completo enviado à IA
-      console.log('[AI_PROMPT] 🤖 PROMPT COMPLETO ENVIADO PARA IA:', {
-        model: this.model,
-        system_prompt: systemPrompt,
-        user_context: contextualInput,
-        max_tokens: this.max_output_tokens,
-        temperature: 0.7,
-        sessionId,
-        chatId,
-        userId
-      });
-
-      // Gera resposta usando OpenAI Chat Completions
+      // ===== CHAMAR GPT-5 MINI =====
       const response = await getOpenAI().chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: contextualInput }
         ],
-        max_tokens: this.max_output_tokens,
-        temperature: 0.7
+        max_completion_tokens: this.max_completion_tokens,
+        verbosity: 'medium',
+        reasoning_effort: 'medium'
       });
-      
-      // Log de consumo de tokens
-      if (response?.usage) {
-        const usage = response.usage;
-        console.log('[JuniorAgent] 💰 Tokens consumidos:', {
-          prompt: usage.prompt_tokens,
-          completion: usage.completion_tokens,
-          total: usage.total_tokens
-        });
-      }
-      
+
       const responseText = response.choices[0]?.message?.content?.trim();
 
       if (!responseText) {
@@ -138,56 +115,216 @@ class JuniorAgent extends BaseAgent {
         throw new Error('Resposta vazia da API');
       }
 
-      const finalResponse = responseText;
-
-      // Processa memórias em background (não bloqueante)
-      if (sessionId && chatId && userId) {
-        memoryIntegration.processInteractionMemories({
-          sessionId,
-          chatId,
-          userId,
-          userMessage: message,
-          aiResponse: finalResponse
-        }).catch(error => {
-          console.error('[JuniorAgent] Erro no processamento de memória:', error);
-        });
+      // Log de uso de tokens
+      if (response?.usage) {
+        console.log('[JuniorAgent] 💰 Tokens consumidos:', response.usage);
       }
 
+      // ===== ATUALIZAR MEMÓRIA =====
+      await this._updateMemory(memory, message, responseText);
+
+      console.log('[JuniorAgent] ✅ Resposta gerada e memória atualizada');
+
       return {
-        response: finalResponse,
+        response: responseText,
         sessionId: sessionId,
         timestamp: new Date().toISOString()
       };
 
     } catch (error) {
-      console.error('[JuniorAgent] Erro no processamento:', error);
+      console.error('[JuniorAgent] ❌ Erro no processamento:', error);
       return {
         response: 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente.',
         sessionId: sessionId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        error: error.message
       };
     }
   }
 
   /**
-   * Constrói prompt do sistema
+   * Constrói prompts do sistema e contexto com memória integrada
+   * @param {Object} memory - Documento ConversationalMemory do MongoDB
+   * @param {string} currentMessage - Mensagem atual do usuário
+   * @returns {Object} - { systemPrompt, contextualInput }
+   */
+  _buildPromptWithMemory(memory, currentMessage) {
+    // System prompt com diretrizes de memória
+    const systemPrompt = this._buildSystemPrompt();
+
+    // Contexto conversacional
+    let contextualInput = '';
+
+    // 1. Injetar HISTÓRICO_RESUMIDO se existir
+    if (memory.cumulativeSummary && memory.cumulativeSummary.trim().length > 0) {
+      contextualInput += `[HISTÓRICO_RESUMIDO]\n${memory.cumulativeSummary}\n\n`;
+    }
+
+    // 2. Adicionar JANELA_ATUAL (últimas mensagens íntegras)
+    if (memory.recentWindow && memory.recentWindow.length > 0) {
+      contextualInput += '[JANELA_ATUAL]\n';
+      for (const msg of memory.recentWindow) {
+        const prefix = msg.role === 'user' ? 'U' : 'A';
+        contextualInput += `${prefix}: ${msg.content}\n`;
+      }
+      contextualInput += '\n';
+    }
+
+    // 3. Adicionar mensagem atual
+    contextualInput += `U: ${currentMessage}\nA:`;
+
+    return { systemPrompt, contextualInput };
+  }
+
+  /**
+   * Atualiza memória persistente após interação
+   * @param {Object} memory - Documento ConversationalMemory
+   * @param {string} userMessage - Mensagem do usuário
+   * @param {string} aiResponse - Resposta da IA
+   */
+  async _updateMemory(memory, userMessage, aiResponse) {
+    try {
+      // Estimar tokens das novas mensagens
+      const userTokens = memorySummaryService.estimateTokens(userMessage);
+      const aiTokens = memorySummaryService.estimateTokens(aiResponse);
+
+      // Adicionar novas mensagens à janela recente
+      memory.recentWindow.push({
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date(),
+        tokens: userTokens
+      });
+
+      memory.recentWindow.push({
+        role: 'assistant',
+        content: aiResponse,
+        timestamp: new Date(),
+        tokens: aiTokens
+      });
+
+      // Recalcular total de tokens
+      const recentWindowTokens = memory.recentWindow.reduce((sum, msg) => sum + msg.tokens, 0);
+      memory.totalTokens = memory.summaryTokens + recentWindowTokens;
+
+      console.log('[JuniorAgent] 📊 Tokens após atualização:', {
+        summaryTokens: memory.summaryTokens,
+        recentWindowTokens,
+        totalTokens: memory.totalTokens,
+        threshold: this.TOKEN_THRESHOLD
+      });
+
+      // Verificar se precisa fazer resumo (janela > 4 mensagens E total > threshold)
+      if (memory.recentWindow.length > this.RECENT_WINDOW_SIZE && 
+          memory.totalTokens >= this.TOKEN_THRESHOLD) {
+        
+        console.log('[JuniorAgent] 🔄 Threshold atingido - iniciando resumo...');
+        await this._performSummary(memory);
+      }
+
+      // Salvar memória atualizada
+      await memory.save();
+
+      console.log('[JuniorAgent] 💾 Memória salva:', {
+        recentWindowSize: memory.recentWindow.length,
+        totalTokens: memory.totalTokens,
+        summaryCount: memory.summaryCount
+      });
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro ao atualizar memória:', error);
+      // Não propaga erro - memória é best-effort
+    }
+  }
+
+  /**
+   * Executa resumo cumulativo quando threshold é atingido
+   * @param {Object} memory - Documento ConversationalMemory
+   */
+  async _performSummary(memory) {
+    try {
+      // Mensagens que vão sair da janela (todas exceto as 4 últimas)
+      const messagesToSummarize = memory.recentWindow.slice(0, -this.RECENT_WINDOW_SIZE);
+
+      console.log('[JuniorAgent] 📋 Resumindo mensagens:', {
+        count: messagesToSummarize.length,
+        previousSummaryLength: memory.cumulativeSummary?.length || 0
+      });
+
+      // Gerar novo resumo cumulativo
+      const result = await memorySummaryService.generateCumulativeSummary(
+        memory.cumulativeSummary,
+        messagesToSummarize
+      );
+
+      if (result.error) {
+        console.error('[JuniorAgent] ⚠️ Erro no resumo, mantendo versão anterior');
+        return;
+      }
+
+      // Atualizar memória com novo resumo
+      memory.cumulativeSummary = result.summary;
+      memory.summaryTokens = result.tokens;
+      memory.lastSummaryAt = new Date();
+      memory.summaryCount += 1;
+
+      // Manter apenas últimas 4 mensagens na janela
+      memory.recentWindow = memory.recentWindow.slice(-this.RECENT_WINDOW_SIZE);
+
+      // Recalcular tokens
+      const recentWindowTokens = memory.recentWindow.reduce((sum, msg) => sum + msg.tokens, 0);
+      memory.totalTokens = memory.summaryTokens + recentWindowTokens;
+
+      console.log('[JuniorAgent] ✅ Resumo concluído:', {
+        newSummaryLength: result.summary.length,
+        newSummaryTokens: result.tokens,
+        newTotalTokens: memory.totalTokens,
+        summaryCount: memory.summaryCount
+      });
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro crítico ao executar resumo:', error);
+      // Em caso de erro, mantém estado anterior
+    }
+  }
+
+  /**
+   * Constrói prompt do sistema com diretrizes de memória
    * @returns {string} - System prompt
    */
   _buildSystemPrompt() {
-    return `Você é um assistente financeiro pessoal amigável e direto.
+    return `### DIRETRIZES DE MEMÓRIA E CONTEXTO
+
+Você possui um sistema de memória de longo prazo. Antes de cada interação, você receberá um bloco identificado como [HISTÓRICO_RESUMIDO].
+
+Suas instruções sobre esse histórico:
+
+**Prioridade de Fatos**: Trate as informações contidas no resumo como fatos estabelecidos. Se o usuário já se identificou, informou valores ou preferências no resumo, não pergunte novamente.
+
+**Continuidade**: Use o resumo para manter a fluidez da conversa e demonstrar que você "lembra" de interações anteriores.
+
+**Prioridade Cronológica**: As mensagens na [JANELA_ATUAL] (últimas mensagens) têm prioridade sobre o resumo caso haja alguma contradição (ex: o usuário mudou de ideia).
+
+**Invisibilidade**: Não mencione termos técnicos como "meu sistema de resumo" ou "estou lendo meu histórico". Apenas use a informação de forma natural, como se você se lembrasse perfeitamente.
+
+---
+
+Você é um assistente financeiro pessoal amigável e direto.
 
 ## Regras de comunicação:
 1. Seja conciso e acolhedor - evite longas listas logo de início
 2. Perguntas diretas merecem respostas diretas
 3. Use tom amigável, primeira pessoa, tutear o usuário
 4. Máximo 3-4 linhas para respostas iniciais; expanda só se pedido
-5. Se o usuário já compartilhou informações no histórico, USE essas informações
+5. Se o usuário já compartilhou informações no histórico ou resumo, USE essas informações
 6. Não repita informações que o usuário já sabe
+7. Demonstre continuidade - se o usuário disse o nome antes, use-o naturalmente
 
 ## Formato de resposta:
 - Responda em português brasileiro natural
 - Use emojis com moderação (1-2 por mensagem no máximo)
-- Seja objetivo e útil`;
+- Seja objetivo e útil
+- Personalize com base no que você "lembra" (resumo + janela atual)`;
   }
 }
 
