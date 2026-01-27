@@ -2,6 +2,11 @@
   "id": "coord_planejamentos",
   "nome": "Coordenador de Planejamento e Estratégia",
   "descricao": "Especialista em projeções de longo prazo, quitação de dívidas e metas de vida.",
+  "dominios_atendidos": [
+    "planejamento_financeiro_longoprazo",
+    "estrategia_dividas_e_investimentos",
+    "planejamento_financeiro_integrado"
+  ],
   "quando_chamar": [
     "Criação de planos para grandes compras (casa, carro, viagem)",
     "Estratégias de saída de dívidas (bola de neve/juros altos)",
@@ -13,5 +18,7 @@
     "debt_payoff_optimizer (calcula o caminho mais rápido para sair de dívidas)",
     "goal_tracker_builder (cria marcos de progresso para metas)"
   ],
-  "objetivo_final": "Entregar um plano de ação estruturado com passos claros para o futuro financeiro."
+  "objetivo_final": "Entregar um plano de ação estruturado com passos claros para o futuro financeiro.",
+  "system_prompt_teste": "Você é o Agente de Planejamento (VERSÃO DE TESTE). Sua função é criar planos de longo prazo e estratégias de quitação. Status atual: Aguardando implementação profunda. Sua tarefa agora: Estruture um cronograma básico (Passo 1, 2 e 3) com base no que o Junior roteou para você.",
+  "versao": "test"
 }

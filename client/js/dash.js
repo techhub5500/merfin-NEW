@@ -39,6 +39,14 @@ import { initChatHistoryModal } from './chat-history-modal.js';
 'use strict';
 
 // ============================================================================
+// DEBUG - Listener para detectar quando a página tenta recarregar
+// ============================================================================
+window.addEventListener('beforeunload', (e) => {
+  console.error('[DEBUG-UNLOAD] ⚠️ Página está sendo descarregada/recarregada!');
+  console.trace('[DEBUG-UNLOAD] Stack trace:');
+});
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
@@ -103,58 +111,74 @@ function initChat(){
   }
 
   async function sendToJuniorAgent(message) {
+    console.log('[DEBUG-1] sendToJuniorAgent INICIADO com:', message);
     try {
       // Importar chatIntegration
+      console.log('[DEBUG-2] Importando chatIntegration...');
       const { default: chatIntegration } = await import('./chat-integration.js');
+      console.log('[DEBUG-3] chatIntegration importado com sucesso');
 
       // Gerar sessionId se não existir
       if (!window.dashSessionId) {
         window.dashSessionId = chatIntegration.generateSessionId();
+        console.log('[DEBUG-4] Novo sessionId gerado:', window.dashSessionId);
       }
 
       // Preparar histórico (simplificado)
       const history = [];
 
       // Persistir/garantir existência do chat no servidor principal
+      console.log('[DEBUG-5] Tentando persistir no servidor principal...');
       try {
         const userId = getUserId();
         const area = document.documentElement.dataset.page || 'Finanças';
+        console.log('[DEBUG-5a] userId:', userId, 'area:', area);
         if (userId) {
           const created = await chatIntegration.createChatOnMain(userId, window.dashSessionId, area, '');
+          console.log('[DEBUG-5b] createChatOnMain resultado:', created);
           if (created && created.success && created.chat && created.chat._id) {
             window.dashChatId = created.chat._id;
+            console.log('[DEBUG-5c] Adicionando mensagem do usuário ao chat...');
             await chatIntegration.addMessageToChatOnMain(window.dashChatId, userId, message, 'user', area);
+            console.log('[DEBUG-5d] Mensagem do usuário adicionada');
           }
         }
       } catch (err) {
-        console.warn('Falha ao registrar chat no servidor principal:', err);
+        console.warn('[DEBUG-5e] Falha ao registrar chat no servidor principal:', err);
       }
 
       // Enviar para API
+      console.log('[DEBUG-6] Enviando para API do JuniorAgent...');
       const response = await chatIntegration.sendToChatAPI(message, window.dashSessionId, history);
 
-      console.log('Resposta recebida do servidor:', response);
+      console.log('[DEBUG-7] Resposta recebida do servidor:', response);
 
       // Adicionar resposta do assistente
       // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
       if (response && response.status === 'success' && response.response) {
+        console.log('[DEBUG-8] Chamando appendAssistantMessage...');
         appendAssistantMessage(response.response);
+        console.log('[DEBUG-9] appendAssistantMessage executado com sucesso');
         try {
           const userId = getUserId();
           const area = document.documentElement.dataset.page || 'Finanças';
           if (userId && window.dashChatId) {
+            console.log('[DEBUG-10] Persistindo resposta do assistente...');
             await chatIntegration.addMessageToChatOnMain(window.dashChatId, userId, response.response, 'ai', area);
+            console.log('[DEBUG-11] Resposta do assistente persistida');
           }
         } catch (err) {
-          console.warn('Falha ao persistir resposta do assistente:', err);
+          console.warn('[DEBUG-10e] Falha ao persistir resposta do assistente:', err);
         }
       } else {
-        console.error('Resposta em formato inesperado:', response);
+        console.error('[DEBUG-ERR] Resposta em formato inesperado:', response);
         appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
       }
 
+      console.log('[DEBUG-12] sendToJuniorAgent FINALIZADO com sucesso');
+
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
+      console.error('[DEBUG-CATCH] Erro ao enviar mensagem:', error);
       appendAssistantMessage('Desculpe, houve um erro ao processar sua mensagem. Tente novamente.');
     }
   }

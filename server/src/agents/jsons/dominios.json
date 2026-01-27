@@ -1,9 +1,38 @@
 {
   "dominios": [
-    { "id": "gestao_orcamento_pessoal", "descricao": "Organização de gastos, teto de gastos e fluxo de caixa mensal." },
-    { "id": "educacao_investimentos_basicos", "descricao": "Explicações sobre tipos de investimentos e conceitos iniciais." },
-    { "id": "planejamento_financeiro_longoprazo", "descricao": "Cálculos e metas para aposentadoria ou grandes compras futuras." },
-    { "id": "analise_carteira_investimentos", "descricao": "Equilíbrio entre renda fixa, variável e perfil de risco." },
-    { "id": "estrategia_dividas_e_investimentos", "descricao": "Priorização entre pagar dívidas ou começar a investir." }
-  ]
+    {
+      "id": "gestao_orcamento_pessoal",
+      "descricao": "Use quando o usuário quer organizar gastos, definir teto de despesas ou controlar fluxo de caixa mensal."
+    },
+    {
+      "id": "educacao_investimentos_basicos",
+      "descricao": "Use quando o usuário quer aprender sobre tipos de investimentos, conceitos iniciais ou entender termos financeiros."
+    },
+    {
+      "id": "planejamento_financeiro_longoprazo",
+      "descricao": "Use quando o usuário quer calcular metas para aposentadoria, independência financeira ou grandes compras futuras (casa, carro)."
+    },
+    {
+      "id": "analise_carteira_investimentos",
+      "descricao": "Use quando o usuário quer equilibrar sua carteira entre renda fixa, variável, avaliar perfil de risco ou rebalancear ativos."
+    },
+    {
+      "id": "estrategia_dividas_e_investimentos",
+      "descricao": "Use quando o usuário tem dívidas e quer saber se deve priorizar quitação ou começar a investir simultaneamente."
+    },
+    {
+      "id": "comparacao_ferramentas_financeiras",
+      "descricao": "Use quando o usuário quer comparar apps de finanças, bancos digitais, corretoras ou ferramentas de controle financeiro."
+    },
+    {
+      "id": "analise_inflacao_investimentos",
+      "descricao": "Use quando o usuário quer entender o impacto da inflação em investimentos, calcular rentabilidade real ou proteger patrimônio."
+    },
+    {
+      "id": "planejamento_financeiro_integrado",
+      "descricao": "Use quando o usuário precisa de um plano completo que inclua reserva de emergência, metas de médio e longo prazo de forma integrada."
+    }
+  ],
+  "versao": "test",
+  "atualizado_em": "2026-01-27"
 }

@@ -8,6 +8,22 @@
  */
 
 // ============================================================================
+// DEBUG - Listeners para detectar erros e recarregamentos
+// ============================================================================
+window.addEventListener('beforeunload', (e) => {
+    console.error('[DEBUG-MAIN] ⚠️ Página está sendo descarregada/recarregada!');
+    console.trace('[DEBUG-MAIN] Stack trace:');
+});
+
+window.addEventListener('error', (e) => {
+    console.error('[DEBUG-MAIN] 🔴 Erro global capturado:', e.message, e.filename, e.lineno);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('[DEBUG-MAIN] 🔴 Promise rejeitada não tratada:', e.reason);
+});
+
+// ============================================================================
 // CONSTANTS & CONFIGURATION (Single Responsibility Principle)
 // ============================================================================
 
@@ -1179,24 +1195,29 @@ class MessageManager {
                 // Adicionar resposta do assistente ao chat
             // O serverAgent retorna: { status: 'success', response: '...', sessionId: '...', timestamp: '...' }
                 if (response && response.status === 'success' && response.response) {
+                    console.log('[DEBUG-MAIN] 📝 Chamando appendAssistantMessage...');
                     this.appendAssistantMessage(response.response);
+                    console.log('[DEBUG-MAIN] ✅ appendAssistantMessage executado');
                     // persist assistant reply
                     try {
+                        console.log('[DEBUG-MAIN] 💾 Persistindo resposta do assistente...');
                         const userId = getUserId();
                         const area = document.documentElement.dataset.page || 'Home';
                         if (userId && this.currentChatId) {
                             await chatIntegration.addMessageToChatOnMain(this.currentChatId, userId, response.response, 'ai', area);
+                            console.log('[DEBUG-MAIN] ✅ Resposta persistida com sucesso');
                         }
                     } catch (err) {
-                        console.warn('Falha ao persistir resposta do assistente:', err);
+                        console.warn('[DEBUG-MAIN] ⚠️ Falha ao persistir resposta do assistente:', err);
                     }
+                    console.log('[DEBUG-MAIN] 🏁 sendMessage FINALIZADO COM SUCESSO');
                 } else {
                     console.error('Resposta em formato inesperado:', response);
                     this.appendAssistantMessage('Desculpe, recebi uma resposta em formato inesperado. Tente novamente.');
                 }
             
         } catch (error) {
-            console.error('Erro ao enviar mensagem:', error);
+            console.error('[DEBUG-MAIN] ❌ Erro ao enviar mensagem:', error);
             // Mostrar mensagem de erro no chat
             this.appendAssistantMessage('Desculpe, houve um erro ao processar sua mensagem. Tente novamente.');
         }

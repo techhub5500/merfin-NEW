@@ -37,23 +37,7 @@ class Logger {
       'WARN'         // Warnings sempre são registrados
     ]);
     
-    // Padrões de logs intermediários para IGNORAR
-    this.intermediaryPatterns = [
-      /iniciando|começando|starting/i,
-      /verificando|checking/i,
-      /preparando|preparing/i,
-      /processando|processing(?! completed)/i, // exceto "completed"
-      /carregando|loading(?! completed)/i,
-      /etapa|step|fase/i,
-      /primeiros \d+ chars/i,
-      /texto de entrada/i,
-      /texto com valores preservados/i,
-      /buscando|searching/i,
-      /match encontrado/i,
-      /contexto extraído/i,
-      /tentativa \d+/i,
-      /═{3,}|─{3,}/  // separadores visuais
-    ];
+    // Padrões de logs intermediários removidos - agora defini em isIntermediaryLog()
     
     // Buffer para detectar logs duplicados
     this.recentLogs = [];
@@ -150,17 +134,46 @@ class Logger {
 
   /**
    * Detecta categoria do log baseado no conteúdo
+   * FOCO: Somente comportamentos estratégicos do sistema
    */
   detectCategory(message) {
     const msg = String(message).toLowerCase();
+    
+    // =========================
+    // SYSTEM TRIAGE & BEHAVIOR
+    // =========================
+    
+    // Fluxos de classificação (TRIVIAL/LANÇAMENTO/SIMPLISTA/COMPLEXA)
+    if (/(🔵|🟡|🟠|🟢).*(classificação|categoria identificada|fluxo trivial|fluxo lançamento|fluxo simplista|fluxo complexa)/i.test(msg)) {
+      return 'DECISION';
+    }
+    
+    // Análise secundária (domínio + coordenador + prompts)
+    if (/(análise secundária concluída|domínio:|coordenador selecionado|prompts_orquestracao)/i.test(msg)) {
+      return 'DECISION';
+    }
+    
+    // Handover e roteamento para coordenadores
+    if (/(montando pacote de handover|roteando para|enviando para coordenador|resposta do coord_)/i.test(msg)) {
+      return 'STATE';
+    }
+    
+    // Memória (carregamento e atualização)
+    if (/(💾|memória carregada|memória atualizada|carregando memória|estado de memória)/i.test(msg)) {
+      return 'STATE';
+    }
+    
+    // =========================
+    // ORIGINAL CATEGORIES
+    // =========================
     
     // BOUNDARY: entrada/saída do sistema
     if (/post \/api|mensagem do usuário|resposta (final )?da ia|enviando resposta/i.test(msg)) {
       return 'BOUNDARY';
     }
     
-    // DECISION: decisões do sistema
-    if (/(aceito|aceita|rejeitado|rejeitada|classificado|categoria final|impact score)/i.test(msg) &&
+    // DECISION: decisões do sistema (mantém origináis mas filtra intermediárias)
+    if (/(aceito|aceita|rejeitado|rejeitada|impact score)/i.test(msg) &&
         !/(iniciando|verificando|buscando)/i.test(msg)) {
       return 'DECISION';
     }
@@ -187,10 +200,10 @@ class Logger {
     }
     
     // ERROR/WARN sempre passam
-    if (/(erro|error|falhou|failed)/i.test(msg)) {
+    if (/(erro|error|falhou|failed|❌)/i.test(msg)) {
       return 'ERROR';
     }
-    if (/(aviso|warning|atenção)/i.test(msg)) {
+    if (/(aviso|warning|atenção|⚠️)/i.test(msg)) {
       return 'WARN';
     }
     
@@ -200,12 +213,35 @@ class Logger {
 
   /**
    * Verifica se é log intermediário (deve ser ignorado)
+   * FOCO: Remove apenas logs REALMENTE desnecessários
    */
   isIntermediaryLog(message) {
     const msg = String(message);
     
+    // Padrões intermediários que NÃO agregam informação (RIGOROSO)
+    const densePatterns = [
+      /iniciando|começando|starting/i,           // Muito vago
+      /verificando|checking/i,                   // Intermediário
+      /preparando|preparing/i,                   // Intermediário
+      /processando|processing(?! completed)/i,   // Exceto "processing completed"
+      /carregando|loading(?! completo)/i,        // Exceto "loading completo"
+      /buscando|searching/i,                     // Intermediário
+      /tentativa \d+/i,                          // Retry attempts - desnecessário
+      /═{3,}|─{3,}/,                             // Separadores visuais
+      /etapa|phase|stage/i,                      // Muito genérico
+      /primeiros \d+ chars/i,                    // Debug interno
+      /texto de entrada|input text/i,            // Intermediário
+      /contexto extraído|extracted context/i,    // Intermediário
+      /match encontrado/i,                       // Intermediário
+      /função.*chamada/i,                        // Debug de função
+      /aguardando|waiting/i,                     // Intermediário
+      /finalizando|finalizing/i,                 // Intermediário
+      /obtendo|getting/i,                        // Muito vago
+      /analisando|analyzing(?! completo)/i       // Exceto "analyzing completo"
+    ];
+    
     // Testa padrões intermediários
-    for (const pattern of this.intermediaryPatterns) {
+    for (const pattern of densePatterns) {
       if (pattern.test(msg)) {
         return true;
       }
@@ -446,6 +482,94 @@ class Logger {
         system: systemPrompt,
         user: userPreview
       }
+    });
+  }
+
+  /**
+   * ============================================
+   * LOGS ESTRATÉGICOS DO NOVO SISTEMA
+   * ============================================
+   */
+
+  /**
+   * Log de classificação de query (TRIVIAL/LANÇAMENTO/SIMPLISTA/COMPLEXA)
+   */
+  logClassification(categoria, confidence = null) {
+    const icons = {
+      'trivial': '🟢',
+      'lancamento': '🟡',
+      'simplista': '🟡',
+      'complexa': '🟠'
+    };
+    const icon = icons[categoria] || '🔵';
+    
+    this.log('LOG', `${icon} Classificação: ${categoria}${confidence ? ` (confiança: ${confidence})` : ''}`);
+  }
+
+  /**
+   * Log de análise secundária (domínio + coordenador + prompts)
+   */
+  logSecondaryAnalysis(analysis) {
+    this.log('LOG', '🟠 Análise Secundária', {
+      dominio: analysis.dominio_id || analysis.dominio,
+      coordenador: analysis.coordenador_selecionado || analysis.coordenador,
+      prompts: analysis.prompts_orquestracao_ids || analysis.prompts,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de handover para coordenador
+   */
+  logHandover(coordenador, dominio) {
+    this.log('LOG', `📤 Handover → ${coordenador}`, {
+      dominio,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de resposta do coordenador
+   */
+  logCoordinatorResponse(coordenador, responseStatus = 'OK') {
+    this.log('LOG', `✅ Resposta ${coordenador}: ${responseStatus}`, {
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de fallback
+   */
+  logFallback(from, to, reason = '') {
+    this.log('WARN', `🔄 Fallback: ${from} → ${to}${reason ? ` (${reason})` : ''}`);
+  }
+
+  /**
+   * Log de carregamento de memória
+   */
+  logMemoryLoaded(memoryStatus) {
+    this.log('LOG', '💾 Memória Carregada', {
+      hasSummary: memoryStatus.hasSummary || false,
+      recentWindowSize: memoryStatus.recentWindowSize || 0,
+      totalTokensEstimated: memoryStatus.totalTokensEstimated || 0,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de atualização de memória
+   */
+  logMemoryUpdated(action = 'UPDATE') {
+    this.log('LOG', `💾 Memória ${action}`);
+  }
+
+  /**
+   * Log de erro estratégico (diferente de erro técnico)
+   */
+  logStrategicError(component, errorType, message) {
+    this.log('ERROR', `❌ ${component}: ${errorType}`, {
+      message,
+      timestamp: new Date().toISOString()
     });
   }
 

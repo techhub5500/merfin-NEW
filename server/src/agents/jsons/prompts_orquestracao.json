@@ -1,7 +1,62 @@
 {
   "prompts": [
-    { "id": "p_metodologia_50_30_20", "contexto": "Foca em divisão de renda para quem precisa de organização básica." },
-    { "id": "p_estrategia_agressiva", "contexto": "Foca em maximização de lucros para perfis de alto risco." },
-    { "id": "p_quitacao_dividas", "contexto": "Foca em método bola de neve ou juros altos primeiro." }
-  ]
+    {
+      "id": "p_metodologia_50_30_20",
+      "titulo": "Metodologia 50/30/20",
+      "contexto": "Foca em divisão de renda para quem precisa de organização básica: 50% necessidades, 30% desejos, 20% poupança.",
+      "aplicavel_a": ["coord_analises", "coord_planejamentos"],
+      "versao": "test"
+    },
+    {
+      "id": "p_estrategia_agressiva",
+      "titulo": "Estratégia Agressiva de Investimentos",
+      "contexto": "Foca em maximização de lucros para perfis de alto risco, com maior exposição a renda variável.",
+      "aplicavel_a": ["coord_investimentos"],
+      "versao": "test"
+    },
+    {
+      "id": "p_quitacao_dividas",
+      "titulo": "Quitação de Dívidas",
+      "contexto": "Foca em métodos de quitação: bola de neve (menores primeiro) ou avalanche (juros altos primeiro).",
+      "aplicavel_a": ["coord_planejamentos", "coord_analises"],
+      "versao": "test"
+    },
+    {
+      "id": "p_analise_detalhada",
+      "titulo": "Análise Detalhada de Situação Financeira",
+      "contexto": "Diagnóstico profundo da situação financeira atual, identificando padrões, gargalos e oportunidades.",
+      "aplicavel_a": ["coord_analises"],
+      "versao": "test"
+    },
+    {
+      "id": "p_comparacao_opcoes",
+      "titulo": "Comparativo de Opções de Investimento",
+      "contexto": "Análise comparativa entre diferentes alternativas de investimento, considerando risco, liquidez e retorno.",
+      "aplicavel_a": ["coord_investimentos", "coord_analises"],
+      "versao": "test"
+    },
+    {
+      "id": "p_plano_passo_a_passo",
+      "titulo": "Plano de Ação Estruturado",
+      "contexto": "Cronograma estruturado com passos claros, marcos de progresso e metas mensuráveis.",
+      "aplicavel_a": ["coord_planejamentos"],
+      "versao": "test"
+    },
+    {
+      "id": "p_balanceamento_carteira",
+      "titulo": "Balanceamento de Carteira",
+      "contexto": "Reequilíbrio de ativos conforme perfil de risco, objetivos e horizonte de investimento.",
+      "aplicavel_a": ["coord_investimentos"],
+      "versao": "test"
+    },
+    {
+      "id": "p_reserva_emergencia",
+      "titulo": "Construção de Reserva de Emergência",
+      "contexto": "Cálculo do valor ideal, estratégia de acumulação e onde manter a reserva com liquidez.",
+      "aplicavel_a": ["coord_planejamentos", "coord_investimentos"],
+      "versao": "test"
+    }
+  ],
+  "versao": "test",
+  "atualizado_em": "2026-01-27"
 }

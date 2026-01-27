@@ -1,11 +1,16 @@
 /**
- * Junior Agent - Conversational Agent with Persistent Memory
+ * Junior Agent - Intelligent Triage and Routing Agent with Persistent Memory
  *
+ * SISTEMA DE TRIAGEM INTELIGENTE:
+ * - Classificação Primária: Trivial, Lançamento, Simplista ou Complexa
+ * - Análise Secundária: Escolha de domínio, coordenador e prompts (para queries complexas)
+ * - Handover: Empacotamento e roteamento para agentes especializados
+ * 
  * SISTEMA DE MEMÓRIA PERSISTENTE:
  * - Janela deslizante: Últimos 2 ciclos (4 mensagens) mantidos integralmente
  * - Resumo cumulativo: Histórico antigo compactado progressivamente pelo GPT-5 Nano
  * - Threshold: 3500 tokens gatilha resumo automático
- * - Modelo: GPT-5 Mini (verbosity: medium, reasoning_effort: low)
+ * - Modelo: GPT-5 Mini (verbosity: low, reasoning_effort: low para classificação)
  * 
  * ARQUITETURA:
  * - ConversationalMemory (MongoDB): Persiste resumos + janela recente
@@ -17,6 +22,24 @@ const BaseAgent = require('../../shared/base-agent');
 const OpenAI = require('openai');
 const ConversationalMemory = require('../../../database/schemas/conversational-memory-schema');
 const memorySummaryService = require('../../../services/memory-summary-service');
+const fs = require('fs');
+const path = require('path');
+
+// ===== CONSTANTES DE CATEGORIAS =====
+const CATEGORIES = Object.freeze({
+  TRIVIAL: 'trivial',
+  LANCAMENTO: 'lancamento',
+  SIMPLISTA: 'simplista',
+  COMPLEXA: 'complexa'
+});
+
+// ===== POLÍTICAS DE MEMÓRIA =====
+const MEMORY_POLICY = Object.freeze({
+  NONE: 'none',           // Não carrega nem salva (classificação)
+  READ_ONLY: 'read_only', // Carrega mas não salva (complexa - coordenador salva)
+  WRITE_ONLY: 'write_only', // Não envia contexto, mas salva (lançamento)
+  READ_WRITE: 'read_write' // Carrega e salva (trivial, simplista)
+});
 
 // Inicialização lazy do cliente OpenAI
 let openai = null;
@@ -37,17 +60,758 @@ class JuniorAgent extends BaseAgent {
     this.max_completion_tokens = 1500;
     this.RECENT_WINDOW_SIZE = 4; // 2 ciclos = 4 mensagens (2 user + 2 assistant)
     this.MAX_SUMMARY_WORDS = 3500; // Limite de palavras no resumo cumulativo
+    
+    // Cache para arquivos JSON (evita I/O repetitivo)
+    this._jsonCache = null;
   }
 
+  // =====================================================
+  // MÉTODO PRINCIPAL - PONTO DE ENTRADA
+  // =====================================================
+
   /**
-   * Método principal de execução do agente
+   * Método principal de execução do agente com sistema de triagem
    * @param {Object} request - Requisição do usuário
    * @returns {Promise<Object>} Resposta do agente
    */
   async execute(request) {
     const { parameters } = request;
-    return await this.processChatMessage(parameters);
+    const { message, chatId, userId, sessionId } = parameters;
+
+    console.log('[JuniorAgent] 📨 Processando mensagem:', {
+      chatId,
+      userId,
+      sessionId,
+      messageLength: message?.length || 0
+    });
+
+    try {
+      // Validação básica
+      if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        throw new Error('Mensagem inválida ou vazia');
+      }
+
+      // ===== ETAPA 1: CLASSIFICAÇÃO PRIMÁRIA =====
+      const categoria = await this.classifyQuery(message);
+      console.log(`[JuniorAgent] 🔵 Categoria identificada: ${categoria}`);
+
+      // ===== ETAPA 2: PROCESSAMENTO POR CATEGORIA =====
+      switch (categoria) {
+        case CATEGORIES.TRIVIAL:
+          console.log('[JuniorAgent] 🟢 Fluxo TRIVIAL');
+          return await this.processTrivialQuery(parameters);
+        
+        case CATEGORIES.LANCAMENTO:
+          console.log('[JuniorAgent] 🟡 Fluxo LANÇAMENTO');
+          return await this.routeToLancador(parameters);
+        
+        case CATEGORIES.SIMPLISTA:
+          console.log('[JuniorAgent] 🟡 Fluxo SIMPLISTA');
+          return await this.routeToSimplista(parameters);
+        
+        case CATEGORIES.COMPLEXA:
+          console.log('[JuniorAgent] 🟠 Fluxo COMPLEXA');
+          return await this.processComplexQuery(parameters);
+        
+        default:
+          console.log('[JuniorAgent] 🔴 Categoria desconhecida, usando COMPLEXA como fallback');
+          return await this.processComplexQuery(parameters);
+      }
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro no execute():', error.message);
+      
+      // Fallback: tentar processar como trivial em caso de erro na classificação
+      console.log('[JuniorAgent] 🔄 Tentando fallback para fluxo trivial...');
+      try {
+        return await this.processTrivialQuery(parameters);
+      } catch (fallbackError) {
+        return {
+          response: 'Desculpe, houve um erro ao processar sua mensagem. Tente novamente.',
+          sessionId: sessionId,
+          timestamp: new Date().toISOString(),
+          error: error.message || 'Erro desconhecido'
+        };
+      }
+    }
   }
+
+  // =====================================================
+  // CLASSIFICAÇÃO PRIMÁRIA
+  // =====================================================
+
+  /**
+   * Classifica query em uma das 4 categorias
+   * @param {string} message - Mensagem do usuário
+   * @returns {Promise<string>} - ID da categoria (trivial|lancamento|simplista|complexa)
+   */
+  async classifyQuery(message) {
+    console.log('[JuniorAgent] 🔵 Classificando query...');
+    
+    try {
+      const systemPrompt = this._buildClassificationPrompt();
+      
+      const response = await Promise.race([
+        getOpenAI().chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message }
+          ],
+          max_completion_tokens: 100,
+          verbosity: 'low',
+          reasoning_effort: 'low'
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na classificação')), 30000)
+        )
+      ]);
+
+      const responseText = response.choices[0]?.message?.content?.trim();
+      
+      // Tentar parsear JSON da resposta
+      try {
+        // Remover possíveis marcadores de código markdown
+        const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(cleanJson);
+        
+        const categoriaId = parsed.categoria_id?.toLowerCase();
+        
+        // Validar se é uma categoria conhecida
+        if (Object.values(CATEGORIES).includes(categoriaId)) {
+          console.log(`[JuniorAgent] 🔵 Classificação bem-sucedida: ${categoriaId}`);
+          return categoriaId;
+        } else {
+          console.warn(`[JuniorAgent] ⚠️ Categoria desconhecida: ${categoriaId}, usando 'complexa'`);
+          return CATEGORIES.COMPLEXA;
+        }
+      } catch (parseError) {
+        console.error('[JuniorAgent] ⚠️ Erro ao parsear JSON de classificação:', parseError.message);
+        console.log('[JuniorAgent] 📝 Resposta bruta:', responseText);
+        return CATEGORIES.COMPLEXA;
+      }
+      
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro na classificação:', error.message);
+      return CATEGORIES.COMPLEXA; // Fallback seguro
+    }
+  }
+
+  /**
+   * Constrói prompt de classificação primária
+   * @returns {string} - System prompt para classificação
+   */
+  _buildClassificationPrompt() {
+    return `### TAREFA: CLASSIFICAÇÃO DE QUERY
+
+Você é um classificador de queries financeiras. Analise a mensagem do usuário e retorne APENAS um JSON com a categoria identificada.
+
+## CATEGORIAS DISPONÍVEIS:
+
+**trivial** — Saudações, agradecimentos, perguntas sobre o sistema, despedidas
+Exemplos: "Oi", "Obrigado", "O que você faz?", "Tchau", "Bom dia", "Como você funciona?"
+
+**lancamento** — Registro de transações financeiras (gastos ou receitas) com valores
+Exemplos: "Gastei R$ 150 no supermercado", "Recebi meu salário de R$ 5.000", "Paguei a conta de luz R$ 180"
+
+**simplista** — Consultas diretas a dados já registrados, perguntas sobre saldos ou totais
+Exemplos: "Quanto gastei este mês?", "Qual meu saldo atual?", "Quanto tenho investido?", "Qual foi meu maior gasto?"
+
+**complexa** — Análises, planejamentos, estratégias, comparações ou qualquer query que exija processamento elaborado
+Exemplos: "Como melhorar minhas finanças?", "Quero investir em ações", "Preciso de um plano para quitar dívidas", "Como montar uma carteira?"
+
+## FORMATO DE RESPOSTA:
+
+Retorne APENAS um JSON válido, sem markdown, sem explicações:
+{"categoria_id": "trivial|lancamento|simplista|complexa"}
+
+## REGRAS IMPORTANTES:
+- Na dúvida entre simplista e complexa, escolha complexa
+- Queries com múltiplos tópicos são complexas
+- Consultas simples de saldo/valor são simplistas
+- Se mencionar valor monetário com intenção de registrar, é lancamento
+- Se só perguntar sobre o sistema ou cumprimentar, é trivial`;
+  }
+
+  // =====================================================
+  // PROCESSAMENTO DE QUERIES TRIVIAIS
+  // =====================================================
+
+  /**
+   * Processa queries triviais (saudações, agradecimentos, etc.)
+   * Reutiliza o fluxo original com memória persistente
+   * @param {Object} params - Parâmetros da mensagem
+   * @returns {Promise<Object>} Resposta processada
+   */
+  async processTrivialQuery(params) {
+    // Delega para o método original de processamento de chat
+    return await this.processChatMessage(params);
+  }
+
+  // =====================================================
+  // PROCESSAMENTO DE QUERIES COMPLEXAS
+  // =====================================================
+
+  /**
+   * Processa queries complexas com análise secundária e handover
+   * @param {Object} params - Parâmetros da mensagem
+   * @returns {Promise<Object>} Resposta do coordenador
+   */
+  async processComplexQuery(params) {
+    const { message, chatId, userId, sessionId } = params;
+
+    try {
+      // 1. Carregar memória (READ_ONLY - coordenador salva depois)
+      console.log('[JuniorAgent] 🟠 Carregando memória para query complexa...');
+      const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
+
+      console.log('[JuniorAgent] 💾 Memória carregada para análise:', {
+        hasSummary: !!memory.cumulativeSummary,
+        recentWindowSize: memory.recentWindow?.length || 0
+      });
+
+      // 2. Análise secundária - escolher domínio, coordenador e prompts
+      const analysis = await this.analyzeComplexQuery(message, memory);
+
+      // 3. Montar pacote para coordenador
+      const handoverPackage = await this._buildHandoverPackage(analysis, memory, message, params);
+
+      // 4. Rotear para coordenador
+      const response = await this.routeToCoordinator(handoverPackage, params);
+
+      return response;
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro no processamento de query complexa:', error.message);
+      
+      // Fallback: tentar responder como trivial
+      console.log('[JuniorAgent] 🔄 Fallback para processamento trivial...');
+      return await this.processTrivialQuery(params);
+    }
+  }
+
+  // =====================================================
+  // ANÁLISE SECUNDÁRIA
+  // =====================================================
+
+  /**
+   * Analisa query complexa e escolhe roteamento
+   * @param {string} message - Mensagem do usuário
+   * @param {Object} memory - Documento ConversationalMemory
+   * @returns {Promise<Object>} - { dominio_id, coordenador_selecionado, prompts_orquestracao_ids }
+   */
+  async analyzeComplexQuery(message, memory) {
+    console.log('[JuniorAgent] 🟠 Iniciando análise secundária...');
+
+    try {
+      // Carregar arquivos JSON de configuração
+      const { dominios, prompts, contratos } = this._loadJSONFiles();
+
+      // Construir prompt de análise secundária
+      const systemPrompt = this._buildSecondaryAnalysisPrompt(dominios, contratos, prompts);
+
+      // Construir contexto com memória para análise contextualizada
+      let contextualInput = '';
+      
+      if (memory.cumulativeSummary && memory.cumulativeSummary.trim().length > 0) {
+        contextualInput += `[HISTÓRICO_RESUMIDO]\n${memory.cumulativeSummary}\n\n`;
+      }
+      
+      if (memory.recentWindow && memory.recentWindow.length > 0) {
+        contextualInput += '[JANELA_ATUAL]\n';
+        for (const msg of memory.recentWindow) {
+          const prefix = msg.role === 'user' ? 'U' : 'A';
+          contextualInput += `${prefix}: ${msg.content}\n`;
+        }
+        contextualInput += '\n';
+      }
+      
+      contextualInput += `[MENSAGEM_ATUAL]\n${message}`;
+
+      // Chamar GPT-5 Mini para análise
+      const response = await Promise.race([
+        getOpenAI().chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: contextualInput }
+          ],
+          max_completion_tokens: 300,
+          verbosity: 'low',
+          reasoning_effort: 'low'
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na análise secundária')), 45000)
+        )
+      ]);
+
+      const responseText = response.choices[0]?.message?.content?.trim();
+
+      // Parsear resposta JSON
+      try {
+        const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const analysis = JSON.parse(cleanJson);
+
+        // Validar campos obrigatórios
+        if (!analysis.dominio_id || !analysis.coordenador_selecionado || !analysis.prompts_orquestracao_ids) {
+          throw new Error('Campos obrigatórios ausentes na análise');
+        }
+
+        // Garantir que prompts_orquestracao_ids é um array com 1-2 elementos
+        if (!Array.isArray(analysis.prompts_orquestracao_ids)) {
+          analysis.prompts_orquestracao_ids = [analysis.prompts_orquestracao_ids];
+        }
+        analysis.prompts_orquestracao_ids = analysis.prompts_orquestracao_ids.slice(0, 2);
+
+        console.log('[JuniorAgent] 🟠 Análise secundária concluída:', {
+          dominio: analysis.dominio_id,
+          coordenador: analysis.coordenador_selecionado,
+          prompts: analysis.prompts_orquestracao_ids,
+          justificativa: analysis.justificativa_breve || 'N/A'
+        });
+
+        return analysis;
+
+      } catch (parseError) {
+        console.error('[JuniorAgent] ⚠️ Erro ao parsear análise secundária:', parseError.message);
+        console.log('[JuniorAgent] 📝 Resposta bruta:', responseText);
+        
+        // Fallback: retornar análise padrão
+        return this._getDefaultAnalysis();
+      }
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro na análise secundária:', error.message);
+      return this._getDefaultAnalysis();
+    }
+  }
+
+  /**
+   * Retorna análise padrão para casos de erro
+   * @returns {Object} - Análise com valores padrão
+   */
+  _getDefaultAnalysis() {
+    console.log('[JuniorAgent] 🔄 Usando análise padrão (fallback)');
+    return {
+      dominio_id: 'planejamento_financeiro_integrado',
+      coordenador_selecionado: 'coord_planejamentos',
+      prompts_orquestracao_ids: ['p_plano_passo_a_passo'],
+      justificativa_breve: 'Fallback automático devido a erro na análise'
+    };
+  }
+
+  /**
+   * Constrói prompt de análise secundária
+   * @param {Object} dominios - Lista de domínios
+   * @param {Object} contratos - Contratos dos coordenadores
+   * @param {Object} prompts - Lista de prompts de orquestração
+   * @returns {string} - System prompt
+   */
+  _buildSecondaryAnalysisPrompt(dominios, contratos, prompts) {
+    return `### TAREFA: ANÁLISE SECUNDÁRIA DE QUERY COMPLEXA
+
+Você deve analisar a query do usuário (considerando o contexto da conversa) e fazer três escolhas sequenciais:
+1. DOMÍNIO: Qual é o tema central da query?
+2. COORDENADOR: Qual agente especializado deve processar?
+3. PROMPTS: Qual(is) prompt(s) de orquestração usar? (máximo 2)
+
+## DOMÍNIOS DISPONÍVEIS:
+${JSON.stringify(dominios.dominios, null, 2)}
+
+## COORDENADORES DISPONÍVEIS:
+${JSON.stringify(Object.values(contratos).map(c => ({
+  id: c.id,
+  nome: c.nome,
+  descricao: c.descricao,
+  dominios_atendidos: c.dominios_atendidos
+})), null, 2)}
+
+## PROMPTS DE ORQUESTRAÇÃO:
+${JSON.stringify(prompts.prompts.map(p => ({
+  id: p.id,
+  titulo: p.titulo,
+  contexto: p.contexto,
+  aplicavel_a: p.aplicavel_a
+})), null, 2)}
+
+## PROCESSO DE ESCOLHA:
+
+1. Leia a mensagem atual e o contexto (se houver) para entender a real intenção
+2. Identifique o DOMÍNIO principal (tema central da necessidade)
+3. Escolha o COORDENADOR cujo dominios_atendidos inclua o domínio escolhido
+4. Selecione 1 prompt de orquestração (ou 2 se extremamente necessário) que seja aplicável ao coordenador
+
+## FORMATO DE RESPOSTA:
+
+Retorne APENAS um JSON válido, sem markdown:
+{
+  "dominio_id": "id_do_dominio_escolhido",
+  "coordenador_selecionado": "coord_analises|coord_investimentos|coord_planejamentos",
+  "prompts_orquestracao_ids": ["id_prompt_1"],
+  "justificativa_breve": "Uma frase explicando a escolha"
+}
+
+## REGRAS:
+- Escolha apenas 1 prompt, a menos que 2 sejam REALMENTE necessários
+- O coordenador deve ter o domínio escolhido em sua lista de dominios_atendidos
+- Se não encontrar domínio exato, escolha o mais próximo
+- Se o contexto revelar informações adicionais (ex: usuário tem dívidas), considere isso`;
+  }
+
+  // =====================================================
+  // CARREGAMENTO DE ARQUIVOS JSON
+  // =====================================================
+
+  /**
+   * Carrega arquivos JSON de configuração com cache
+   * @returns {Object} { dominios, prompts, contratos }
+   */
+  _loadJSONFiles() {
+    if (this._jsonCache) {
+      return this._jsonCache;
+    }
+
+    console.log('[JuniorAgent] 📂 Carregando arquivos JSON...');
+
+    try {
+      const basePath = path.join(__dirname, '../../jsons');
+      const contratosPath = path.join(__dirname, '../../contratos');
+
+      // Verificar se os caminhos existem
+      if (!fs.existsSync(basePath)) {
+        throw new Error(`Pasta de JSONs não encontrada: ${basePath}`);
+      }
+
+      // Carregar dominios
+      const dominiosPath = path.join(basePath, 'dominios.json');
+      if (!fs.existsSync(dominiosPath)) {
+        throw new Error(`Arquivo dominios.json não encontrado: ${dominiosPath}`);
+      }
+      const dominios = JSON.parse(fs.readFileSync(dominiosPath, 'utf-8'));
+
+      // Carregar prompts de orquestração
+      const promptsPath = path.join(basePath, 'prompts_orquestracao.json');
+      if (!fs.existsSync(promptsPath)) {
+        throw new Error(`Arquivo prompts_orquestracao.json não encontrado: ${promptsPath}`);
+      }
+      const prompts = JSON.parse(fs.readFileSync(promptsPath, 'utf-8'));
+
+      // Carregar contratos dos coordenadores
+      const contratos = {};
+      const coordenadores = ['coord_analises', 'coord_investimentos', 'coord_planejamentos'];
+      
+      for (const coord of coordenadores) {
+        const coordPath = path.join(contratosPath, `${coord}.json`);
+        if (fs.existsSync(coordPath)) {
+          contratos[coord.replace('coord_', '')] = JSON.parse(fs.readFileSync(coordPath, 'utf-8'));
+        } else {
+          console.warn(`[JuniorAgent] ⚠️ Contrato não encontrado: ${coordPath}`);
+        }
+      }
+
+      this._jsonCache = { dominios, prompts, contratos };
+      console.log('[JuniorAgent] 📂 JSONs carregados e cacheados com sucesso');
+      
+      return this._jsonCache;
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro ao carregar JSONs:', error.message);
+      
+      // Retornar estrutura vazia para evitar crash
+      return {
+        dominios: { dominios: [] },
+        prompts: { prompts: [] },
+        contratos: {}
+      };
+    }
+  }
+
+  /**
+   * Carrega conteúdo de um prompt de orquestração
+   * @param {string} promptId - ID do prompt
+   * @returns {string|null} - System prompt completo ou null se não encontrado
+   */
+  _loadPromptContent(promptId) {
+    try {
+      const promptPath = path.join(__dirname, '../../jsons/prompts', `${promptId}.json`);
+      
+      if (!fs.existsSync(promptPath)) {
+        console.warn(`[JuniorAgent] ⚠️ Arquivo de prompt não encontrado: ${promptId}`);
+        return null;
+      }
+
+      const content = JSON.parse(fs.readFileSync(promptPath, 'utf-8'));
+      return content.system_prompt || null;
+
+    } catch (error) {
+      console.error(`[JuniorAgent] ❌ Erro ao carregar prompt ${promptId}:`, error.message);
+      return null;
+    }
+  }
+
+  // =====================================================
+  // HANDOVER PARA COORDENADORES
+  // =====================================================
+
+  /**
+   * Monta pacote completo para handover ao coordenador
+   * @param {Object} analysis - Resultado da análise secundária
+   * @param {Object} memory - Documento ConversationalMemory
+   * @param {string} currentMessage - Mensagem atual do usuário
+   * @param {Object} params - Parâmetros originais (chatId, userId, sessionId)
+   * @returns {Object} - Pacote de handover
+   */
+  async _buildHandoverPackage(analysis, memory, currentMessage, params) {
+    console.log('[JuniorAgent] 📦 Montando pacote de handover...');
+
+    // 1. Carregar conteúdo dos prompts selecionados
+    const promptContents = analysis.prompts_orquestracao_ids
+      .map(id => this._loadPromptContent(id))
+      .filter(Boolean);
+    
+    const systemPrompt = promptContents.length > 0 
+      ? promptContents.join('\n\n---\n\n')
+      : 'Responda à query do usuário de forma útil e estruturada.';
+
+    // 2. Montar contexto com memória
+    let context = '';
+    
+    if (memory.cumulativeSummary && memory.cumulativeSummary.trim().length > 0) {
+      context += `[HISTÓRICO_RESUMIDO]\n${memory.cumulativeSummary}\n\n`;
+    }
+    
+    if (memory.recentWindow && memory.recentWindow.length > 0) {
+      context += '[JANELA_ATUAL]\n';
+      for (const msg of memory.recentWindow) {
+        const prefix = msg.role === 'user' ? 'U' : 'A';
+        context += `${prefix}: ${msg.content}\n`;
+      }
+      context += '\n';
+    }
+    
+    context += `[MENSAGEM_ATUAL]\n${currentMessage}`;
+
+    // 3. Montar metadados
+    const metadata = {
+      dominio_id: analysis.dominio_id,
+      coordenador_id: analysis.coordenador_selecionado,
+      prompts_ids: analysis.prompts_orquestracao_ids,
+      justificativa: analysis.justificativa_breve || '',
+      timestamp: new Date().toISOString(),
+      chatId: params.chatId,
+      userId: params.userId,
+      sessionId: params.sessionId
+    };
+
+    console.log('[JuniorAgent] 📦 Pacote montado:', {
+      systemPromptLength: systemPrompt.length,
+      contextLength: context.length,
+      coordenador: metadata.coordenador_id
+    });
+
+    return { system_prompt: systemPrompt, context, metadata };
+  }
+
+  /**
+   * Roteia pacote para coordenador apropriado
+   * @param {Object} handoverPackage - Pacote montado por _buildHandoverPackage
+   * @param {Object} params - Parâmetros originais (chatId, userId, sessionId)
+   * @returns {Promise<Object>} - Resposta do coordenador
+   */
+  async routeToCoordinator(handoverPackage, params) {
+    const { metadata, system_prompt, context } = handoverPackage;
+    const { sessionId } = params;
+
+    console.log(`[JuniorAgent] 📤 Roteando para: ${metadata.coordenador_id}`);
+
+    try {
+      // Carregar contrato do coordenador para obter system_prompt_teste
+      const contratos = this._loadJSONFiles().contratos;
+      const coordenadorKey = metadata.coordenador_id.replace('coord_', '');
+      const contrato = contratos[coordenadorKey];
+
+      if (!contrato) {
+        throw new Error(`Coordenador não encontrado: ${metadata.coordenador_id}`);
+      }
+
+      // Montar system prompt completo: prompt de teste do coordenador + prompts de orquestração
+      const fullSystemPrompt = `${contrato.system_prompt_teste}\n\n` +
+        `--- DOMÍNIO RECEBIDO: ${metadata.dominio_id} ---\n\n` +
+        `--- PROMPTS DE ORQUESTRAÇÃO ---\n${system_prompt}`;
+
+      // Chamar GPT-5 Mini como mock do coordenador
+      console.log('[JuniorAgent] 🚀 Enviando para coordenador...');
+      const startTime = Date.now();
+
+      const response = await Promise.race([
+        getOpenAI().chat.completions.create({
+          model: this.model,
+          messages: [
+            { role: 'system', content: fullSystemPrompt },
+            { role: 'user', content: context }
+          ],
+          max_completion_tokens: 4000, // Aumentado para comportar reasoning + output
+          verbosity: 'high', // Forçar mais output de texto
+          reasoning_effort: 'low' // Reduzir tokens gastos em reasoning
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout no coordenador')), 80000)
+        )
+      ]);
+
+      const elapsedTime = Date.now() - startTime;
+      
+      // Extração robusta da resposta considerando diferentes estruturas
+      let responseText = '';
+      
+      if (response.choices && response.choices[0]) {
+        const choice = response.choices[0];
+        
+        // Tentar diferentes estruturas possíveis
+        if (choice.message?.content) {
+          responseText = choice.message.content;
+        } else if (choice.text) {
+          responseText = choice.text;
+        } else if (choice.message?.text) {
+          responseText = choice.message.text;
+        }
+      }
+      
+      // Fallback: tentar acessar diretamente
+      if (!responseText && response.content) {
+        responseText = response.content;
+      }
+      
+      responseText = responseText?.trim() || '';
+      
+      console.log(`[JuniorAgent] 📝 Resposta extraída (${responseText.length} chars)`);
+      console.log(`[JuniorAgent] ✅ Resposta do ${metadata.coordenador_id} recebida em ${elapsedTime}ms`);
+
+      // Log de tokens consumidos
+      if (response?.usage) {
+        console.log('[JuniorAgent] 💰 Tokens consumidos pelo coordenador:', response.usage);
+      }
+
+      // Validação: garantir que a resposta não está vazia
+      if (!responseText || responseText.length === 0) {
+        console.warn('[JuniorAgent] ⚠️ Resposta vazia recebida do coordenador');
+        throw new Error('Coordenador retornou resposta vazia');
+      }
+
+      return {
+        response: responseText,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          coordenador: metadata.coordenador_id,
+          dominio: metadata.dominio_id,
+          prompts: metadata.prompts_ids,
+          fluxo: 'complexa'
+        }
+      };
+
+    } catch (error) {
+      console.error(`[JuniorAgent] ❌ Erro no roteamento para ${metadata.coordenador_id}:`, error.message);
+      
+      return {
+        response: 'Desculpe, houve um erro ao processar sua solicitação complexa. Por favor, tente reformular sua pergunta.',
+        sessionId,
+        timestamp: new Date().toISOString(),
+        error: error.message,
+        metadata: {
+          coordenador: metadata.coordenador_id,
+          fluxo: 'complexa',
+          status: 'error'
+        }
+      };
+    }
+  }
+
+  // =====================================================
+  // STUBS PARA LANÇADOR E SIMPLISTA
+  // =====================================================
+
+  /**
+   * Roteia para Agente Lançador (STUB)
+   * @todo Implementar integração real com Agente Lançador
+   * @param {Object} params - Parâmetros da mensagem
+   * @returns {Promise<Object>} - Resposta stub
+   */
+  async routeToLancador(params) {
+    const { message, sessionId } = params;
+    console.log('[JuniorAgent] 🟡 [STUB] Roteando para Lançador');
+
+    // Mock: retornar confirmação de que a transação seria processada
+    return {
+      response: `[MODO TESTE] Recebi sua transação: "${message}". 
+
+📝 Em produção, o Agente Lançador processaria esse lançamento da seguinte forma:
+1. Extrairia o valor e categoria da transação
+2. Salvaria no banco de dados
+3. Atualizaria seus saldos e relatórios
+
+Por enquanto, estou em modo de teste e não salvei nada.`,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      metadata: { 
+        agente: 'lancador', 
+        status: 'stub',
+        fluxo: 'lancamento'
+      }
+    };
+  }
+
+  /**
+   * Roteia para Agente Simplista (STUB)
+   * @todo Implementar integração real com Agente Simplista
+   * @param {Object} params - Parâmetros da mensagem
+   * @returns {Promise<Object>} - Resposta stub
+   */
+  async routeToSimplista(params) {
+    const { message, chatId, userId, sessionId } = params;
+    console.log('[JuniorAgent] 🟡 [STUB] Roteando para Simplista');
+
+    try {
+      // Carregar memória para incluir contexto
+      const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
+      const hasContext = !!memory.cumulativeSummary || (memory.recentWindow?.length > 0);
+
+      // Mock: retornar confirmação com indicação de contexto
+      return {
+        response: `[MODO TESTE] Recebi sua consulta: "${message}".
+
+📊 Em produção, o Agente Simplista faria o seguinte:
+1. Consultaria seus dados financeiros no banco de dados
+2. Calcularia o valor solicitado (saldo, total de gastos, etc.)
+3. Retornaria o resultado de forma clara
+
+${hasContext ? '✅ Contexto da conversa disponível para referência.' : '⚠️ Sem contexto anterior disponível.'}
+
+Por enquanto, estou em modo de teste e não tenho acesso aos dados reais.`,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        metadata: { 
+          agente: 'simplista', 
+          status: 'stub', 
+          hasContext,
+          fluxo: 'simplista'
+        }
+      };
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro no stub do Simplista:', error.message);
+      return {
+        response: 'Desculpe, houve um erro ao processar sua consulta.',
+        sessionId,
+        timestamp: new Date().toISOString(),
+        error: error.message
+      };
+    }
+  }
+
+  // =====================================================
+  // PROCESSAMENTO DE CHAT (FLUXO ORIGINAL)
+  // =====================================================
 
   /**
    * Processa uma mensagem de chat com memória persistente

@@ -2,6 +2,11 @@
   "id": "coord_investimentos",
   "nome": "Coordenador de Investimentos",
   "descricao": "Especialista em alocação de ativos, análise de risco e produtos do mercado financeiro.",
+  "dominios_atendidos": [
+    "educacao_investimentos_basicos",
+    "analise_carteira_investimentos",
+    "analise_inflacao_investimentos"
+  ],
   "quando_chamar": [
     "Dúvidas sobre produtos específicos (CDB, Ações, FIIs, Tesouro)",
     "Montagem ou rebalanceamento de carteira",
@@ -13,5 +18,7 @@
     "risk_profiler (calculador de exposição ao risco)",
     "yield_simulator (simulador de rentabilidade líquida)"
   ],
-  "objetivo_final": "Maximizar a eficiência da carteira de investimentos de acordo com o perfil do usuário."
+  "objetivo_final": "Maximizar a eficiência da carteira de investimentos de acordo com o perfil do usuário.",
+  "system_prompt_teste": "Você é o Agente de Investimentos (VERSÃO DE TESTE). Sua função é sugerir alocações e explicar produtos financeiros. Status atual: Aguardando implementação profunda. Sua tarefa agora: Liste os investimentos que você analisaria com base no domínio enviado pelo Junior e dê orientações básicas.",
+  "versao": "test"
 }
