@@ -41,6 +41,14 @@ const MEMORY_POLICY = Object.freeze({
   READ_WRITE: 'read_write' // Carrega e salva (trivial, simplista)
 });
 
+// Mapeamento de políticas de memória por categoria
+const CATEGORY_MEMORY_MAP = Object.freeze({
+  [CATEGORIES.TRIVIAL]: MEMORY_POLICY.READ_WRITE,    // Carrega, processa, salva
+  [CATEGORIES.LANCAMENTO]: MEMORY_POLICY.WRITE_ONLY, // Não envia contexto, mas salva
+  [CATEGORIES.SIMPLISTA]: MEMORY_POLICY.READ_WRITE,  // Carrega contexto, salva
+  [CATEGORIES.COMPLEXA]: MEMORY_POLICY.READ_ONLY     // Carrega para enviar, não salva (coordenador salva)
+});
+
 // Inicialização lazy do cliente OpenAI
 let openai = null;
 function getOpenAI() {
@@ -63,6 +71,75 @@ class JuniorAgent extends BaseAgent {
     
     // Cache para arquivos JSON (evita I/O repetitivo)
     this._jsonCache = null;
+  }
+
+  // =====================================================
+  // GERENCIAMENTO DE MEMÓRIA POR CATEGORIA
+  // =====================================================
+
+  /**
+   * Retorna a política de memória para uma categoria
+   * @param {string} categoria - ID da categoria
+   * @returns {string} - Política de memória (NONE, READ_ONLY, WRITE_ONLY, READ_WRITE)
+   */
+  _getMemoryPolicy(categoria) {
+    return CATEGORY_MEMORY_MAP[categoria] || MEMORY_POLICY.READ_WRITE;
+  }
+
+  /**
+   * Verifica se a política permite leitura de memória
+   * @param {string} policy - Política de memória
+   * @returns {boolean}
+   */
+  _canReadMemory(policy) {
+    return policy === MEMORY_POLICY.READ_ONLY || policy === MEMORY_POLICY.READ_WRITE;
+  }
+
+  /**
+   * Verifica se a política permite escrita de memória
+   * @param {string} policy - Política de memória
+   * @returns {boolean}
+   */
+  _canWriteMemory(policy) {
+    return policy === MEMORY_POLICY.WRITE_ONLY || policy === MEMORY_POLICY.READ_WRITE;
+  }
+
+  /**
+   * Recupera contexto de memória formatado para envio a coordenadores
+   * @param {string} chatId - ID do chat
+   * @param {string} userId - ID do usuário
+   * @param {string} sessionId - ID da sessão
+   * @param {string} currentMessage - Mensagem atual (opcional)
+   * @returns {Promise<string>} - Contexto formatado
+   */
+  async _getMemoryContext(chatId, userId, sessionId, currentMessage = null) {
+    try {
+      const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
+      
+      let context = '';
+
+      if (memory.cumulativeSummary && memory.cumulativeSummary.trim().length > 0) {
+        context += `[HISTÓRICO_RESUMIDO]\n${memory.cumulativeSummary}\n\n`;
+      }
+
+      if (memory.recentWindow && memory.recentWindow.length > 0) {
+        context += '[JANELA_ATUAL]\n';
+        for (const msg of memory.recentWindow) {
+          const prefix = msg.role === 'user' ? 'U' : 'A';
+          context += `${prefix}: ${msg.content}\n`;
+        }
+        context += '\n';
+      }
+
+      if (currentMessage) {
+        context += `[MENSAGEM_ATUAL]\n${currentMessage}`;
+      }
+
+      return context;
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro ao recuperar contexto de memória:', error.message);
+      return currentMessage ? `[MENSAGEM_ATUAL]\n${currentMessage}` : '';
+    }
   }
 
   // =====================================================
@@ -254,6 +331,8 @@ Retorne APENAS um JSON válido, sem markdown, sem explicações:
 
   /**
    * Processa queries complexas com análise secundária e handover
+   * Política: READ_ONLY - Carrega memória para enviar ao coordenador, mas não salva
+   * O coordenador é responsável por salvar a interação após processar
    * @param {Object} params - Parâmetros da mensagem
    * @returns {Promise<Object>} Resposta do coordenador
    */
@@ -262,10 +341,12 @@ Retorne APENAS um JSON válido, sem markdown, sem explicações:
 
     try {
       // 1. Carregar memória (READ_ONLY - coordenador salva depois)
-      console.log('[JuniorAgent] 🟠 Carregando memória para query complexa...');
+      const memoryPolicy = this._getMemoryPolicy(CATEGORIES.COMPLEXA);
+      console.log('[JuniorAgent] 🟠 Carregando memória para query complexa...', { memoryPolicy });
+      
       const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
 
-      console.log('[JuniorAgent] 💾 Memória carregada para análise:', {
+      console.log('[JuniorAgent] 💾 Memória carregada para análise (READ_ONLY):', {
         hasSummary: !!memory.cumulativeSummary,
         recentWindowSize: memory.recentWindow?.length || 0
       });
@@ -273,11 +354,18 @@ Retorne APENAS um JSON válido, sem markdown, sem explicações:
       // 2. Análise secundária - escolher domínio, coordenador e prompts
       const analysis = await this.analyzeComplexQuery(message, memory);
 
-      // 3. Montar pacote para coordenador
+      // 3. Montar pacote para coordenador (inclui memória + parâmetros para ele salvar)
       const handoverPackage = await this._buildHandoverPackage(analysis, memory, message, params);
 
-      // 4. Rotear para coordenador
+      // 4. Rotear para coordenador (ele será responsável por salvar a memória)
       const response = await this.routeToCoordinator(handoverPackage, params);
+
+      // Nota: Em produção, o coordenador real salvaria a memória
+      // Por enquanto (modo teste), salvamos aqui para manter consistência
+      if (response.response && !response.error) {
+        await this._updateMemory(memory, message, response.response, true);
+        console.log('[JuniorAgent] 💾 Memória salva após resposta do coordenador (modo teste)');
+      }
 
       return response;
 
@@ -733,17 +821,27 @@ Retorne APENAS um JSON válido, sem markdown:
 
   /**
    * Roteia para Agente Lançador (STUB)
+   * Política: WRITE_ONLY - Não envia contexto, mas salva a interação
    * @todo Implementar integração real com Agente Lançador
    * @param {Object} params - Parâmetros da mensagem
    * @returns {Promise<Object>} - Resposta stub
    */
   async routeToLancador(params) {
-    const { message, sessionId } = params;
+    const { message, chatId, userId, sessionId } = params;
     console.log('[JuniorAgent] 🟡 [STUB] Roteando para Lançador');
 
-    // Mock: retornar confirmação de que a transação seria processada
-    return {
-      response: `[MODO TESTE] Recebi sua transação: "${message}". 
+    // Política WRITE_ONLY: Salvar interação na memória para referência futura
+    try {
+      const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
+      const stubResponse = `[MODO TESTE] Transação registrada: "${message}". Em produção, o Agente Lançador processaria e salvaria esse lançamento.`;
+      
+      // Salvar na memória (WRITE_ONLY policy)
+      await this._updateMemory(memory, message, stubResponse, true);
+      
+      console.log('[JuniorAgent] 💾 Lançamento salvo na memória (WRITE_ONLY)');
+
+      return {
+        response: `[MODO TESTE] Recebi sua transação: "${message}". 
 
 📝 Em produção, o Agente Lançador processaria esse lançamento da seguinte forma:
 1. Extrairia o valor e categoria da transação
@@ -751,18 +849,29 @@ Retorne APENAS um JSON válido, sem markdown:
 3. Atualizaria seus saldos e relatórios
 
 Por enquanto, estou em modo de teste e não salvei nada.`,
-      sessionId,
-      timestamp: new Date().toISOString(),
-      metadata: { 
-        agente: 'lancador', 
-        status: 'stub',
-        fluxo: 'lancamento'
-      }
-    };
+        sessionId,
+        timestamp: new Date().toISOString(),
+        metadata: { 
+          agente: 'lancador', 
+          status: 'stub',
+          fluxo: 'lancamento',
+          memoryPolicy: 'WRITE_ONLY'
+        }
+      };
+    } catch (error) {
+      console.error('[JuniorAgent] ⚠️ Erro ao salvar lançamento na memória:', error.message);
+      return {
+        response: `[MODO TESTE] Recebi sua transação: "${message}". Erro ao processar memória.`,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        metadata: { agente: 'lancador', status: 'stub', error: error.message }
+      };
+    }
   }
 
   /**
    * Roteia para Agente Simplista (STUB)
+   * Política: READ_WRITE - Carrega contexto para consulta e salva a interação
    * @todo Implementar integração real com Agente Simplista
    * @param {Object} params - Parâmetros da mensagem
    * @returns {Promise<Object>} - Resposta stub
@@ -772,13 +881,16 @@ Por enquanto, estou em modo de teste e não salvei nada.`,
     console.log('[JuniorAgent] 🟡 [STUB] Roteando para Simplista');
 
     try {
-      // Carregar memória para incluir contexto
+      // Carregar memória para incluir contexto (READ_WRITE policy)
       const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
       const hasContext = !!memory.cumulativeSummary || (memory.recentWindow?.length > 0);
 
-      // Mock: retornar confirmação com indicação de contexto
-      return {
-        response: `[MODO TESTE] Recebi sua consulta: "${message}".
+      console.log('[JuniorAgent] 💾 Contexto carregado para Simplista (READ_WRITE):', {
+        hasSummary: !!memory.cumulativeSummary,
+        recentWindowSize: memory.recentWindow?.length || 0
+      });
+
+      const stubResponse = `[MODO TESTE] Recebi sua consulta: "${message}".
 
 📊 Em produção, o Agente Simplista faria o seguinte:
 1. Consultaria seus dados financeiros no banco de dados
@@ -787,14 +899,23 @@ Por enquanto, estou em modo de teste e não salvei nada.`,
 
 ${hasContext ? '✅ Contexto da conversa disponível para referência.' : '⚠️ Sem contexto anterior disponível.'}
 
-Por enquanto, estou em modo de teste e não tenho acesso aos dados reais.`,
+Por enquanto, estou em modo de teste e não tenho acesso aos dados reais.`;
+
+      // Salvar na memória (READ_WRITE policy)
+      await this._updateMemory(memory, message, stubResponse, true);
+      
+      console.log('[JuniorAgent] 💾 Interação Simplista salva na memória');
+
+      return {
+        response: stubResponse,
         sessionId,
         timestamp: new Date().toISOString(),
         metadata: { 
           agente: 'simplista', 
           status: 'stub', 
           hasContext,
-          fluxo: 'simplista'
+          fluxo: 'simplista',
+          memoryPolicy: 'READ_WRITE'
         }
       };
 
@@ -1023,8 +1144,9 @@ Por enquanto, estou em modo de teste e não tenho acesso aos dados reais.`,
    * @param {Object} memory - Documento ConversationalMemory
    * @param {string} userMessage - Mensagem do usuário
    * @param {string} aiResponse - Resposta da IA
+   * @param {boolean} shouldSave - Se deve salvar no banco (default: true)
    */
-  async _updateMemory(memory, userMessage, aiResponse) {
+  async _updateMemory(memory, userMessage, aiResponse, shouldSave = true) {
     try {
       // Estimar tokens das novas mensagens
       const userTokens = memorySummaryService.estimateTokens(userMessage);
@@ -1075,14 +1197,17 @@ Por enquanto, estou em modo de teste e não tenho acesso aos dados reais.`,
         await this._performSummary(memory);
       }
 
-      // Salvar memória atualizada
-      await memory.save();
-
-      console.log('[JuniorAgent] 💾 Memória salva:', {
-        recentWindowSize: memory.recentWindow.length,
-        totalTokens: memory.totalTokens,
-        summaryCount: memory.summaryCount
-      });
+      // Salvar memória somente se permitido pela política
+      if (shouldSave) {
+        await memory.save();
+        console.log('[JuniorAgent] 💾 Memória salva:', {
+          recentWindowSize: memory.recentWindow.length,
+          totalTokens: memory.totalTokens,
+          summaryCount: memory.summaryCount
+        });
+      } else {
+        console.log('[JuniorAgent] 💾 Memória preparada (não salva - coordenador/outro agente salvará)');
+      }
 
     } catch (error) {
       console.error('[JuniorAgent] ❌ Erro ao atualizar memória:', error);

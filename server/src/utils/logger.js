@@ -140,27 +140,47 @@ class Logger {
     const msg = String(message).toLowerCase();
     
     // =========================
-    // SYSTEM TRIAGE & BEHAVIOR
+    // SYSTEM TRIAGE & BEHAVIOR (JuniorAgent V2)
     // =========================
     
-    // Fluxos de classificação (TRIVIAL/LANÇAMENTO/SIMPLISTA/COMPLEXA)
+    // Classificação primária (TRIVIAL/LANÇAMENTO/SIMPLISTA/COMPLEXA)
     if (/(🔵|🟡|🟠|🟢).*(classificação|categoria identificada|fluxo trivial|fluxo lançamento|fluxo simplista|fluxo complexa)/i.test(msg)) {
+      return 'DECISION';
+    }
+
+    // Classificação bem-sucedida
+    if (/classificação bem-sucedida/i.test(msg)) {
       return 'DECISION';
     }
     
     // Análise secundária (domínio + coordenador + prompts)
-    if (/(análise secundária concluída|domínio:|coordenador selecionado|prompts_orquestracao)/i.test(msg)) {
+    if (/(análise secundária concluída|dominio:|coordenador:|prompts_orquestracao|iniciando análise secundária)/i.test(msg)) {
       return 'DECISION';
     }
     
     // Handover e roteamento para coordenadores
-    if (/(montando pacote de handover|roteando para|enviando para coordenador|resposta do coord_)/i.test(msg)) {
+    if (/(montando pacote|pacote montado|roteando para|enviando para coordenador|resposta do coord_|📤|📦)/i.test(msg)) {
       return 'STATE';
     }
     
-    // Memória (carregamento e atualização)
-    if (/(💾|memória carregada|memória atualizada|carregando memória|estado de memória)/i.test(msg)) {
+    // Memória - logs estratégicos
+    if (/(💾|memória carregada|memória salva|memória preparada|read_only|read_write|write_only)/i.test(msg)) {
       return 'STATE';
+    }
+
+    // Stubs de agentes (Lançador/Simplista)
+    if (/\[stub\]|modo teste/i.test(msg)) {
+      return 'STATE';
+    }
+
+    // Tokens consumidos
+    if (/tokens consumidos/i.test(msg)) {
+      return 'COST';
+    }
+
+    // Resposta recebida (latência)
+    if (/(resposta.*recebida.*em|⏱️)/i.test(msg)) {
+      return 'SUMMARY';
     }
     
     // =========================
@@ -168,7 +188,7 @@ class Logger {
     // =========================
     
     // BOUNDARY: entrada/saída do sistema
-    if (/post \/api|mensagem do usuário|resposta (final )?da ia|enviando resposta/i.test(msg)) {
+    if (/post \/api|📨.*processando mensagem|resposta (final )?da ia|enviando resposta/i.test(msg)) {
       return 'BOUNDARY';
     }
     
@@ -184,13 +204,13 @@ class Logger {
     }
     
     // SUMMARY: resumos finais
-    if (/(resumo|summary|resultado final|estatísticas|total de|fim -)/i.test(msg) &&
+    if (/(resumo|summary|resultado final|estatísticas|total de|fim -|✅.*concluíd)/i.test(msg) &&
         !/(iniciando|etapa)/i.test(msg)) {
       return 'SUMMARY';
     }
     
     // COST: consumo de recursos
-    if (/(tokens consumidos|custo total|consumo final)/i.test(msg)) {
+    if (/(tokens consumidos|custo total|consumo final|💰)/i.test(msg)) {
       return 'COST';
     }
     
@@ -206,6 +226,11 @@ class Logger {
     if (/(aviso|warning|atenção|⚠️)/i.test(msg)) {
       return 'WARN';
     }
+
+    // Fallback logs - permitem fluxo informativo
+    if (/🔄.*fallback/i.test(msg)) {
+      return 'WARN';
+    }
     
     // Default: DEBUG (será filtrado)
     return 'DEBUG';
@@ -214,9 +239,30 @@ class Logger {
   /**
    * Verifica se é log intermediário (deve ser ignorado)
    * FOCO: Remove apenas logs REALMENTE desnecessários
+   * Mantém logs estratégicos do JuniorAgent V2
    */
   isIntermediaryLog(message) {
     const msg = String(message);
+    
+    // NUNCA filtrar logs estratégicos do JuniorAgent
+    const strategicPatterns = [
+      /classificação|categoria/i,
+      /fluxo (trivial|lançamento|simplista|complexa)/i,
+      /análise secundária/i,
+      /handover|roteando para|coordenador/i,
+      /memória (carregada|salva|preparada)/i,
+      /\[stub\]|modo teste/i,
+      /tokens consumidos|💰/i,
+      /resposta.*recebida/i,
+      /fallback/i,
+      /📨|📤|📦|💾|🔵|🟡|🟠|🟢|✅|❌|⚠️|🚀/
+    ];
+    
+    for (const pattern of strategicPatterns) {
+      if (pattern.test(msg)) {
+        return false; // NÃO filtrar - é log estratégico
+      }
+    }
     
     // Padrões intermediários que NÃO agregam informação (RIGOROSO)
     const densePatterns = [
@@ -237,7 +283,9 @@ class Logger {
       /aguardando|waiting/i,                     // Intermediário
       /finalizando|finalizing/i,                 // Intermediário
       /obtendo|getting/i,                        // Muito vago
-      /analisando|analyzing(?! completo)/i       // Exceto "analyzing completo"
+      /analisando|analyzing(?! completo)/i,      // Exceto "analyzing completo"
+      /prompt construído/i,                      // Debug interno (mantido no AI_PROMPT)
+      /systemlength|contextlength/i             // Debug de tamanho
     ];
     
     // Testa padrões intermediários
@@ -487,9 +535,21 @@ class Logger {
 
   /**
    * ============================================
-   * LOGS ESTRATÉGICOS DO NOVO SISTEMA
+   * LOGS ESTRATÉGICOS DO SISTEMA DE TRIAGEM V2
    * ============================================
    */
+
+  /**
+   * Log de entrada de mensagem (início do fluxo)
+   */
+  logMessageReceived(userId, messagePreview) {
+    const preview = messagePreview.length > 50 ? messagePreview.slice(0, 50) + '...' : messagePreview;
+    this.logDirect('LOG', `📨 Nova mensagem recebida`, {
+      userId,
+      preview,
+      timestamp: new Date().toISOString()
+    });
+  }
 
   /**
    * Log de classificação de query (TRIVIAL/LANÇAMENTO/SIMPLISTA/COMPLEXA)
@@ -503,17 +563,36 @@ class Logger {
     };
     const icon = icons[categoria] || '🔵';
     
-    this.log('LOG', `${icon} Classificação: ${categoria}${confidence ? ` (confiança: ${confidence})` : ''}`);
+    this.logDirect('LOG', `${icon} Classificação: ${categoria.toUpperCase()}${confidence ? ` (confiança: ${confidence})` : ''}`);
+  }
+
+  /**
+   * Log de fluxo selecionado
+   */
+  logFlowSelected(fluxo, memoryPolicy = null) {
+    const icons = {
+      'trivial': '🟢',
+      'lancamento': '🟡',
+      'simplista': '🟡',
+      'complexa': '🟠'
+    };
+    const icon = icons[fluxo] || '🔵';
+    
+    this.logDirect('LOG', `${icon} Fluxo selecionado: ${fluxo.toUpperCase()}`, {
+      memoryPolicy: memoryPolicy || 'N/A',
+      timestamp: new Date().toISOString()
+    });
   }
 
   /**
    * Log de análise secundária (domínio + coordenador + prompts)
    */
   logSecondaryAnalysis(analysis) {
-    this.log('LOG', '🟠 Análise Secundária', {
+    this.logDirect('LOG', '🟠 Análise Secundária Concluída', {
       dominio: analysis.dominio_id || analysis.dominio,
       coordenador: analysis.coordenador_selecionado || analysis.coordenador,
       prompts: analysis.prompts_orquestracao_ids || analysis.prompts,
+      justificativa: analysis.justificativa_breve || 'N/A',
       timestamp: new Date().toISOString()
     });
   }
@@ -521,9 +600,10 @@ class Logger {
   /**
    * Log de handover para coordenador
    */
-  logHandover(coordenador, dominio) {
-    this.log('LOG', `📤 Handover → ${coordenador}`, {
+  logHandover(coordenador, dominio, promptsCount = 1) {
+    this.logDirect('LOG', `📤 Handover → ${coordenador}`, {
       dominio,
+      promptsCarregados: promptsCount,
       timestamp: new Date().toISOString()
     });
   }
@@ -531,8 +611,20 @@ class Logger {
   /**
    * Log de resposta do coordenador
    */
-  logCoordinatorResponse(coordenador, responseStatus = 'OK') {
-    this.log('LOG', `✅ Resposta ${coordenador}: ${responseStatus}`, {
+  logCoordinatorResponse(coordenador, elapsedMs, responseLength = 0) {
+    this.logDirect('LOG', `✅ Resposta ${coordenador}`, {
+      latencia: `${elapsedMs}ms`,
+      caracteres: responseLength,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de roteamento para stubs (Lançador/Simplista)
+   */
+  logStubRoute(agente, hasContext = false) {
+    this.logDirect('LOG', `🟡 [STUB] Roteando para ${agente}`, {
+      contextoDisponivel: hasContext,
       timestamp: new Date().toISOString()
     });
   }
@@ -541,34 +633,63 @@ class Logger {
    * Log de fallback
    */
   logFallback(from, to, reason = '') {
-    this.log('WARN', `🔄 Fallback: ${from} → ${to}${reason ? ` (${reason})` : ''}`);
+    this.logDirect('WARN', `🔄 Fallback: ${from} → ${to}`, {
+      motivo: reason || 'erro no processamento',
+      timestamp: new Date().toISOString()
+    });
   }
 
   /**
    * Log de carregamento de memória
    */
   logMemoryLoaded(memoryStatus) {
-    this.log('LOG', '💾 Memória Carregada', {
+    this.logDirect('LOG', '💾 Memória Carregada', {
       hasSummary: memoryStatus.hasSummary || false,
       recentWindowSize: memoryStatus.recentWindowSize || 0,
-      totalTokensEstimated: memoryStatus.totalTokensEstimated || 0,
+      policy: memoryStatus.policy || 'READ_WRITE',
       timestamp: new Date().toISOString()
     });
   }
 
   /**
-   * Log de atualização de memória
+   * Log de salvamento de memória
    */
-  logMemoryUpdated(action = 'UPDATE') {
-    this.log('LOG', `💾 Memória ${action}`);
+  logMemorySaved(action = 'SALVA', details = {}) {
+    this.logDirect('LOG', `💾 Memória ${action}`, {
+      ...details,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de consumo de tokens
+   */
+  logTokenUsage(component, usage) {
+    this.logDirect('LOG', `💰 Tokens (${component})`, {
+      prompt: usage.prompt_tokens || 0,
+      completion: usage.completion_tokens || 0,
+      total: usage.total_tokens || 0
+    });
   }
 
   /**
    * Log de erro estratégico (diferente de erro técnico)
    */
   logStrategicError(component, errorType, message) {
-    this.log('ERROR', `❌ ${component}: ${errorType}`, {
+    this.logDirect('ERROR', `❌ ${component}: ${errorType}`, {
       message,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de fim de processamento (resumo)
+   */
+  logProcessingComplete(fluxo, elapsedMs, success = true) {
+    const icon = success ? '✅' : '❌';
+    this.logDirect('LOG', `${icon} Processamento ${fluxo} concluído`, {
+      latenciaTotal: `${elapsedMs}ms`,
+      sucesso: success,
       timestamp: new Date().toISOString()
     });
   }
