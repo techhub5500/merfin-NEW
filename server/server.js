@@ -51,10 +51,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Servir arquivos estáticos do frontend
-app.use(express.static('../client'));
+app.use(express.static(path.join(__dirname, '../client')));
 
-// Servir index.html que está em client/html quando o usuário acessar a raiz
+// Rotas para as páginas HTML
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/html/index.html'));
+});
+
+app.get('/dash.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/html/dash.html'));
+});
+
+app.get('/invest.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/html/invest.html'));
+});
+
+app.get('/profile.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/html/profile.html'));
+});
+
+app.get('/index.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/html/index.html'));
 });
 
