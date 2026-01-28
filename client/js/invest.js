@@ -409,8 +409,9 @@ class ChatManager {
                 console.warn('Falha ao registrar chat no servidor principal:', err);
             }
 
-            // Enviar para API
-            const response = await chatIntegration.sendToChatAPI(message, this.sessionId, history);
+            // Enviar para API (IMPORTANTE: passar userId e chatId como no main.js)
+            const userId = getUserId();
+            const response = await chatIntegration.sendToChatAPI(message, this.sessionId, history, userId, this.chatId);
 
             console.log('Resposta recebida no invest.html:', response);
 

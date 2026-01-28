@@ -34,7 +34,8 @@
 
 const CONFIG = {
 	// API URLs
-	AGENT_API_BASE: 'http://localhost:3000/api/dashboard',
+	// IMPORTANTE: Rotas de agentes estão no serverAgent.js (porta 5000)
+	AGENT_API_BASE: 'http://localhost:5000/api/agent/execute',
 	AUTH_API_BASE: 'http://localhost:3000/api/auth',
 	
 	// Cache settings
@@ -328,10 +329,10 @@ async function getPatrimony(month) {
 }
 
 // ============================================================================
-// AGENT API - Integração com serverAgent.js
+// AGENT API - Integração com serverAgent.js (porta 5000)
 // ============================================================================
 
-const AGENT_API_URL = 'http://localhost:3000/api/agent/execute';
+const AGENT_API_URL = 'http://localhost:5000/api/agent/execute';
 
 /**
  * Get user ID from localStorage

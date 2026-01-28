@@ -147,9 +147,10 @@ function initChat(){
         console.warn('[DEBUG-5e] Falha ao registrar chat no servidor principal:', err);
       }
 
-      // Enviar para API
+      // Enviar para API (IMPORTANTE: passar userId e chatId como no main.js)
       console.log('[DEBUG-6] Enviando para API do JuniorAgent...');
-      const response = await chatIntegration.sendToChatAPI(message, window.dashSessionId, history);
+      const userId = getUserId();
+      const response = await chatIntegration.sendToChatAPI(message, window.dashSessionId, history, userId, window.dashChatId);
 
       console.log('[DEBUG-7] Resposta recebida do servidor:', response);
 
