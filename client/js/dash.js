@@ -902,15 +902,19 @@ function initAddDebtModal() {
 // ============================================================================
 
 async function openDebtDetailsModal(debtId) {
+  const overlay = document.getElementById('debtDetailsOverlay');
   const modal = document.getElementById('debtDetailsModal');
-  if (!modal) return;
+  if (!overlay || !modal) {
+    console.error('[openDebtDetailsModal] Modal elements not found');
+    return;
+  }
 
   try {
     // Busca detalhes da API
     const debt = await DataService.fetchDebtDetails(debtId);
 
     const title = document.getElementById('debtDetailsTitle');
-    if (title) title.textContent = `${debt.description} - ${debt.institution}`;
+    if (title) title.textContent = `${debt.description}`;
 
     // Atualiza resumo
     const nextPaymentEl = document.getElementById('debtNextPayment');
@@ -931,17 +935,31 @@ async function openDebtDetailsModal(debtId) {
     if (debt.summary.endDate) {
       const endDate = new Date(debt.summary.endDate);
       endDateEl.textContent = formatDate(endDate.toISOString().split('T')[0]);
+    } else {
+      endDateEl.textContent = '-';
     }
 
     // Renderiza listas de parcelas
     renderPendingInstallmentsFromAPI(debt);
     renderPaidInstallmentsFromAPI(debt);
 
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden', 'false');
+    // Armazena ID atual para uso em eventos
+    modal.dataset.currentDebtId = debtId;
+
+    // Abre o modal
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
   } catch (error) {
     console.error('[openDebtDetailsModal] Erro:', error);
     alert('Erro ao carregar detalhes da dívida');
+  }
+}
+
+function closeDebtDetailsModal() {
+  const overlay = document.getElementById('debtDetailsOverlay');
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
   }
 }
 
@@ -956,11 +974,7 @@ async function markInstallmentAsPaid(debtId, installmentNumber) {
       
       if (debt.summary.paidCount >= debt.installmentCount) {
         // Todas pagas - fecha modal
-        const modal = document.getElementById('debtDetailsModal');
-        if (modal) {
-          modal.classList.remove('open');
-          modal.setAttribute('aria-hidden', 'true');
-        }
+        closeDebtDetailsModal();
       } else {
         // Ainda há parcelas - atualiza modal
         await openDebtDetailsModal(debtId);
@@ -1060,24 +1074,24 @@ function renderPaidInstallmentsFromAPI(debt) {
 }
 
 function initDebtDetailsModal() {
+  const overlay = document.getElementById('debtDetailsOverlay');
   const modal = document.getElementById('debtDetailsModal');
   const closeBtn = document.getElementById('debtDetailsClose');
 
-  if(!modal) return;
+  if(!overlay || !modal) return;
 
-  function closeModal() {
-    if(document.activeElement && modal.contains(document.activeElement)){
-      const addBtn = document.getElementById('addDebtBtn');
-      if(addBtn) addBtn.focus();
-    }
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
-  }
-
-  closeBtn && closeBtn.addEventListener('click', closeModal);
+  // Fechar modal com clique no overlay ou botão X
+  closeBtn && closeBtn.addEventListener('click', closeDebtDetailsModal);
   
-  modal.addEventListener('click', function(e){
-    if(e.target === modal) closeModal();
+  overlay.addEventListener('click', function(e){
+    if(e.target === overlay) closeDebtDetailsModal();
+  });
+
+  // Fechar com tecla Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) {
+      closeDebtDetailsModal();
+    }
   });
 
   // Alternância de abas

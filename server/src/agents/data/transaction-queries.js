@@ -9,8 +9,23 @@
  * em { userId, date } e { accountId, status }. Limite padrão de 100 transações por query.
  */
 
+const mongoose = require('mongoose');
 const Transaction = require('../../database/schemas/transactions-schema');
 const { LIMITS } = require('../shared/constants');
+
+/**
+ * Converte userId para ObjectId se for uma string válida
+ * IMPORTANTE: MongoDB aggregate não converte strings para ObjectId automaticamente
+ * @param {string|ObjectId} userId - ID do usuário
+ * @returns {ObjectId} - ObjectId do MongoDB
+ */
+function toObjectId(userId) {
+	if (!userId) return null;
+	if (mongoose.Types.ObjectId.isValid(userId)) {
+		return new mongoose.Types.ObjectId(userId);
+	}
+	return userId;
+}
 
 /**
  * Busca transações com filtros avançados
@@ -141,12 +156,18 @@ async function fetchTransactions(params) {
  */
 async function calculateSummary(query) {
 	try {
-		// Adiciona filtro para apenas transações confirmadas nos sumários
+		// IMPORTANTE: Converter userId para ObjectId para que o aggregate funcione corretamente
+		// O Mongoose find() converte automaticamente, mas aggregate() não!
 		const summaryQuery = {
 			...query,
 			status: 'confirmed',
 			section: 'statement' // Sumários apenas para extrato executado
 		};
+
+		// Garantir que userId seja ObjectId
+		if (summaryQuery.userId && typeof summaryQuery.userId === 'string') {
+			summaryQuery.userId = toObjectId(summaryQuery.userId);
+		}
 
 		console.log('[transaction-queries] calculateSummary query:', JSON.stringify(summaryQuery));
 
@@ -272,7 +293,7 @@ async function fetchRecentSummary(params) {
 async function fetchTransactionsByCategory(userId, type, startDate, endDate) {
 	try {
 		const match = {
-			userId,
+			userId: toObjectId(userId), // Converter para ObjectId
 			type,
 			section: 'statement',
 			status: 'confirmed'

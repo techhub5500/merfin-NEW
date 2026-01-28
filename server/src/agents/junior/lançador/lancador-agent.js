@@ -15,7 +15,7 @@
  * - userId, sessionId, message
  * - diálogo_ativo (flag para continuidade de diálogo)
  * 
- * MODELO: GPT-5 Mini (reasoning: low, verbosity: low)
+ * MODELO: GPT-5 Mini (reasoning: medium, verbosity: low)
  */
 
 const BaseAgent = require('../../shared/base-agent');
@@ -27,6 +27,9 @@ const path = require('path');
 const Transaction = require('../../../database/schemas/transactions-schema');
 const CreditCard = require('../../../database/schemas/credit-card-schema');
 const Debt = require('../../../database/schemas/debt-schema');
+
+// Cache manager para invalidação após operações
+const cacheManager = require('../../data/cache-manager');
 
 // ===== CONSTANTES DE TIPOS DE LANÇAMENTO =====
 const LANCAMENTO_TYPES = Object.freeze({
@@ -78,8 +81,10 @@ class LancadorAgent extends BaseAgent {
   constructor() {
     super('LancadorAgent');
     
+    // MODELO: GPT-5 Mini com reasoning médio para melhor interpretação
     this.model = 'gpt-5-mini';
-    this.max_completion_tokens = 800;
+    this.max_completion_tokens = 1000; // Aumentado em 25% (800 -> 1000)
+    this.reasoning_effort = 'medium'; // Aumentado de 'low' para 'medium'
     
     // Cache para arquivos JSON
     this._categoriasCache = null;
@@ -127,6 +132,12 @@ class LancadorAgent extends BaseAgent {
 
       // 3. Extrair dados do lançamento usando GPT-5 Mini
       const extracao = await this._extrairDadosLancamento(message);
+
+      // 3.1 Verificar se são múltiplas operações (ex: entrada + parcelamento)
+      if (extracao.multiplas_operacoes && Array.isArray(extracao.operacoes)) {
+        console.log('[LancadorAgent] 📦 Múltiplas operações detectadas:', extracao.operacoes.length);
+        return await this._processarMultiplasOperacoes(extracao.operacoes, userId, sessionId, startTime);
+      }
 
       // 4. Verificar se dados estão completos
       if (extracao.incompleto) {
@@ -239,6 +250,46 @@ Você é um extrator de dados financeiros. Analise a mensagem do usuário e extr
 - Se menciona "cartão" ou "crédito" (sem débito) → cartao_credito = true
 - Se menciona "parcelei", "em Xx", "X vezes" → forma_pagamento = "Parcelado"
 - Se menciona "financiamento", "financiei", "empréstimo", "emprestei" → nova_divida = true
+
+## REGRAS PARA PAGAMENTOS COMPOSTOS (ENTRADA + PARCELAMENTO):
+
+ATENÇÃO: Se o usuário mencionar "entrada" ou "sinal" junto com parcelamento, você deve separar em 2 operações:
+- Exemplo: "Comprei sofá de 3000, paguei 500 de entrada e parcelei o resto em 5x"
+
+Neste caso, retorne um JSON com campo **multiplas_operacoes** = true contendo array de operações:
+
+{
+  "multiplas_operacoes": true,
+  "operacoes": [
+    {
+      "valor": 500,
+      "tipo": "despesa",
+      "categoria": "Moradia",
+      "descricao": "Entrada compra sofá",
+      "data": "YYYY-MM-DD",
+      "forma_pagamento": "À vista",
+      "parcelas": null,
+      "cartao_credito": false,
+      "conta_futura": false
+    },
+    {
+      "valor": 2500,
+      "tipo": "despesa",
+      "categoria": "Moradia",
+      "descricao": "Parcelamento sofá",
+      "data": "YYYY-MM-DD",
+      "forma_pagamento": "Parcelado",
+      "parcelas": 5,
+      "cartao_credito": true,
+      "conta_futura": false
+    }
+  ]
+}
+
+Se NÃO houver entrada separada, retorne o formato normal (sem multiplas_operacoes).
+
+## MAIS REGRAS DE INFERÊNCIA:
+
 - Se menciona "supermercado", "mercado" → categoria = "Alimentação", subcategoria = "Supermercado"
 - Se menciona "restaurante", "lanche", "comida" → categoria = "Alimentação", subcategoria = "Restaurante"
 - Se menciona "uber", "99", "táxi", "gasolina" → categoria = "Transporte"
@@ -294,26 +345,42 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
     try {
       const systemPrompt = this._buildExtractionPrompt();
       
-      const response = await Promise.race([
-        getOpenAI().chat.completions.create({
-          model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message }
-          ],
-          max_completion_tokens: this.max_completion_tokens,
-          verbosity: 'low',
-          reasoning_effort: 'low'
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout na extração')), 30000)
-        )
-      ]);
+      // Função auxiliar para fazer a chamada à API com retry
+      const callAPI = async (attempt = 1) => {
+        try {
+          const response = await Promise.race([
+            getOpenAI().chat.completions.create({
+              model: this.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: message }
+              ],
+              max_completion_tokens: this.max_completion_tokens,
+              verbosity: 'low',
+              reasoning_effort: this.reasoning_effort
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout na extração')), 45000) // Aumentado para 45s
+            )
+          ]);
+          
+          return response;
+        } catch (apiError) {
+          if (attempt < 2) {
+            console.warn(`[LancadorAgent] ⚠️ Tentativa ${attempt} falhou, tentando novamente...`);
+            await new Promise(r => setTimeout(r, 1000)); // Aguarda 1s antes de retry
+            return callAPI(attempt + 1);
+          }
+          throw apiError;
+        }
+      };
 
+      const response = await callAPI();
       const elapsedTime = Date.now() - startTime;
       const responseText = response.choices[0]?.message?.content?.trim();
 
       if (!responseText) {
+        console.error('[LancadorAgent] ❌ Resposta vazia da API. Response:', JSON.stringify(response, null, 2));
         throw new Error('Resposta vazia da API na extração');
       }
 
@@ -964,6 +1031,76 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
   }
 
   // =====================================================
+  // PROCESSAMENTO DE MÚLTIPLAS OPERAÇÕES
+  // =====================================================
+
+  /**
+   * Processa múltiplas operações de uma vez (ex: entrada + parcelamento)
+   * @param {Array} operacoes - Lista de operações a processar
+   * @param {string} userId - ID do usuário
+   * @param {string} sessionId - ID da sessão
+   * @param {number} startTime - Timestamp de início
+   * @returns {Promise<Object>} - Resposta consolidada
+   */
+  async _processarMultiplasOperacoes(operacoes, userId, sessionId, startTime) {
+    const resultadosConsolidados = [];
+    const confirmacoes = [];
+
+    try {
+      for (const operacao of operacoes) {
+        // Processar data e valor
+        operacao.data = this._parseData(operacao.data);
+        operacao.valor = this._parseValor(operacao.valor);
+
+        // Classificar operação
+        const classificacao = this._classificarLancamento(operacao);
+
+        console.log('[LancadorAgent] 🔄 Processando operação:', {
+          valor: `R$ ${operacao.valor?.toFixed(2)}`,
+          descricao: operacao.descricao,
+          tipo: classificacao.tipo_lancamento
+        });
+
+        // Persistir operação
+        const resultado = await this._persistirLancamento(operacao, classificacao, userId);
+        resultadosConsolidados.push(resultado);
+
+        // Montar linha de confirmação
+        const valorFormatado = `R$ ${operacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+        confirmacoes.push(`• ${operacao.descricao}: ${valorFormatado}`);
+      }
+
+      const elapsedTime = Date.now() - startTime;
+
+      console.log('[LancadorAgent] ✅ Múltiplas operações concluídas:', {
+        total: operacoes.length,
+        latencia: `${elapsedTime}ms`
+      });
+
+      // Calcular total
+      const totalGeral = operacoes.reduce((sum, op) => sum + op.valor, 0);
+      const totalFormatado = `R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+      return {
+        response: `✅ **Lançamentos registrados com sucesso!**\n\n${confirmacoes.join('\n')}\n\n💰 **Total:** ${totalFormatado}`,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          agente: 'lancador',
+          status: 'success',
+          fluxo: 'multiplas_operacoes',
+          operacoesProcessadas: operacoes.length,
+          transacoes: resultadosConsolidados.flatMap(r => r.transacoes || [])
+        }
+      };
+
+    } catch (error) {
+      console.error('[LancadorAgent] ❌ Erro em múltiplas operações:', error.message);
+      throw error;
+    }
+  }
+
+  // =====================================================
   // PERSISTÊNCIA NO BANCO DE DADOS - OBJETIVO 3
   // =====================================================
 
@@ -1055,6 +1192,10 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
           populaCards: sectionConfig.populaCards
         });
       }
+
+      // IMPORTANTE: Invalidar cache após criar transações
+      await cacheManager.invalidate({ user_id: userId });
+      console.log('[LancadorAgent] 🔄 Cache invalidado após criação de transações para userId:', userId);
 
       // Executar ações adicionais (parcelas, dívidas)
       for (const acao of classificacao.acoes_adicionais) {
@@ -1236,6 +1377,10 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
       const debt = await Debt.create(debtData);
 
       console.log('[LancadorAgent] 💳 Nova dívida criada:', debt._id, `${numParcelas}x de R$${valorParcela.toFixed(2)}`);
+      
+      // IMPORTANTE: Invalidar cache após criar dívida
+      await cacheManager.invalidate({ user_id: userId });
+      console.log('[LancadorAgent] 🔄 Cache invalidado para userId:', userId);
     } catch (error) {
       console.error('[LancadorAgent] ❌ Erro ao criar dívida:', error.message);
       console.error('[LancadorAgent] ❌ Stack:', error.stack);
@@ -1297,6 +1442,10 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
       const debt = await Debt.create(debtData);
 
       console.log('[LancadorAgent] 💳 Dívida de cartão criada:', debt._id, `${acao.parcelas}x de R$${acao.valorParcela.toFixed(2)}`);
+      
+      // IMPORTANTE: Invalidar cache após criar dívida de cartão
+      await cacheManager.invalidate({ user_id: userId });
+      console.log('[LancadorAgent] 🔄 Cache invalidado para userId:', userId);
     } catch (error) {
       console.error('[LancadorAgent] ❌ Erro ao criar dívida de cartão:', error.message);
       console.error('[LancadorAgent] ❌ Stack:', error.stack);
@@ -1310,12 +1459,16 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
    * @param {string} userId - ID do usuário
    */
   async _criarParcelasCartao(acao, extracao, userId) {
-    const dataInicial = new Date(extracao.data);
+    // Data da compra com timezone correto
+    const dataInicial = new Date(extracao.data + 'T12:00:00');
+    
+    // Primeira parcela é no próximo mês (próxima fatura do cartão)
+    const primeiraParcela = new Date(dataInicial);
+    primeiraParcela.setMonth(primeiraParcela.getMonth() + 1);
 
-    // Parcela 1 já foi criada no fluxo principal
-    // Criar parcelas 2 a N como scheduled
-    for (let i = 2; i <= acao.parcelas; i++) {
-      const dataParcela = new Date(dataInicial);
+    // Criar TODAS as parcelas (1 a N) como scheduled, começando do próximo mês
+    for (let i = 1; i <= acao.parcelas; i++) {
+      const dataParcela = new Date(primeiraParcela);
       dataParcela.setMonth(dataParcela.getMonth() + (i - 1));
 
       await Transaction.create({
@@ -1341,7 +1494,7 @@ IMPORTANTE: Sempre tente extrair o máximo de informações possível antes de m
       });
     }
 
-    console.log('[LancadorAgent] 📅 Parcelas criadas:', acao.parcelas - 1);
+    console.log('[LancadorAgent] 📅 Parcelas criadas:', acao.parcelas, '(começando do próximo mês)');
   }
 
   /**

@@ -412,48 +412,56 @@
   </div>
 
   <!-- Modal: Detalhes da Dívida -->
-  <div id="debtDetailsModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="debtDetailsTitle">
-    <div class="modal-content modal-large">
+  <div id="debtDetailsOverlay" class="modal-overlay debt-details-overlay" aria-hidden="true">
+    <div id="debtDetailsModal" class="modal debt-details-modal" role="dialog" aria-labelledby="debtDetailsTitle">
       <header class="modal-header">
-        <h2 id="debtDetailsTitle">Detalhes da Dívida</h2>
+        <h3 id="debtDetailsTitle">Detalhes da Dívida</h3>
         <button id="debtDetailsClose" class="modal-close" aria-label="Fechar" type="button">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </header>
-      <div class="debt-summary">
-        <div class="summary-item">
-          <span class="summary-label">Próximo Pagamento:</span>
-          <span id="debtNextPayment" class="summary-value">-</span>
+      
+      <div class="debt-details-content">
+        <!-- Resumo da dívida -->
+        <div class="debt-summary">
+          <div class="debt-summary-item">
+            <span class="debt-summary-label">Próximo Pagamento</span>
+            <span id="debtNextPayment" class="debt-summary-value">-</span>
+          </div>
+          <div class="debt-summary-item">
+            <span class="debt-summary-label">Valor Pago</span>
+            <span id="debtPaidAmount" class="debt-summary-value">R$ 0,00</span>
+          </div>
+          <div class="debt-summary-item">
+            <span class="debt-summary-label">Progresso</span>
+            <span id="debtPaidPercent" class="debt-summary-value">0%</span>
+          </div>
+          <div class="debt-summary-item">
+            <span class="debt-summary-label">Término Previsto</span>
+            <span id="debtEndDate" class="debt-summary-value">-</span>
+          </div>
         </div>
-        <div class="summary-item">
-          <span class="summary-label">Valor Pago:</span>
-          <span id="debtPaidAmount" class="summary-value">R$ 0,00</span>
+
+        <!-- Tabs de parcelas -->
+        <div class="debt-tabs">
+          <button id="tabPending" class="debt-tab active" type="button">Pendentes</button>
+          <button id="tabPaid" class="debt-tab" type="button">Pagas</button>
         </div>
-        <div class="summary-item">
-          <span class="summary-label">Progresso:</span>
-          <span id="debtPaidPercent" class="summary-value">0%</span>
+
+        <!-- Conteúdo das tabs -->
+        <div id="pendingContent" class="debt-tab-content active">
+          <ul id="pendingInstallments" class="installment-list">
+            <!-- Populated by JS -->
+          </ul>
         </div>
-        <div class="summary-item">
-          <span class="summary-label">Término Previsto:</span>
-          <span id="debtEndDate" class="summary-value">-</span>
+        <div id="paidContent" class="debt-tab-content">
+          <ul id="paidInstallments" class="installment-list">
+            <!-- Populated by JS -->
+          </ul>
         </div>
-      </div>
-      <div class="debt-tabs">
-        <button id="tabPending" class="debt-tab active" type="button">Pendentes</button>
-        <button id="tabPaid" class="debt-tab" type="button">Pagas</button>
-      </div>
-      <div id="pendingContent" class="tab-content active">
-        <ul id="pendingInstallments" class="installments-list">
-          <!-- Populated by JS -->
-        </ul>
-      </div>
-      <div id="paidContent" class="tab-content">
-        <ul id="paidInstallments" class="installments-list">
-          <!-- Populated by JS -->
-        </ul>
       </div>
     </div>
   </div>

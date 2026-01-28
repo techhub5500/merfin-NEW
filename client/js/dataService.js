@@ -534,8 +534,18 @@ async function fetchFutureAccounts(monthKey) {
 
 	const params = {
 		user_id: userId,
-		month: monthKey
+		section: 'scheduled'
 	};
+
+	// Adicionar filtro de mês se especificado
+	if (monthKey && monthKey !== 'all') {
+		const [year, month] = monthKey.split('-');
+		const startDate = new Date(year, month - 1, 1);
+		const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+		
+		params.start_date = startDate.toISOString();
+		params.end_date = endDate.toISOString();
+	}
 
 	const response = await executeAgent('DataAgent', 'fetchTransactions', params);
 
@@ -548,11 +558,11 @@ async function fetchFutureAccounts(monthKey) {
 
 	// Separa por tipo
 	const receivables = scheduled.filter(tx => 
-		tx.scheduled?.scheduledType === 'receivable'
+		tx.scheduled?.scheduledType === 'receivable' || tx.type === 'income'
 	);
 
 	const payables = scheduled.filter(tx => 
-		tx.scheduled?.scheduledType === 'payable'
+		tx.scheduled?.scheduledType === 'payable' || tx.type === 'expense'
 	);
 
 	return { receivables, payables };
