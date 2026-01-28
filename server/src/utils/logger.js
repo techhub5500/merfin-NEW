@@ -695,6 +695,78 @@ class Logger {
   }
 
   /**
+   * ============================================
+   * LOGS ESTRATÉGICOS DO LANÇADOR AGENT
+   * ============================================
+   */
+
+  /**
+   * Log de extração de dados de lançamento
+   */
+  logLancamentoExtracao(extracao) {
+    this.logDirect('LOG', '📊 [LancadorAgent] Dados extraídos', {
+      valor: extracao.valor,
+      tipo: extracao.tipo,
+      categoria: extracao.categoria,
+      data: extracao.data,
+      cartaoCredito: extracao.cartao_credito || false,
+      parcelas: extracao.parcelas || null,
+      novaDivida: extracao.nova_divida || false,
+      contaFutura: extracao.conta_futura || false,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de classificação de lançamento
+   */
+  logLancamentoClassificacao(classificacao) {
+    this.logDirect('LOG', '🎯 [LancadorAgent] Classificação', {
+      tipo: classificacao.tipo_lancamento,
+      sections: classificacao.sections?.map(s => s.section) || [],
+      acoesAdicionais: classificacao.acoes_adicionais?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de persistência de lançamento
+   */
+  logLancamentoPersistido(resultado) {
+    this.logDirect('LOG', '💾 [LancadorAgent] Lançamento persistido', {
+      transacoes: resultado.transacoes?.length || 0,
+      sections: resultado.transacoes?.map(t => t.section) || [],
+      acoesAdicionais: resultado.acoesAdicionais || 0,
+      sucesso: resultado.sucesso,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de criação de dívida
+   */
+  logDividaCriada(tipo, debtId, parcelas, valorParcela) {
+    this.logDirect('LOG', '💳 [LancadorAgent] Dívida criada', {
+      tipo,
+      debtId,
+      parcelas,
+      valorParcela: `R$ ${valorParcela.toFixed(2)}`,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Log de erro no lançamento
+   */
+  logLancamentoErro(componente, erro) {
+    this.logDirect('ERROR', `❌ [LancadorAgent] ${componente}`, {
+      mensagem: erro.message || erro,
+      stack: erro.stack ? erro.stack.split('\n').slice(0, 3).join('\n') : null,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
    * Extrai informações resumidas sobre o histórico de memória presente no contexto
    * Isso fornece dados úteis para observabilidade sem persistir todo o texto
    */

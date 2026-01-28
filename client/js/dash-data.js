@@ -816,3 +816,26 @@ function renderPaidInstallments(debt) {
     list.appendChild(li);
   });
 }
+
+// ============================================================================
+// EXPOR FUNÇÕES NO WINDOW PARA ACESSO GLOBAL
+// ============================================================================
+
+// Funções de renderização - expostas para atualização automática após lançamentos
+window.renderIncomesFromAPI = renderIncomesFromAPI;
+window.renderExpensesFromAPI = renderExpensesFromAPI;
+window.updateStatsFromAPI = updateStatsFromAPI;
+window.renderLatestTransactionsFromAPI = renderLatestTransactionsFromAPI;
+window.renderReceivablesFromAPI = renderReceivablesFromAPI;
+window.renderPayablesFromAPI = renderPayablesFromAPI;
+window.renderCreditCardFromAPI = renderCreditCardFromAPI;
+window.renderDebtsCardFromAPI = renderDebtsCardFromAPI;
+window.renderPatrimonyCard = renderPatrimonyCard;
+
+// Funções auxiliares
+window.formatAmount = formatAmount;
+window.formatDate = formatDate;
+window.escapeHtml = escapeHtml;
+window.getMonthKey = getMonthKey;
+
+console.log('[DASH-DATA] ✅ Funções de renderização expostas no window');

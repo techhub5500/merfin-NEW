@@ -90,12 +90,15 @@ const LIMITS_INTERACTION = {
 /**
  * TTLs de cache por tipo de dado (em segundos)
  * Balanceia frescor dos dados com performance
+ * 
+ * NOTA: Para garantir atualização em tempo real dos cards do dashboard,
+ * os TTLs de transações e resumos foram reduzidos significativamente.
  */
 const CACHE_TTL = {
-	// Dados financeiros - TTL curto
-	ACCOUNT_BALANCE: 60,           // 1 minuto
-	RECENT_TRANSACTIONS: 120,      // 2 minutos
-	ACCOUNT_SUMMARY: 300,          // 5 minutos
+	// Dados financeiros - TTL muito curto para garantir atualização em tempo real
+	ACCOUNT_BALANCE: 5,            // 5 segundos - atualiza quase sempre
+	RECENT_TRANSACTIONS: 5,        // 5 segundos - atualiza quase sempre
+	ACCOUNT_SUMMARY: 5,            // 5 segundos - atualiza quase sempre (cards do topo)
 	
 	// Dados de perfil - TTL médio
 	USER_PROFILE: 1800,            // 30 minutos

@@ -148,6 +148,12 @@ async function calculateSummary(query) {
 			section: 'statement' // Sumários apenas para extrato executado
 		};
 
+		console.log('[transaction-queries] calculateSummary query:', JSON.stringify(summaryQuery));
+
+		// Primeiro, vamos contar quantas transações existem com essa query
+		const count = await Transaction.countDocuments(summaryQuery);
+		console.log('[transaction-queries] Total transactions matching query:', count);
+
 		const result = await Transaction.aggregate([
 			{ $match: summaryQuery },
 			{
@@ -158,6 +164,8 @@ async function calculateSummary(query) {
 				}
 			}
 		]);
+
+		console.log('[transaction-queries] Aggregation result:', JSON.stringify(result));
 
 		// Processa resultado da agregação
 		let totalIncome = 0;
@@ -177,6 +185,14 @@ async function calculateSummary(query) {
 
 		const netFlow = totalIncome - totalExpense;
 
+		console.log('[transaction-queries] Final summary:', {
+			total_income: totalIncome,
+			income_count: incomeCount,
+			total_expense: totalExpense,
+			expense_count: expenseCount,
+			net_flow: netFlow
+		});
+
 		return {
 			total_income: totalIncome,
 			income_count: incomeCount,
@@ -186,6 +202,7 @@ async function calculateSummary(query) {
 		};
 
 	} catch (error) {
+		console.error('[transaction-queries] calculateSummary error:', error.message);
 		// Em caso de erro, retorna sumário zerado
 		return {
 			total_income: 0,
@@ -498,7 +515,7 @@ async function createTransaction(params) {
 async function getTransactionsSummary(params) {
 	const { userId, startDate, endDate } = params;
 
-	console.log('[transaction-queries] getTransactionsSummary called with params:', params);
+	console.log('[transaction-queries] getTransactionsSummary called with params:', JSON.stringify(params));
 
 	try {
 		const query = {
@@ -515,8 +532,8 @@ async function getTransactionsSummary(params) {
 
 		const summary = await calculateSummary(query);
 
-		console.log('[transaction-queries] query for summary:', query);
-		console.log('[transaction-queries] calculated summary:', summary);
+		console.log('[transaction-queries] query for summary:', JSON.stringify(query));
+		console.log('[transaction-queries] calculated summary:', JSON.stringify(summary));
 
 		return {
 			receitas: summary.total_income || 0,
@@ -524,7 +541,10 @@ async function getTransactionsSummary(params) {
 			saldo: summary.net_flow || 0,
 			period: {
 				startDate: startDate || 'all_time',
-				endDate: endDate || new Date()
+				endDate: endDate || new Date().toISOString()
+			},
+			debug: {
+				queryUsed: query
 			}
 		};
 

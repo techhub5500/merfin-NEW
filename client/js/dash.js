@@ -69,6 +69,8 @@ function getUserId() {
 // ============================================================================
 
 let currentMonthKey = null;
+// Expor no window para acesso de outros módulos
+window.currentMonthKey = currentMonthKey;
 
 // ============================================================================
 // CHAT - Sistema de mensagens
@@ -160,6 +162,78 @@ function initChat(){
         console.log('[DEBUG-8] Chamando appendAssistantMessage...');
         appendAssistantMessage(response.response);
         console.log('[DEBUG-9] appendAssistantMessage executado com sucesso');
+        
+        // ========================================
+        // ATUALIZAÇÃO AUTOMÁTICA APÓS LANÇAMENTO
+        // ========================================
+        if (response.metadata && response.metadata.agente === 'lancador' && response.metadata.status === 'success') {
+          console.log('[DASH] 💰 Lançamento detectado! Atualizando TODOS os cards...');
+          console.log('[DASH] Metadata:', response.metadata);
+          
+          // Função para atualizar todos os cards
+          const atualizarTodosOsCards = async () => {
+            try {
+              const monthKey = window.currentMonthKey || new Date().toISOString().slice(0, 7);
+              console.log('[DASH] Atualizando para mês:', monthKey);
+              
+              // Atualizar cards de extrato (Receitas e Despesas)
+              if (typeof window.renderIncomesFromAPI === 'function') {
+                await window.renderIncomesFromAPI(monthKey);
+                console.log('[DASH] ✓ Receitas atualizadas');
+              }
+              
+              if (typeof window.renderExpensesFromAPI === 'function') {
+                await window.renderExpensesFromAPI(monthKey);
+                console.log('[DASH] ✓ Despesas atualizadas');
+              }
+              
+              // Atualizar totais do topo (Receita, Despesa, Saldo)
+              if (typeof window.updateStatsFromAPI === 'function') {
+                await window.updateStatsFromAPI(monthKey);
+                console.log('[DASH] ✓ Totais atualizados');
+              }
+              
+              // Atualizar Últimas Transações
+              if (typeof window.renderLatestTransactionsFromAPI === 'function') {
+                await window.renderLatestTransactionsFromAPI(monthKey);
+                console.log('[DASH] ✓ Últimas transações atualizadas');
+              }
+              
+              // Atualizar Contas Futuras (A receber / A pagar)
+              if (typeof window.renderReceivablesFromAPI === 'function') {
+                await window.renderReceivablesFromAPI(monthKey);
+                console.log('[DASH] ✓ Contas a receber atualizadas');
+              }
+              
+              if (typeof window.renderPayablesFromAPI === 'function') {
+                await window.renderPayablesFromAPI(monthKey);
+                console.log('[DASH] ✓ Contas a pagar atualizadas');
+              }
+              
+              // Atualizar Cartão de Crédito
+              if (typeof window.renderCreditCardFromAPI === 'function') {
+                await window.renderCreditCardFromAPI(monthKey);
+                console.log('[DASH] ✓ Cartão de crédito atualizado');
+              }
+              
+              // Atualizar Dívidas
+              if (typeof window.renderDebtsCardFromAPI === 'function') {
+                await window.renderDebtsCardFromAPI(monthKey);
+                console.log('[DASH] ✓ Dívidas atualizadas');
+              }
+              
+              console.log('[DASH] ✅ Todos os cards atualizados com sucesso!');
+            } catch (updateErr) {
+              console.error('[DASH] ❌ Erro ao atualizar cards:', updateErr);
+            }
+          };
+          
+          // Aguardar um pouco para garantir que a transação foi persistida no banco
+          setTimeout(atualizarTodosOsCards, 300);
+          // Segunda atualização após mais tempo para garantir consistência
+          setTimeout(atualizarTodosOsCards, 1000);
+        }
+        
         try {
           const userId = getUserId();
           const area = document.documentElement.dataset.page || 'Finanças';
@@ -386,6 +460,7 @@ function initMonthPicker(){
       b.setAttribute('type', 'button');
       b.addEventListener('click', ()=>{
         currentMonthKey = m.key;
+        window.currentMonthKey = m.key;
         applyFilter(m.key);
         monthPickerBtn.textContent = m.label;
         closeMonthGrid();
@@ -400,6 +475,7 @@ function initMonthPicker(){
     monthPickerBtn.textContent = initMonth.label;
     
     currentMonthKey = initMonth.key;
+    window.currentMonthKey = initMonth.key;
     applyFilter(initMonth.key);
   }
 

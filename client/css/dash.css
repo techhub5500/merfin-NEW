@@ -795,6 +795,9 @@ html, body {
 .carousel-card .card-content,
 .carousel-card .tx-list,
 .carousel-card .income-list,
+.carousel-card .expense-list,
+.carousel-card .receivable-list,
+.carousel-card .payable-list,
 .carousel-card .debt-list,
 .carousel-card .patrimony-breakdown {
   flex: 1 1 auto;
@@ -807,6 +810,9 @@ html, body {
 .carousel-card .card-content::-webkit-scrollbar,
 .carousel-card .tx-list::-webkit-scrollbar,
 .carousel-card .income-list::-webkit-scrollbar,
+.carousel-card .expense-list::-webkit-scrollbar,
+.carousel-card .receivable-list::-webkit-scrollbar,
+.carousel-card .payable-list::-webkit-scrollbar,
 .carousel-card .debt-list::-webkit-scrollbar,
 .carousel-card .patrimony-breakdown::-webkit-scrollbar {
   width: 10px;
@@ -815,6 +821,9 @@ html, body {
 .carousel-card .card-content::-webkit-scrollbar-track,
 .carousel-card .tx-list::-webkit-scrollbar-track,
 .carousel-card .income-list::-webkit-scrollbar-track,
+.carousel-card .expense-list::-webkit-scrollbar-track,
+.carousel-card .receivable-list::-webkit-scrollbar-track,
+.carousel-card .payable-list::-webkit-scrollbar-track,
 .carousel-card .debt-list::-webkit-scrollbar-track,
 .carousel-card .patrimony-breakdown::-webkit-scrollbar-track {
   background: transparent;
@@ -823,6 +832,9 @@ html, body {
 .carousel-card .card-content::-webkit-scrollbar-thumb,
 .carousel-card .tx-list::-webkit-scrollbar-thumb,
 .carousel-card .income-list::-webkit-scrollbar-thumb,
+.carousel-card .expense-list::-webkit-scrollbar-thumb,
+.carousel-card .receivable-list::-webkit-scrollbar-thumb,
+.carousel-card .payable-list::-webkit-scrollbar-thumb,
 .carousel-card .debt-list::-webkit-scrollbar-thumb,
 .carousel-card .patrimony-breakdown::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(96, 165, 250, 0.85), rgba(16, 185, 129, 0.9));
@@ -833,6 +845,9 @@ html, body {
 .carousel-card .card-content::-webkit-scrollbar-thumb:hover,
 .carousel-card .tx-list::-webkit-scrollbar-thumb:hover,
 .carousel-card .income-list::-webkit-scrollbar-thumb:hover,
+.carousel-card .expense-list::-webkit-scrollbar-thumb:hover,
+.carousel-card .receivable-list::-webkit-scrollbar-thumb:hover,
+.carousel-card .payable-list::-webkit-scrollbar-thumb:hover,
 .carousel-card .debt-list::-webkit-scrollbar-thumb:hover,
 .carousel-card .patrimony-breakdown::-webkit-scrollbar-thumb:hover {
   filter: brightness(1.06);
@@ -1478,6 +1493,77 @@ html, body {
 .credit-card .edit-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(251, 191, 36, 0.06);
+}
+
+/* === FAB (Floating Action Buttons) === */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: all var(--transition-default);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  
+  /* Identidade amarela (warning) - mesma do edit-btn */
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: var(--color-warning);
+}
+
+.fab svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+}
+
+.fab:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(251, 191, 36, 0.15);
+  background: rgba(251, 191, 36, 0.3);
+}
+
+.fab:active {
+  transform: translateY(-2px);
+}
+
+/* FAB Secundário (para adicionar dívida - identidade vermelha) */
+.fab.fab-secondary {
+  right: 90px;
+  background: rgba(248, 113, 113, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: var(--color-danger);
+}
+
+.fab.fab-secondary:hover {
+  background: rgba(248, 113, 113, 0.3);
+  box-shadow: 0 8px 20px rgba(248, 113, 113, 0.15);
+}
+
+/* Responsivo para FABs */
+@media (max-width: 768px) {
+  .fab {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+  }
+  
+  .fab.fab-secondary {
+    right: 72px;
+  }
+  
+  .fab svg {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 /* Modal styles (harmonized with glassmorphism) */

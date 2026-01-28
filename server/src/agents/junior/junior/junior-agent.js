@@ -22,6 +22,7 @@ const BaseAgent = require('../../shared/base-agent');
 const OpenAI = require('openai');
 const ConversationalMemory = require('../../../database/schemas/conversational-memory-schema');
 const memorySummaryService = require('../../../services/memory-summary-service');
+const LancadorAgent = require('../lançador/lancador-agent');
 const fs = require('fs');
 const path = require('path');
 
@@ -288,26 +289,37 @@ Você é um classificador de queries financeiras. Analise a mensagem do usuário
 **trivial** — Saudações, agradecimentos, perguntas sobre o sistema, despedidas
 Exemplos: "Oi", "Obrigado", "O que você faz?", "Tchau", "Bom dia", "Como você funciona?"
 
-**lancamento** — Registro de transações financeiras (gastos ou receitas) com valores
-Exemplos: "Gastei R$ 150 no supermercado", "Recebi meu salário de R$ 5.000", "Paguei a conta de luz R$ 180"
+**lancamento** — Qualquer menção a transação financeira, gasto, receita, pagamento, compra, ou valor monetário que necessite registro
+Sinais claros: verbos como "gastei", "recebi", "paguei", "comprei", "preciso pagar", "vou receber", "fui ao [lugar]", ou valores em reais
+Exemplos: 
+- "Gastei R$ 150 no supermercado"
+- "Fui ao cinema ontem" (implica gasto)
+- "Recebi meu salário"
+- "Paguei a conta de luz"
+- "Comprei uma roupa"
+- "Preciso pagar o IPTU de 1200 reais" (futura despesa)
+- "200 reais" (contexto de conversa sobre lançamento)
 
-**simplista** — Consultas diretas a dados já registrados, perguntas sobre saldos ou totais
-Exemplos: "Quanto gastei este mês?", "Qual meu saldo atual?", "Quanto tenho investido?", "Qual foi meu maior gasto?"
+**simplista** — Consultas diretas a dados já registrados, perguntas sobre saldos ou totais existentes
+Sinais: "quanto", "qual meu", "total de", "saldo", "gastei este mês" (pergunta, não afirmação)
+Exemplos: "Quanto gastei este mês?", "Qual meu saldo?", "Quanto tenho investido?"
 
-**complexa** — Análises, planejamentos, estratégias, comparações ou qualquer query que exija processamento elaborado
-Exemplos: "Como melhorar minhas finanças?", "Quero investir em ações", "Preciso de um plano para quitar dívidas", "Como montar uma carteira?"
+**complexa** — Análises, planejamentos estratégicos, comparações, recomendações de investimento
+Sinais: "como melhorar", "estratégia", "plano de", "devo investir em", "o que fazer para"
+Exemplos: "Como melhorar minhas finanças?", "Quero investir em ações", "Preciso de um plano financeiro"
 
 ## FORMATO DE RESPOSTA:
 
 Retorne APENAS um JSON válido, sem markdown, sem explicações:
 {"categoria_id": "trivial|lancamento|simplista|complexa"}
 
-## REGRAS IMPORTANTES:
-- Na dúvida entre simplista e complexa, escolha complexa
-- Queries com múltiplos tópicos são complexas
-- Consultas simples de saldo/valor são simplistas
-- Se mencionar valor monetário com intenção de registrar, é lancamento
-- Se só perguntar sobre o sistema ou cumprimentar, é trivial`;
+## REGRAS DE PRIORIDADE:
+1. Se mencionar transação/gasto/pagamento/compra/receita → lancamento
+2. Se mencionar apenas valor (ex: "200 reais") → lancamento (assume contexto de lançamento)
+3. Se mencionar lugar/estabelecimento (cinema, mercado, uber) → lancamento
+4. Se for pergunta sobre saldo/total → simplista
+5. Se pedir análise/estratégia → complexa
+6. Se for saudação/agradecimento → trivial`;
   }
 
   // =====================================================
@@ -816,55 +828,57 @@ Retorne APENAS um JSON válido, sem markdown:
   }
 
   // =====================================================
-  // STUBS PARA LANÇADOR E SIMPLISTA
+  // INTEGRAÇÃO COM LANÇADOR E STUBS
   // =====================================================
 
   /**
-   * Roteia para Agente Lançador (STUB)
+   * Roteia para Agente Lançador
    * Política: WRITE_ONLY - Não envia contexto, mas salva a interação
-   * @todo Implementar integração real com Agente Lançador
    * @param {Object} params - Parâmetros da mensagem
-   * @returns {Promise<Object>} - Resposta stub
+   * @returns {Promise<Object>} - Resposta do Lançador
    */
   async routeToLancador(params) {
     const { message, chatId, userId, sessionId } = params;
-    console.log('[JuniorAgent] 🟡 [STUB] Roteando para Lançador');
+    console.log('[JuniorAgent] 📝 Roteando para Lançador');
 
-    // Política WRITE_ONLY: Salvar interação na memória para referência futura
     try {
-      const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
-      const stubResponse = `[MODO TESTE] Transação registrada: "${message}". Em produção, o Agente Lançador processaria e salvaria esse lançamento.`;
-      
-      // Salvar na memória (WRITE_ONLY policy)
-      await this._updateMemory(memory, message, stubResponse, true);
-      
-      console.log('[JuniorAgent] 💾 Lançamento salvo na memória (WRITE_ONLY)');
+      // Instanciar Lançador (singleton por sessão)
+      if (!this._lancadorAgent) {
+        this._lancadorAgent = new LancadorAgent();
+      }
 
+      // Executar Lançador (formato BaseAgent: { parameters: {...} })
+      const result = await this._lancadorAgent.execute({
+        parameters: {
+          message,
+          chatId,
+          userId,
+          sessionId
+        }
+      });
+
+      // Política WRITE_ONLY: Salvar interação na memória
+      try {
+        const memory = await ConversationalMemory.findOrCreate(chatId, userId, sessionId);
+        await this._updateMemory(memory, message, result.response, true);
+        console.log('[JuniorAgent] 💾 Lançamento salvo na memória');
+      } catch (memError) {
+        console.warn('[JuniorAgent] ⚠️ Erro ao salvar na memória:', memError.message);
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('[JuniorAgent] ❌ Erro no Lançador:', error.message);
       return {
-        response: `[MODO TESTE] Recebi sua transação: "${message}". 
-
-📝 Em produção, o Agente Lançador processaria esse lançamento da seguinte forma:
-1. Extrairia o valor e categoria da transação
-2. Salvaria no banco de dados
-3. Atualizaria seus saldos e relatórios
-
-Por enquanto, estou em modo de teste e não salvei nada.`,
+        response: `❌ Desculpe, ocorreu um erro ao processar seu lançamento. Por favor, tente novamente.`,
         sessionId,
         timestamp: new Date().toISOString(),
         metadata: { 
           agente: 'lancador', 
-          status: 'stub',
-          fluxo: 'lancamento',
-          memoryPolicy: 'WRITE_ONLY'
+          status: 'error',
+          error: error.message
         }
-      };
-    } catch (error) {
-      console.error('[JuniorAgent] ⚠️ Erro ao salvar lançamento na memória:', error.message);
-      return {
-        response: `[MODO TESTE] Recebi sua transação: "${message}". Erro ao processar memória.`,
-        sessionId,
-        timestamp: new Date().toISOString(),
-        metadata: { agente: 'lancador', status: 'stub', error: error.message }
       };
     }
   }

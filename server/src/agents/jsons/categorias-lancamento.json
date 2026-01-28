@@ -1,0 +1,202 @@
+{
+  "versao": "1.0",
+  "data_criacao": "2026-01-28",
+  "descricao": "Categorias e subcategorias para classificação de lançamentos financeiros",
+  "categorias": [
+    {
+      "id": "alimentacao",
+      "nome": "Alimentação",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["supermercado", "mercado", "restaurante", "lanche", "comida", "almoço", "jantar", "café", "padaria", "açougue", "feira", "hortifruti", "delivery", "ifood", "rappi"],
+      "subcategorias": [
+        { "id": "supermercado", "nome": "Supermercado", "palavras_chave": ["supermercado", "mercado", "extra", "carrefour", "pão de açúcar", "atacadão"] },
+        { "id": "restaurante", "nome": "Restaurante", "palavras_chave": ["restaurante", "almoço", "jantar", "rodízio", "buffet"] },
+        { "id": "lanche", "nome": "Lanche", "palavras_chave": ["lanche", "lanchonete", "sanduíche", "mcdonald", "burger king", "subway"] },
+        { "id": "delivery", "nome": "Delivery", "palavras_chave": ["ifood", "rappi", "uber eats", "delivery", "entrega"] },
+        { "id": "padaria", "nome": "Padaria", "palavras_chave": ["padaria", "pão", "confeitaria"] },
+        { "id": "cafe", "nome": "Café", "palavras_chave": ["café", "starbucks", "cafeteria"] }
+      ]
+    },
+    {
+      "id": "transporte",
+      "nome": "Transporte",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["uber", "99", "táxi", "taxi", "gasolina", "combustível", "ônibus", "metrô", "passagem", "estacionamento", "pedágio", "ipva", "seguro carro", "manutenção carro"],
+      "subcategorias": [
+        { "id": "combustivel", "nome": "Combustível", "palavras_chave": ["gasolina", "álcool", "etanol", "diesel", "combustível", "posto"] },
+        { "id": "app_transporte", "nome": "App Transporte", "palavras_chave": ["uber", "99", "cabify", "indriver"] },
+        { "id": "transporte_publico", "nome": "Transporte Público", "palavras_chave": ["ônibus", "metrô", "trem", "brt", "passagem", "bilhete único"] },
+        { "id": "estacionamento", "nome": "Estacionamento", "palavras_chave": ["estacionamento", "zona azul", "valet"] },
+        { "id": "manutencao", "nome": "Manutenção Veículo", "palavras_chave": ["mecânico", "oficina", "troca de óleo", "pneu", "revisão"] },
+        { "id": "pedagio", "nome": "Pedágio", "palavras_chave": ["pedágio", "sem parar", "conectcar"] }
+      ]
+    },
+    {
+      "id": "moradia",
+      "nome": "Moradia",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["aluguel", "condomínio", "iptu", "reforma", "móveis", "decoração", "eletrodoméstico", "casa", "apartamento"],
+      "subcategorias": [
+        { "id": "aluguel", "nome": "Aluguel", "palavras_chave": ["aluguel"] },
+        { "id": "condominio", "nome": "Condomínio", "palavras_chave": ["condomínio", "taxa condominial"] },
+        { "id": "iptu", "nome": "IPTU", "palavras_chave": ["iptu", "imposto predial"] },
+        { "id": "reforma", "nome": "Reforma", "palavras_chave": ["reforma", "obra", "pedreiro", "pintura", "construção"] },
+        { "id": "moveis", "nome": "Móveis/Eletrodomésticos", "palavras_chave": ["móveis", "eletrodoméstico", "sofá", "cama", "geladeira", "fogão", "máquina de lavar"] }
+      ]
+    },
+    {
+      "id": "saude",
+      "nome": "Saúde",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["médico", "farmácia", "remédio", "hospital", "consulta", "exame", "plano de saúde", "dentista", "psicólogo", "terapia", "academia", "pilates"],
+      "subcategorias": [
+        { "id": "consulta", "nome": "Consulta Médica", "palavras_chave": ["médico", "consulta", "especialista", "clínico"] },
+        { "id": "farmacia", "nome": "Farmácia", "palavras_chave": ["farmácia", "remédio", "medicamento", "drogaria"] },
+        { "id": "exame", "nome": "Exame", "palavras_chave": ["exame", "laboratório", "sangue", "raio-x", "tomografia"] },
+        { "id": "plano_saude", "nome": "Plano de Saúde", "palavras_chave": ["plano de saúde", "unimed", "bradesco saúde", "sul américa"] },
+        { "id": "dentista", "nome": "Dentista", "palavras_chave": ["dentista", "odonto", "dente", "ortodontia"] },
+        { "id": "academia", "nome": "Academia/Exercício", "palavras_chave": ["academia", "smart fit", "pilates", "yoga", "crossfit", "natação"] },
+        { "id": "terapia", "nome": "Terapia", "palavras_chave": ["psicólogo", "terapia", "psiquiatra"] }
+      ]
+    },
+    {
+      "id": "educacao",
+      "nome": "Educação",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["faculdade", "curso", "escola", "livro", "material escolar", "mensalidade", "inglês", "pós-graduação", "mba", "udemy", "alura"],
+      "subcategorias": [
+        { "id": "faculdade", "nome": "Faculdade", "palavras_chave": ["faculdade", "universidade", "mensalidade", "graduação"] },
+        { "id": "curso", "nome": "Curso", "palavras_chave": ["curso", "udemy", "alura", "coursera", "workshop"] },
+        { "id": "escola", "nome": "Escola", "palavras_chave": ["escola", "colégio", "matrícula"] },
+        { "id": "idiomas", "nome": "Idiomas", "palavras_chave": ["inglês", "espanhol", "idioma", "language"] },
+        { "id": "material", "nome": "Material Escolar", "palavras_chave": ["livro", "caderno", "material escolar", "apostila"] }
+      ]
+    },
+    {
+      "id": "lazer",
+      "nome": "Lazer",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["cinema", "netflix", "spotify", "show", "viagem", "bar", "festa", "teatro", "museu", "parque", "prime video", "hbo", "disney", "youtube premium", "jogo", "game", "playstation", "xbox"],
+      "subcategorias": [
+        { "id": "streaming", "nome": "Streaming", "palavras_chave": ["netflix", "spotify", "prime video", "hbo", "disney+", "youtube premium", "deezer"] },
+        { "id": "cinema", "nome": "Cinema/Teatro", "palavras_chave": ["cinema", "teatro", "filme", "ingresso"] },
+        { "id": "show", "nome": "Show/Evento", "palavras_chave": ["show", "evento", "festival", "ingresso", "sympla"] },
+        { "id": "viagem", "nome": "Viagem", "palavras_chave": ["viagem", "hotel", "passagem aérea", "airbnb", "hospedagem"] },
+        { "id": "bar", "nome": "Bar/Balada", "palavras_chave": ["bar", "balada", "cerveja", "drinks", "happy hour"] },
+        { "id": "games", "nome": "Games", "palavras_chave": ["jogo", "game", "playstation", "xbox", "steam", "nintendo"] }
+      ]
+    },
+    {
+      "id": "vestuario",
+      "nome": "Vestuário",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["roupa", "calçado", "tênis", "sapato", "loja", "shopping", "blusa", "calça", "camisa", "vestido", "acessório", "renner", "c&a", "riachuelo", "zara", "nike", "adidas"],
+      "subcategorias": [
+        { "id": "roupas", "nome": "Roupas", "palavras_chave": ["roupa", "blusa", "calça", "camisa", "vestido", "jaqueta"] },
+        { "id": "calcados", "nome": "Calçados", "palavras_chave": ["tênis", "sapato", "sandália", "bota", "chinelo", "nike", "adidas"] },
+        { "id": "acessorios", "nome": "Acessórios", "palavras_chave": ["bolsa", "carteira", "cinto", "relógio", "óculos", "bijuteria", "joia"] }
+      ]
+    },
+    {
+      "id": "contas",
+      "nome": "Contas",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["luz", "água", "internet", "telefone", "celular", "energia", "gás", "conta de luz", "conta de água", "conta de gás", "conta de telefone", "conta de internet", "cpfl", "enel", "sabesp", "claro", "vivo", "tim", "oi"],
+      "subcategorias": [
+        { "id": "energia", "nome": "Energia", "palavras_chave": ["luz", "energia", "cpfl", "enel", "eletricidade"] },
+        { "id": "agua", "nome": "Água", "palavras_chave": ["água", "sabesp", "saneamento"] },
+        { "id": "gas", "nome": "Gás", "palavras_chave": ["gás", "comgás", "botijão"] },
+        { "id": "internet", "nome": "Internet", "palavras_chave": ["internet", "banda larga", "fibra", "wifi"] },
+        { "id": "telefone", "nome": "Telefone/Celular", "palavras_chave": ["telefone", "celular", "claro", "vivo", "tim", "oi"] }
+      ]
+    },
+    {
+      "id": "salario",
+      "nome": "Salário",
+      "tipo_comum": "receita",
+      "palavras_chave": ["salário", "pagamento", "holerite", "ordenado", "contracheque", "adiantamento", "13º", "décimo terceiro", "férias", "rescisão", "pró-labore"],
+      "subcategorias": [
+        { "id": "salario_mensal", "nome": "Salário Mensal", "palavras_chave": ["salário", "pagamento", "holerite"] },
+        { "id": "decimo_terceiro", "nome": "13º Salário", "palavras_chave": ["13º", "décimo terceiro"] },
+        { "id": "ferias", "nome": "Férias", "palavras_chave": ["férias", "1/3 de férias"] },
+        { "id": "bonus", "nome": "Bônus/PLR", "palavras_chave": ["bônus", "plr", "participação", "comissão"] }
+      ]
+    },
+    {
+      "id": "renda_extra",
+      "nome": "Renda Extra",
+      "tipo_comum": "receita",
+      "palavras_chave": ["freelance", "bico", "extra", "renda extra", "trabalho extra", "projeto", "consultoria"],
+      "subcategorias": [
+        { "id": "freelance", "nome": "Freelance", "palavras_chave": ["freelance", "freela", "projeto"] },
+        { "id": "consultoria", "nome": "Consultoria", "palavras_chave": ["consultoria", "assessoria"] },
+        { "id": "venda", "nome": "Venda", "palavras_chave": ["venda", "vendi", "mercado livre", "olx"] }
+      ]
+    },
+    {
+      "id": "investimentos",
+      "nome": "Investimentos",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["investimento", "ação", "ações", "fundo", "tesouro", "cdb", "poupança", "renda fixa", "renda variável", "dividendo", "fii", "etf", "cripto", "bitcoin"],
+      "subcategorias": [
+        { "id": "renda_fixa", "nome": "Renda Fixa", "palavras_chave": ["cdb", "tesouro", "lci", "lca", "renda fixa", "poupança"] },
+        { "id": "acoes", "nome": "Ações", "palavras_chave": ["ação", "ações", "bolsa", "b3", "bovespa"] },
+        { "id": "fundos", "nome": "Fundos", "palavras_chave": ["fundo", "fii", "fundo imobiliário", "etf"] },
+        { "id": "cripto", "nome": "Criptomoedas", "palavras_chave": ["bitcoin", "cripto", "ethereum", "binance"] }
+      ]
+    },
+    {
+      "id": "rendimento",
+      "nome": "Rendimento",
+      "tipo_comum": "receita",
+      "palavras_chave": ["rendimento", "dividendo", "juros", "lucro", "rentabilidade", "proventos"],
+      "subcategorias": [
+        { "id": "dividendos", "nome": "Dividendos", "palavras_chave": ["dividendo", "proventos", "jcp"] },
+        { "id": "juros_recebidos", "nome": "Juros", "palavras_chave": ["juros", "rendimento", "rentabilidade"] },
+        { "id": "aluguel_recebido", "nome": "Aluguel Recebido", "palavras_chave": ["aluguel recebido", "inquilino"] }
+      ]
+    },
+    {
+      "id": "servicos",
+      "nome": "Serviços",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["barbeiro", "cabeleireiro", "manicure", "limpeza", "diarista", "faxina", "pet", "veterinário", "advogado", "contador"],
+      "subcategorias": [
+        { "id": "beleza", "nome": "Beleza", "palavras_chave": ["barbeiro", "cabeleireiro", "salão", "manicure", "estética"] },
+        { "id": "domestico", "nome": "Doméstico", "palavras_chave": ["diarista", "faxina", "limpeza", "empregada"] },
+        { "id": "pet", "nome": "Pet", "palavras_chave": ["pet", "veterinário", "ração", "petshop", "banho e tosa"] },
+        { "id": "profissionais", "nome": "Profissionais", "palavras_chave": ["advogado", "contador", "despachante", "corretor"] }
+      ]
+    },
+    {
+      "id": "presentes",
+      "nome": "Presentes/Doações",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["presente", "doação", "contribuição", "aniversário", "casamento", "chá de bebê"],
+      "subcategorias": [
+        { "id": "presentes", "nome": "Presentes", "palavras_chave": ["presente", "aniversário", "natal", "dia das mães"] },
+        { "id": "doacoes", "nome": "Doações", "palavras_chave": ["doação", "caridade", "ong", "igreja"] }
+      ]
+    },
+    {
+      "id": "impostos",
+      "nome": "Impostos/Taxas",
+      "tipo_comum": "despesa",
+      "palavras_chave": ["imposto", "taxa", "ir", "imposto de renda", "ipva", "iptu", "multa", "darf"],
+      "subcategorias": [
+        { "id": "ir", "nome": "Imposto de Renda", "palavras_chave": ["ir", "imposto de renda", "darf"] },
+        { "id": "ipva", "nome": "IPVA", "palavras_chave": ["ipva", "licenciamento"] },
+        { "id": "multas", "nome": "Multas", "palavras_chave": ["multa", "infração"] }
+      ]
+    }
+  ],
+  "formas_pagamento": [
+    { "id": "avista", "nome": "À Vista", "palavras_chave": ["à vista", "a vista", "dinheiro", "cash"] },
+    { "id": "pix", "nome": "PIX", "palavras_chave": ["pix"] },
+    { "id": "debito", "nome": "Cartão Débito", "palavras_chave": ["débito", "debito", "cartão débito"] },
+    { "id": "credito", "nome": "Cartão Crédito", "palavras_chave": ["cartão", "crédito", "cartao", "credito", "visa", "mastercard", "elo"] },
+    { "id": "transferencia", "nome": "Transferência", "palavras_chave": ["transferência", "ted", "doc"] },
+    { "id": "boleto", "nome": "Boleto", "palavras_chave": ["boleto"] },
+    { "id": "parcelado", "nome": "Parcelado", "palavras_chave": ["parcelado", "vezes", "parcelas", "em x", "xvezes"] }
+  ]
+}
