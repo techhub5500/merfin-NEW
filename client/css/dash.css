@@ -1,3 +1,8 @@
+/* === FUNDO EXCLUSIVO PARA DASH === */
+body.dash-bg {
+  background: url('../imagens/view-3.jpg') no-repeat center center fixed;
+  background-size: cover;
+}
 /* ================================================
    DASHBOARD CSS - Finance Platform
    Identidade Visual: Glassmorphism + Dark Mode

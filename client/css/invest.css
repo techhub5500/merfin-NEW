@@ -1,3 +1,8 @@
+/* === FUNDO EXCLUSIVO PARA INVESTIMENTOS === */
+body.invest-bg {
+	background: url('../imagens/view-4.jpg') no-repeat center center fixed;
+	background-size: cover;
+}
 /* ================================================
    INVESTMENT DASHBOARD - CSS HARMONIZADO
    Identidade Visual: Dark Mode + Glassmorphism

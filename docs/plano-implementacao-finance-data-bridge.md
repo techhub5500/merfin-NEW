@@ -407,10 +407,10 @@ const expenses = await Bridge.execute({
 
 | Objetivo | Tempo Estimado |
 |----------|----------------|
-| **Objetivo 1:** Estrutura Base | 2-3 horas |
-| **Objetivo 2:** Processadores | 3-4 horas |
-| **Objetivo 3:** Integração | 2-3 horas |
-| **Total** | 7-10 horas |
+| **Objetivo 1:** Estrutura Base |
+| **Objetivo 2:** Processadores |
+| **Objetivo 3:** Integração | |
+
 
 ---
 
@@ -440,5 +440,4 @@ Quando o Bridge estiver pronto, os agentes existentes devem migrar gradualmente:
 
 ---
 
-**Status:** 📋 PLANEJADO  
-**Próximo passo:** Iniciar implementação do Objetivo 1
+

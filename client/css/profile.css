@@ -1,3 +1,8 @@
+/* === FUNDO EXCLUSIVO PARA PROFILE === */
+body.profile-bg {
+    background: url('../imagens/view-5.jpg') no-repeat center center fixed;
+    background-size: cover;
+}
 /* ================================================
    PROFILE PAGE - FINANCE DASHBOARD
    Identidade Visual: Dark Mode + Glassmorphism

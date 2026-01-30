@@ -15,11 +15,27 @@
 /* === 1. TYPOGRAPHY SYSTEM === */
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #000000;
-    background: linear-gradient(180deg, #000000 0%, #050505 100%);
+    /* Imagem de fundo local, cobrindo toda a tela, centralizada e fixa */
+    background: url('../imagens/view-1.jpg') no-repeat center center fixed;
+    background-size: cover;
     color: #e5e7eb;
     min-height: 100vh;
+    position: relative;
+    z-index: 1;
 }
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3); /* 30% mais escuro */
+    pointer-events: none;
+    z-index: 2;
+}
+
 
 .typography-heading-primary {
     font-size: 2rem;
@@ -95,15 +111,22 @@ body {
 
 /* === 3. CARD COMPONENT === */
 .card {
-    background: rgba(15, 16, 20, 0.32);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    border: 0.5px solid rgba(255, 255, 255, 0.11);
+    /* MUDANÇA 1: Fundo mais opaco para garantir contraste do texto */
+    background: rgba(15, 16, 20, 0.45); 
+    
+    /* MUDANÇA 2: Blur mais agressivo para "apagar" os galhos das árvores */
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    
+    /* MUDANÇA 3: Borda mais definida */
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    
+    /* Manter o restante igual */
     color: rgba(var(--card-text-rgb), var(--card-text-alpha));
     border-radius: var(--border-radius);
     box-shadow:
-        0 12px 10px rgba(0, 0, 0, 0.55),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        0 8px 32px rgba(0, 0, 0, 0.45), /* Sombra mais forte para separar do fundo */
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transition: all var(--transition-default);
     display: flex;
     flex-direction: column;
@@ -818,22 +841,32 @@ body.sidebar-collapsed .message-wrapper {
 
 /* === STAT CARDS (Patrimônio / Dívidas) === */
 .card--stat {
-    width: 9.2rem; /* reduced an additional ~15% from 10.8rem */
+    width: 9.2rem;
     min-width: 9.2rem;
-    min-height: 6.5rem; /* fixed height for all stat cards */
-    background: rgba(15, 16, 20, 0.12); /* subtle fallback */
-    /* reduce top padding to compensate header height while keeping overall card height */
-    padding: 0.4rem 0.72rem 0.6rem; /* top right bottom */
+    min-height: 6.5rem;
+    
+    /* MUDANÇA PRINCIPAL: Fundo neutro escuro e forte (85% opaco) para leitura */
+    background: rgba(10, 12, 16, 0.85); 
+    
+    /* Blur forte para suavizar a água atrás */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    
+    /* Padding e layout mantidos */
+    padding: 0.4rem 0.72rem 0.6rem;
     display: flex;
-    align-items: center; /* center content vertically */
-    justify-content: center; /* center content horizontally */
-    text-align: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.35); /* reduced shadow to prevent spill */
-    border-radius: 12px;
     flex-direction: column;
+    align-items: center; 
+    justify-content: center;
+    text-align: center;
     gap: 0.375rem;
-    /* Override .card:hover inherited effects */
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    border-radius: 12px;
+    
+    /* Sombra para destacar do fundo */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    
+    /* Transições */
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 /* Disable aggressive .card:hover transform/shadow on stat cards */
@@ -875,16 +908,19 @@ body.sidebar-collapsed .message-wrapper {
 
 /* Patrimônio specific coloring */
 .card--stat--patrimonio {
-    background: rgba(var(--color-chart-green-rgb), 0.05);
-    border: 1px solid rgba(var(--color-chart-green-rgb), 0.15);
+    background: rgba(var(--color-chart-green-rgb), 0.1);
+    border: 1px solid rgba(var(--color-chart-green-rgb), 0.5);
+    /* Brilho interno sutil verde */
+    box-shadow: inset 0 0 15px rgba(var(--color-chart-green-rgb), 0.05);
 }
-.card--stat--patrimonio .stat-card__title { color: rgba(var(--color-chart-green-rgb), 0.99); }
+.card--stat--patrimonio .stat-card__title { color: rgba(var(--color-chart-green-rgb), 0.99); font-weight: 500; }
 .card--stat--patrimonio .stat-card__value { color: rgba(var(--color-chart-green-rgb), 0.9); }
 
 /* Dívidas specific coloring */
 .card--stat--dividas {
     background: rgba(var(--color-danger-rgb), 0.05);
-    border: 1px solid rgba(var(--color-danger-rgb), 0.15);
+    border: 1px solid rgba(var(--color-danger-rgb), 0.3);
+    box-shadow: inset 0 0 15px rgba(var(--color-danger-rgb), 0.05);
 }
 .card--stat--dividas .stat-card__title { color: rgba(var(--color-danger-rgb), 0.99); }
 .card--stat--dividas .stat-card__value { color: rgba(var(--color-danger-rgb), 0.9); }
@@ -892,20 +928,26 @@ body.sidebar-collapsed .message-wrapper {
 /* Portfolio (left) - blue */
 .card--stat--portfolio {
     background: rgba(var(--color-primary-rgb), 0.05);
-    border: 1px solid rgba(var(--color-primary-rgb), 0.15);
+    border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+    box-shadow: inset 0 0 15px rgba(var(--color-primary-rgb), 0.05);
 }
 .card--stat--portfolio .stat-card__title { color: rgba(var(--color-primary-rgb), 0.99); }
 .card--stat--portfolio .stat-card__trend--up { color: rgba(var(--color-primary-rgb), 0.9); }
-.card--stat--portfolio .stat-card__meta { font-size: 0.75rem; color: rgba(var(--color-primary-rgb), 0.6); }
+.card--stat--portfolio .stat-card__meta { color: rgba(var(--color-primary-rgb), 0.6); }
 
 /* Insights (right) - yellow */
 .card--stat--insights {
     background: rgba(var(--color-warning-rgb), 0.05);
-    border: 1px solid rgba(var(--color-warning-rgb), 0.15);
+    border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+    box-shadow: inset 0 0 15px rgba(var(--color-warning-rgb), 0.05);
 }
 .card--stat--insights .stat-card__title { color: rgba(var(--color-warning-rgb), 0.99); }
-.insights-text { font-size: 0.7225rem; color: rgba(var(--color-warning-rgb), 0.7); transition: opacity 600ms ease; max-width: 12.2rem; }
-.insights-text.hidden { opacity: 0; }
+/* Ajuste extra para o texto de insight ser legível */
+.insights-text { 
+    color: rgba(var(--color-warning-rgb), 0.9); 
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
 
 .insights-button {
     margin-top: 0.5rem;
@@ -1204,14 +1246,20 @@ body.sidebar-collapsed .message-wrapper {
     top: 0;
     height: 100vh;
     width: var(--sidebar-expanded);
-    background: rgba(34, 33, 33, 0.15);
-    border-right: 1px solid var(--sidebar-border);
+    background: rgba(15, 16, 20, 0.15);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    
+    /* MUDANÇA 3: Borda mais definida */
+    border: 1px solid rgba(255, 255, 255, 0.15);
     display: flex;
     align-items: flex-start;
     z-index: 3;
     padding: 16px 12px;
-    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.55);
-    transition: width var(--transition-fast), background 0.12s ease;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.45), /* Sombra mais forte para separar do fundo */
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all var(--transition-default);
 }
 
 .sidebar__inner {
