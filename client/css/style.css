@@ -52,11 +52,11 @@ body::before {
 }
 
 .typography-caption-uppercase {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     font-weight: 600;
-    color: #6b7280;
+    color: #d4d9e1;
 }
 
 .typography-label {
@@ -192,7 +192,7 @@ body::before {
 }
 
 .finance-title {
-    color: rgba(255,255,255,var(--card-text-alpha));
+    color: white;
     font-size: 1rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -241,7 +241,7 @@ body::before {
     margin-top: 0.75rem;
     font-size: 10px;
     font-weight: 500;
-    color: #6b7280;
+    color:  #d4d9e1;
 }
 
 .chart-label-item {
@@ -251,7 +251,7 @@ body::before {
 }
 
 .chart-label-item:hover {
-    color: #d1d5db;
+    color: #ffffff;
 }
 
 /* Legend */
@@ -277,7 +277,7 @@ body::before {
 
 .legend-label {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: #d4d9e1;
 }
 
 .legend-value {
@@ -808,7 +808,7 @@ body.sidebar-collapsed .message-wrapper {
     /* increased by 20% from previous 42% */
     width: 48%;
     max-width: 48%;
-    background: #000000;
+    background:  rgba(0, 0, 0, 0.85); 
     display: flex;
     flex-direction: row;
     align-items: flex-end;
