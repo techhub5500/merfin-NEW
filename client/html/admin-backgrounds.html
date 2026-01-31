@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Gerenciador de Imagens de Fundo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e5e7eb;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+            color: #60a5fa;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(15, 16, 20, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #60a5fa;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: #9ca3af;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #e5e7eb;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+
+        input[type="file"] {
+            padding: 8px;
+        }
+
+        .preview-container {
+            margin-top: 10px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.2);
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-container img {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+        }
+
+        .preview-placeholder {
+            color: #6b7280;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+            color: white;
+            padding: 6px 12px;
+            width: auto;
+            font-size: 0.8rem;
+        }
+
+        .status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .status.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .status.loading {
+            display: block;
+            background: rgba(96, 165, 250, 0.2);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            color: #60a5fa;
+        }
+
+        .images-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .image-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .image-item img {
+            width: 80px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .image-info {
+            flex: 1;
+        }
+
+        .image-info h4 {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .image-info p {
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-index { background: #60a5fa; }
+        .badge-dash { background: #10b981; }
+        .badge-invest { background: #a78bfa; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ Gerenciador de Imagens de Fundo</h1>
+        
+        <div class="grid">
+            <!-- Formulário de Upload -->
+            <div class="card">
+                <h2>➕ Adicionar Nova Imagem</h2>
+                
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label for="name">Nome da Imagem *</label>
+                        <input type="text" id="name" name="name" required placeholder="Ex: Paisagem Montanha">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="page">Página de Destino *</label>
+                        <select id="page" name="page" required>
+                            <option value="">Selecione...</option>
+                            <option value="index">🏠 Home (index)</option>
+                            <option value="dash">📊 Dashboard (dash)</option>
+                            <option value="invest">📈 Investimentos (invest)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="order">Ordem de Exibição</label>
+                        <input type="number" id="order" name="order" value="0" min="0" placeholder="0 = primeira">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Descrição (opcional)</label>
+                        <textarea id="description" name="description" rows="2" placeholder="Descrição da imagem..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="imageFile">Arquivo de Imagem *</label>
+                        <input type="file" id="imageFile" name="imageFile" accept="image/jpeg,image/png,image/webp" required>
+                        <div class="preview-container" id="previewContainer">
+                            <span class="preview-placeholder">Prévia da imagem aparecerá aqui</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        Enviar Imagem
+                    </button>
+
+                    <div class="status" id="uploadStatus"></div>
+                </form>
+            </div>
+
+            <!-- Lista de Imagens -->
+            <div class="card">
+                <h2>📋 Imagens Cadastradas</h2>
+
+                <!-- Aviso de Cache -->
+                <div style="background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 0.85rem;">
+                    <strong style="color: #fbbf24;">⚠️ Importante:</strong>
+                    <span style="color: #d1d5db;">Após adicionar/remover imagens, limpe o cache do navegador nas páginas para ver as mudanças.</span>
+                    <br><br>
+                    <button onclick="clearAllBrowserCache()" class="btn btn-primary" style="width: auto; padding: 8px 16px; font-size: 0.8rem;">
+                        🗑️ Limpar Cache do Navegador
+                    </button>
+                </div>
+
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="value" id="totalImages">-</div>
+                        <div class="label">Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value" id="activeImages">-</div>
+                        <div class="label">Ativas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value" id="totalSize">-</div>
+                        <div class="label">Tamanho</div>
+                    </div>
+                </div>
+
+                <div class="images-list" id="imagesList">
+                    <div class="empty-state">
+                        Carregando imagens...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api/admin/backgrounds';
+
+        // Preview da imagem selecionada
+        document.getElementById('imageFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const container = document.getElementById('previewContainer');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    container.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                container.innerHTML = '<span class="preview-placeholder">Prévia da imagem aparecerá aqui</span>';
+            }
+        });
+
+        // Upload do formulário
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const status = document.getElementById('uploadStatus');
+            const file = document.getElementById('imageFile').files[0];
+            
+            if (!file) {
+                showStatus('error', 'Selecione uma imagem');
+                return;
+            }
+
+            // Verificar tamanho (7MB max)
+            if (file.size > 7 * 1024 * 1024) {
+                showStatus('error', 'Imagem muito grande. Máximo 7MB.');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span>Enviando...';
+            showStatus('loading', 'Processando imagem...');
+
+            try {
+                // Converter para base64
+                const base64 = await fileToBase64(file);
+                
+                // Preparar dados
+                const data = {
+                    name: document.getElementById('name').value,
+                    page: document.getElementById('page').value,
+                    order: parseInt(document.getElementById('order').value) || 0,
+                    description: document.getElementById('description').value,
+                    imageData: base64.split(',')[1], // Remove prefixo data:image/...
+                    mimeType: file.type
+                };
+
+                // Enviar para API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('success', `✅ Imagem "${result.data.name}" enviada com sucesso!`);
+                    document.getElementById('uploadForm').reset();
+                    document.getElementById('previewContainer').innerHTML = 
+                        '<span class="preview-placeholder">Prévia da imagem aparecerá aqui</span>';
+                    loadImages(); // Recarregar lista
+                } else {
+                    showStatus('error', `❌ Erro: ${result.message}`);
+                }
+            } catch (error) {
+                showStatus('error', `❌ Erro: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Enviar Imagem';
+            }
+        });
+
+        // Converter arquivo para base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Mostrar status
+        function showStatus(type, message) {
+            const status = document.getElementById('uploadStatus');
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+
+        // Carregar lista de imagens
+        async function loadImages() {
+            const container = document.getElementById('imagesList');
+            
+            try {
+                const response = await fetch(`${API_URL}/list`);
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    // Atualizar estatísticas
+                    document.getElementById('totalImages').textContent = result.data.length;
+                    document.getElementById('activeImages').textContent = 
+                        result.data.filter(img => img.isActive).length;
+                    
+                    const totalSize = result.data.reduce((acc, img) => acc + (img.size || 0), 0);
+                    document.getElementById('totalSize').textContent = 
+                        (totalSize / 1024 / 1024).toFixed(1) + 'MB';
+
+                    // Renderizar lista
+                    container.innerHTML = result.data.map(img => `
+                        <div class="image-item" data-id="${img.id}">
+                            <img src="${img.thumbnail || '/api/admin/backgrounds/' + img.id + '/thumb'}" 
+                                 alt="${img.name}"
+                                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%2250%22><rect fill=%22%23333%22 width=%22100%%22 height=%22100%%22/><text fill=%22%23666%22 x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>IMG</text></svg>'">
+                            <div class="image-info">
+                                <h4>${img.name}</h4>
+                                <p>
+                                    <span class="badge badge-${img.page}">${img.page}</span>
+                                    Ordem: ${img.order} | 
+                                    ${img.size ? (img.size / 1024).toFixed(0) + 'KB' : 'N/A'}
+                                </p>
+                            </div>
+                            <button class="btn btn-danger" onclick="deleteImage('${img.id}')">
+                                Excluir
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            Nenhuma imagem cadastrada.<br>
+                            Use o formulário ao lado para adicionar.
+                        </div>
+                    `;
+                    document.getElementById('totalImages').textContent = '0';
+                    document.getElementById('activeImages').textContent = '0';
+                    document.getElementById('totalSize').textContent = '0MB';
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        ❌ Erro ao carregar imagens<br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        // Excluir imagem
+        async function deleteImage(id) {
+            if (!confirm('Tem certeza que deseja excluir esta imagem?\n\nLembre-se de limpar o cache do navegador após excluir!')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Limpar cache automaticamente
+                    clearAllBrowserCache();
+                    loadImages();
+                } else {
+                    alert('Erro ao excluir: ' + result.message);
+                }
+            } catch (error) {
+                alert('Erro: ' + error.message);
+            }
+        }
+
+        // Limpar cache do navegador (localStorage)
+        function clearAllBrowserCache() {
+            const keys = ['bg_image_cache_index', 'bg_image_cache_dash', 'bg_image_cache_invest'];
+            keys.forEach(key => {
+                localStorage.removeItem(key);
+            });
+            alert('✅ Cache limpo!\n\nRecarregue as páginas (index, dash, invest) para ver as novas imagens.');
+        }
+
+        // Carregar imagens ao iniciar
+        loadImages();
+    </script>
+</body>
+</html>

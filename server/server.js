@@ -20,6 +20,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./src/routes/authRoutes');
 const chatHistoryRoutes = require('./src/routes/chatHistoryRoutes');
+const backgroundImageRoutes = require('./src/routes/backgroundImageRoutes');
+const adminBackgroundRoutes = require('./src/routes/adminBackgroundRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,8 +49,8 @@ app.use(cors({
 }));
 
 // Middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '12mb' })); // Aumentado para suportar imagens base64 de até 7MB
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
 // Servir arquivos estáticos do frontend
 app.use(express.static(path.join(__dirname, '../client')));
@@ -74,9 +76,20 @@ app.get('/index.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/html/index.html'));
 });
 
+// Página admin para gerenciar imagens de fundo
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/html/admin-backgrounds.html'));
+});
+
+app.get('/admin-backgrounds.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/html/admin-backgrounds.html'));
+});
+
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/chat/history', chatHistoryRoutes);
+app.use('/api/backgrounds', backgroundImageRoutes);
+app.use('/api/admin/backgrounds', adminBackgroundRoutes);
 
 // Rota raiz
 app.get('/api', (req, res) => {

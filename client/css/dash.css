@@ -1,7 +1,11 @@
 /* === FUNDO EXCLUSIVO PARA DASH === */
+/* Imagem de fundo agora é carregada dinamicamente via JavaScript (main.js) */
 body.dash-bg {
-  background: url('../imagens/view-3.jpg') no-repeat center center fixed;
+  background: linear-gradient(180deg, #000000 0%, #050505 100%);
   background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 /* ================================================
    DASHBOARD CSS - Finance Platform
@@ -108,8 +112,8 @@ html, body {
   display: flex;
   flex-direction: column;
   background: rgba(15, 16, 20, 0.32);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(180%);
+  -webkit-backdrop-filter: blur(4px) saturate(180%);
   border: 0.5px solid rgba(255, 255, 255, 0.11);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-deep);
@@ -385,8 +389,8 @@ html, body {
 
 .card {
   background: rgba(15, 16, 20, 0.32);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(180%);
+  -webkit-backdrop-filter: blur(4px) saturate(180%);
   border: 0.5px solid rgba(255, 255, 255, 0.11);
   color: rgba(var(--card-text-rgb), var(--card-text-alpha));
   border-radius: var(--border-radius);
@@ -500,7 +504,7 @@ html, body {
   right: auto;
   background: rgba(15,16,20,0.88);
   border: none; /* remove border for cleaner look */
-  backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(2px) saturate(160%);
   padding: 12px;
   border-radius: 12px;
   box-shadow: var(--shadow-deep);
@@ -727,8 +731,8 @@ html, body {
   align-items: center;
   justify-content: center;
   background: rgba(15, 16, 20, 0.32);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(180%);
+  -webkit-backdrop-filter: blur(4px) saturate(180%);
   border: 0.5px solid rgba(255, 255, 255, 0.05);
   border-radius: 10px;
   cursor: pointer;
@@ -1589,8 +1593,8 @@ html, body {
   width: 360px;
   max-width: calc(100% - 48px);
   background: rgba(15,16,20,0.9);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(3px) saturate(140%);
+  -webkit-backdrop-filter: blur(3px) saturate(140%);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 14px;
   padding: 18px;

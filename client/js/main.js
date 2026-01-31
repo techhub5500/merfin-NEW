@@ -1445,16 +1445,246 @@ class FinanceDashboardApp {
 }
 
 // ============================================================================
+// BACKGROUND IMAGE MANAGER
+// ============================================================================
+
+/**
+ * BackgroundImageManager - Gerencia o carregamento e cache de imagens de fundo rotativas
+ */
+class BackgroundImageManager {
+    constructor() {
+        this.apiBaseURL = '/api/backgrounds';
+        this.cacheKey = 'bg_image_cache';
+        this.cacheExpiration = 24 * 60 * 60 * 1000; // 24 horas
+    }
+
+    /**
+     * Obtém o nome da página atual
+     * @returns {string} - 'index', 'dash' ou 'invest'
+     */
+    getCurrentPage() {
+        const pathname = window.location.pathname;
+        const href = window.location.href;
+        
+        // Log para debug
+        console.log('[BackgroundImageManager] Detectando página:', { pathname, href });
+        
+        // Verifica se é invest (suporta invest.html e subpáginas com hash)
+        if (pathname.includes('invest.html') || href.includes('invest.html')) {
+            console.log('[BackgroundImageManager] Página detectada: invest');
+            return 'invest';
+        }
+        
+        // Verifica se é dash
+        if (pathname.includes('dash.html') || href.includes('dash.html')) {
+            console.log('[BackgroundImageManager] Página detectada: dash');
+            return 'dash';
+        }
+        
+        // Verifica se é index
+        if (pathname.includes('index.html') || pathname === '/' || href === window.location.origin + '/') {
+            console.log('[BackgroundImageManager] Página detectada: index');
+            return 'index';
+        }
+        
+        // Fallback: tenta adivinhar pela raiz
+        if (pathname === '/' || pathname === '') {
+            console.log('[BackgroundImageManager] Página detectada (fallback): index');
+            return 'index';
+        }
+        
+        console.warn('[BackgroundImageManager] Página não identificada, usando fallback index');
+        return 'index';
+    }
+
+    /**
+     * Verifica se o cache é válido
+     * @param {Object} cache - Objeto de cache
+     * @returns {boolean}
+     */
+    isCacheValid(cache) {
+        if (!cache || !cache.timestamp || !cache.dataURL) {
+            return false;
+        }
+        
+        const now = Date.now();
+        const cacheAge = now - cache.timestamp;
+        
+        return cacheAge < this.cacheExpiration;
+    }
+
+    /**
+     * Busca imagem do cache
+     * @param {string} page - Nome da página
+     * @returns {Object|null}
+     */
+    getFromCache(page) {
+        try {
+            const cacheData = localStorage.getItem(`${this.cacheKey}_${page}`);
+            if (!cacheData) return null;
+            
+            const cache = JSON.parse(cacheData);
+            return this.isCacheValid(cache) ? cache : null;
+        } catch (error) {
+            console.error('[BackgroundImageManager] Erro ao ler cache:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Salva imagem no cache
+     * @param {string} page - Nome da página
+     * @param {Object} imageData - Dados da imagem
+     */
+    saveToCache(page, imageData) {
+        try {
+            const cache = {
+                ...imageData,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(`${this.cacheKey}_${page}`, JSON.stringify(cache));
+        } catch (error) {
+            console.error('[BackgroundImageManager] Erro ao salvar cache:', error);
+        }
+    }
+
+    /**
+     * Busca imagem da API
+     * @param {string} page - Nome da página
+     * @returns {Promise<Object>}
+     */
+    async fetchFromAPI(page) {
+        try {
+            const url = `${this.apiBaseURL}/${page}/current`;
+            console.log('[BackgroundImageManager] Buscando da API:', url);
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                console.error(`[BackgroundImageManager] HTTP error! Status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('[BackgroundImageManager] Resposta da API:', result);
+            
+            if (result.success && result.data) {
+                console.log('[BackgroundImageManager] Imagem obtida com sucesso:', result.data.name);
+                return result.data;
+            }
+            
+            console.error('[BackgroundImageManager] Resposta inválida da API:', result);
+            throw new Error('Resposta inválida da API');
+        } catch (error) {
+            console.error('[BackgroundImageManager] Erro ao buscar da API:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Aplica a imagem ao body
+     * @param {string} dataURL - Data URL da imagem
+     */
+    applyBackground(dataURL) {
+        if (!dataURL) return;
+        
+        try {
+            document.body.style.backgroundImage = `url('${dataURL}')`;
+            document.body.style.backgroundSize = 'cover';
+            document.body.style.backgroundPosition = 'center center';
+            document.body.style.backgroundRepeat = 'no-repeat';
+            document.body.style.backgroundAttachment = 'fixed';
+            
+            console.log('[BackgroundImageManager] Imagem de fundo aplicada com sucesso');
+        } catch (error) {
+            console.error('[BackgroundImageManager] Erro ao aplicar background:', error);
+        }
+    }
+
+    /**
+     * Carrega e aplica a imagem de fundo apropriada
+     */
+    async loadBackground() {
+        try {
+            const page = this.getCurrentPage();
+            console.log(`[BackgroundImageManager] 🎨 Carregando imagem para página: ${page}`);
+            
+            // Verificar cache primeiro
+            const cached = this.getFromCache(page);
+            if (cached) {
+                console.log('[BackgroundImageManager] ✅ Imagem carregada do cache');
+                this.applyBackground(cached.dataURL);
+                return;
+            }
+            
+            // Buscar da API
+            console.log('[BackgroundImageManager] 🌐 Cache não encontrado, buscando da API...');
+            const imageData = await this.fetchFromAPI(page);
+            if (imageData && imageData.dataURL) {
+                console.log('[BackgroundImageManager] ✅ Imagem carregada da API');
+                this.saveToCache(page, imageData);
+                this.applyBackground(imageData.dataURL);
+            } else {
+                console.warn('[BackgroundImageManager] ⚠️ Nenhuma imagem disponível, mantendo estilo padrão');
+            }
+        } catch (error) {
+            console.error('[BackgroundImageManager] ❌ Erro fatal ao carregar background:', error);
+        }
+    }
+
+    /**
+     * Limpa o cache de imagens
+     * @param {string} page - Nome da página (opcional, limpa todas se omitido)
+     */
+    clearCache(page = null) {
+        if (page) {
+            localStorage.removeItem(`${this.cacheKey}_${page}`);
+            console.log(`[BackgroundImageManager] Cache limpo para página: ${page}`);
+        } else {
+            ['index', 'dash', 'invest'].forEach(p => {
+                localStorage.removeItem(`${this.cacheKey}_${p}`);
+            });
+            console.log('[BackgroundImageManager] Todo cache de imagens limpo');
+        }
+    }
+
+    /**
+     * Força atualização da imagem (ignora cache)
+     */
+    async forceRefresh() {
+        const page = this.getCurrentPage();
+        this.clearCache(page);
+        await this.loadBackground();
+    }
+}
+
+// ============================================================================
 // APPLICATION BOOTSTRAP
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    const app = new FinanceDashboardApp();
-    app.init();
+    // Inicializar gerenciador de imagens de fundo PRIMEIRO (independente)
+    const bgManager = new BackgroundImageManager();
+    bgManager.loadBackground().catch(error => {
+        console.error('[Main] Erro ao carregar imagem de fundo:', error);
+    });
 
-    // Make app instance globally accessible for debugging
+    // Make BackgroundImageManager globally accessible
     if (typeof window !== 'undefined') {
-        window.FinanceDashboard = app;
+        window.BackgroundImageManager = bgManager;
+    }
+
+    // Inicializar aplicação principal (pode falhar em páginas que não têm todos os elementos)
+    try {
+        const app = new FinanceDashboardApp();
+        app.init();
+        
+        // Make app instance globally accessible for debugging
+        if (typeof window !== 'undefined') {
+            window.FinanceDashboard = app;
+        }
+    } catch (error) {
+        console.warn('[Main] FinanceDashboardApp não inicializado (normal para invest.html):', error.message);
     }
 });
 

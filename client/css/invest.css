@@ -1,7 +1,11 @@
 /* === FUNDO EXCLUSIVO PARA INVESTIMENTOS === */
+/* Imagem de fundo agora é carregada dinamicamente via JavaScript (main.js) */
 body.invest-bg {
-	background: url('../imagens/view-4.jpg') no-repeat center center fixed;
+	background: linear-gradient(180deg, #000000 0%, #050505 100%);
 	background-size: cover;
+	background-position: center center;
+	background-repeat: no-repeat;
+	background-attachment: fixed;
 }
 /* ================================================
    INVESTMENT DASHBOARD - CSS HARMONIZADO
@@ -68,49 +72,47 @@ body {
 	overflow-x: hidden;
 }
 
-/* Collapsed sidebar state - sem padding pois sidebar é flutuante */
-body.sidebar-collapsed {
-	/* sidebar flutuante não precisa de padding */
-}
+
 
 /* App content wrapper - espaço para sidebar flutuante */
 .app-content {
 	display: flex;
-	justify-content: center;
+	justify-content: flex-start;
 	align-items: flex-start;
-	padding: 40px;
-	padding-left: 60px; /* Espaço reduzido em 80% (era ~220px, agora ~44px) */
+	padding: 30px;
+	padding-left: 30px; /* Distância reduzida em 50% */
+	padding-right: 20px; /* Redução de 30% da distância à borda */
 	min-height: 100vh;
 	transition: all var(--transition-default);
-	width: 100%;
-	margin-left: 200px; /* Espaço para sidebar flutuante */
+	width: calc(100% - 220px); /* Largura fixa menos sidebar */
+	margin-left: 220px; /* Espaço fixo para sidebar flutuante */
 	box-sizing: border-box;
 }
 
 /* === LAYOUT PRINCIPAL === */
 .dashboard-container {
 	display: grid;
-	grid-template-columns: 1.2fr 1fr; /* Chat 20% mais largo */
+	grid-template-columns: 1.26fr 1.05fr; /* Chat +5%, Cards +5% */
 	grid-template-rows: 1fr 1fr;
-	gap: 24px;
-	max-width: 1200px;
+	gap: 20px;
 	width: 100%;
 	transition: all var(--transition-default);
 }
 
 /* Ajustar largura quando sidebar está expandido */
 body:not(.sidebar-collapsed) .dashboard-container {
-	max-width: min(1200px, calc(100vw - 280px));
+	width: 100%;
 }
 
 /* Ajustar largura quando sidebar está colapsado */
 body.sidebar-collapsed .dashboard-container {
-	max-width: min(1200px, calc(100vw - 140px));
+	width: 100%;
 }
 
 body.sidebar-collapsed .app-content {
 	margin-left: 100px;
-	padding-left: 40px;
+	width: calc(100% - 100px);
+	padding-left: 30px;
 }
 
 /* Em telas grandes, usar grid responsivo */
@@ -137,7 +139,7 @@ body.sidebar-collapsed .app-content {
 
 .invest-card--top,
 .invest-card--bottom {
-	height: 233px;
+	height: 245px; /* +5% de 233px */
 }
 
 /* Tabs header dos cards */
@@ -145,10 +147,11 @@ body.sidebar-collapsed .app-content {
 	display: flex;
 	gap: 0;
 	padding: 0;
-	background: rgba(0, 0, 0, 0.2);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	background: rgba(15, 16, 20, 0.25);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 	overflow-x: auto;
 	scrollbar-width: none;
+	border-radius: var(--border-radius) var(--border-radius) 0 0;
 }
 
 .invest-card__tabs::-webkit-scrollbar {
@@ -177,8 +180,8 @@ body.sidebar-collapsed .app-content {
 }
 
 .invest-tab.active {
-	color: var(--color-chart-green);
-	background: rgba(var(--color-chart-green-rgb), 0.08);
+	color: var(--color-primary);
+	background: rgba(96, 165, 250, 0.08);
 }
 
 .invest-tab.active::after {
@@ -188,7 +191,7 @@ body.sidebar-collapsed .app-content {
 	left: 0;
 	right: 0;
 	height: 2px;
-	background: var(--color-chart-green);
+	background: var(--color-primary);
 }
 
 /* Conteúdo dos cards */
@@ -228,8 +231,8 @@ body.sidebar-collapsed .app-content {
 /* === GLASS CARD COMPONENT (Glassmorphism Avançado) === */
 .card {
 	background: rgba(15, 16, 20, 0.32);
-	backdrop-filter: blur(22px) saturate(180%);
-	-webkit-backdrop-filter: blur(22px) saturate(180%);
+	backdrop-filter: blur(4px) saturate(180%);
+	-webkit-backdrop-filter: blur(4px) saturate(180%);
 	border: 0.5px solid rgba(255, 255, 255, 0.11);
 	color: rgba(var(--card-text-rgb), var(--card-text-alpha));
 	border-radius: var(--border-radius);
@@ -237,10 +240,12 @@ body.sidebar-collapsed .app-content {
 		0 20px 40px rgba(0, 0, 0, 0.5),
 		0 4px 12px rgba(0, 0, 0, 0.3),
 		inset 0 1px 0 rgba(255, 255, 255, 0.04);
-	transition: all var(--transition-default);
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
 	display: flex;
 	flex-direction: column;
 	padding: 24px;
+	will-change: transform; /* Otimização de performance */
+	contain: layout style; /* Isolamento de renderização */
 }
 
 .card:hover {
@@ -295,15 +300,16 @@ h3 {
 /* === CHAT CONTAINER (Coluna 1) === */
 .chat-container {
 	grid-row: span 2;
-	height: 490px;
+	height: 515px; /* +5% de 490px */
 	justify-content: space-between;
 }
 
 /* Chat header similar to other pages: shows title and quick actions */
 .chat-header {
 	padding: 10px 10px;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-	background: linear-gradient(90deg, rgba(var(--color-chart-green-rgb), 0.04), transparent);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+	background: rgba(15, 16, 20, 0.25);
+	border-radius: var(--border-radius) var(--border-radius) 0 0;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -820,9 +826,9 @@ body.invest-page .sidebar__subpages {
 }
 
 .sidebar__sublink--active {
-	color: var(--color-chart-green);
-	border-left-color: var(--color-chart-green);
-	background: rgba(var(--color-chart-green-rgb), 0.06);
+	color: var(--color-primary);
+	border-left-color: var(--color-primary);
+	background: rgba(96, 165, 250, 0.06);
 }
 
 .sidebar__sublink-icon {

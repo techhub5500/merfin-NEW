@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investimentos - Teste Glassmorphism</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /* === DESIGN TOKENS (Sincronizado com dash.css) === */
+        :root {
+            /* Color Palette */
+            --color-primary: #60a5fa;
+            --color-secondary: #a78bfa;
+            --color-success: #34d399;
+            --color-chart-green: #10b981;
+            --color-chart-green-rgb: 16, 185, 129;
+            --color-warning: #fbbf24;
+            --color-danger: #f87171;
+            --color-surface: rgba(15, 16, 20, 0.88);
+            --color-surface-elevated: rgba(30, 32, 40, 0.92);
+            
+            /* Border Colors */
+            --card-border: rgba(255, 255, 255, 0.06);
+            --card-border-strong: rgba(255, 255, 255, 0.12);
+            
+            /* Text Colors */
+            --card-text-rgb: 229, 231, 235;
+            --card-text-alpha: 0.9;
+            --text-muted: #9ca3af;
+            --text-secondary: #d1d5db;
+            --text-primary: #e5e7eb;
+            
+            /* Spacing & Sizing */
+            --card-padding: 1.5rem;
+            --border-radius: 24px;
+            --border-radius-sm: 8px;
+            --gap: 24px;
+            
+            /* Animation */
+            --transition-default: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-fast: 0.18s ease;
+            
+            /* Shadows */
+            --shadow-deep: 0 12px 10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            --shadow-hover: 0 10px 10px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 40px;
+            /* Imagem de fundo similar à do dash */
+            background: linear-gradient(180deg, #000000 0%, #050505 100%);
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            color: var(--text-primary);
+            box-sizing: border-box;
+        }
+
+        /* Container principal */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Grid de dashboard */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: calc(var(--gap) * 0.5);
+        }
+
+        /* Card com glassmorphism do dash.css */
+        .glass-card {
+            background: rgba(15, 16, 20, 0.32);
+            backdrop-filter: blur(4px) saturate(180%);
+            -webkit-backdrop-filter: blur(4px) saturate(180%);
+            border: 0.5px solid rgba(255, 255, 255, 0.11);
+            color: rgba(var(--card-text-rgb), var(--card-text-alpha));
+            border-radius: var(--border-radius);
+            padding: var(--card-padding);
+            box-shadow: var(--shadow-deep);
+            display: flex;
+            flex-direction: column;
+            transition: all var(--transition-default);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        /* Header dos cards */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 12px;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Container para gráficos */
+        .chart-box {
+            position: relative;
+            height: 220px;
+            width: 100%;
+        }
+
+        /* Métricas */
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .metric-trend {
+            font-size: 0.85rem;
+            color: var(--color-success);
+            font-weight: 500;
+        }
+        
+        .metric-trend.down { 
+            color: var(--color-danger);
+        }
+
+        /* Ajustes para responsividade */
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="dashboard-grid">
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Performance da Carteira</h3>
+                </div>
+                <div class="metric-value">R$ 124.500,00</div>
+                <span class="metric-trend">▲ 2.4% este mês</span>
+                <div class="chart-box">
+                    <canvas id="chartEvolucao"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Alocação por Setor</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartAlocacao"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Dividendos (YTD)</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartDividendos"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Rentabilidade vs IBOV</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartComparativo"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Entradas vs Saídas</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartFluxo"></canvas>
+                </div>
+            </div>
+
+             <div class="glass-card">
+                <div class="card-header">
+                    <h3>Score de Ativos</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartRadar"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Risco x Retorno Ativos</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartBubble"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Volatilidade x Rentabilidade</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartScatter"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Top 5 Ativos da Carteira</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartHorizontalBar"></canvas>
+                </div>
+            </div>
+            
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Distribuição por Região</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartPie"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h3>Aportes por Tipo (Mensal)</h3>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartStackedBar"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+<script>
+    // === Configurações Gerais (Sincronizadas com dash.css) ===
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = 'rgba(209, 213, 219, 0.7)'; // var(--text-secondary)
+    Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.03)';
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.color = 'rgba(229, 231, 235, 0.9)';
+    
+    // Cores do sistema
+    const COLORS = {
+        primary: '#60a5fa',
+        secondary: '#a78bfa',
+        success: '#34d399',
+        chartGreen: '#10b981',
+        warning: '#fbbf24',
+        danger: '#f87171',
+        white: 'rgba(229, 231, 235, 0.9)',
+        whiteTransparent: 'rgba(229, 231, 235, 0.3)',
+        gray: 'rgba(156, 163, 175, 0.5)'
+    };
+    
+    // Helper para Gradientes
+    const getGradient = (ctx, colorStart, colorEnd) => {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, colorStart);
+        gradient.addColorStop(1, colorEnd);
+        return gradient;
+    };
+
+    // 1. CHART EVOLUÇÃO (Line Chart)
+    const ctx1 = document.getElementById('chartEvolucao').getContext('2d');
+    new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+            datasets: [{
+                label: 'Carteira',
+                data: [100, 108, 105, 115, 120, 124],
+                borderColor: COLORS.primary,
+                backgroundColor: getGradient(ctx1, 'rgba(96, 165, 250, 0.3)', 'rgba(96, 165, 250, 0.0)'),
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: COLORS.primary
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false
+                }
+            },
+            scales: { 
+                x: { 
+                    grid: { display: false },
+                    ticks: { color: COLORS.gray }
+                }, 
+                y: { 
+                    display: false 
+                } 
+            }
+        }
+    });
+
+    // 2. CHART ALOCAÇÃO (Doughnut Chart)
+    new Chart(document.getElementById('chartAlocacao'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Tecnologia', 'Bancos', 'Energia', 'Caixa'],
+            datasets: [{
+                data: [35, 25, 20, 20],
+                backgroundColor: [
+                    COLORS.primary,
+                    COLORS.secondary,
+                    COLORS.chartGreen,
+                    COLORS.gray
+                ],
+                borderWidth: 0,
+                hoverOffset: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { 
+                    position: 'right', 
+                    labels: { 
+                        boxWidth: 12,
+                        padding: 15,
+                        color: COLORS.white
+                    } 
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            cutout: '70%'
+        }
+    });
+
+    // 3. CHART DIVIDENDOS (Bar Chart)
+    new Chart(document.getElementById('chartDividendos'), {
+        type: 'bar',
+        data: {
+            labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+            datasets: [{
+                label: 'Recebido',
+                data: [1200, 1500, 1100, 2000],
+                backgroundColor: COLORS.success,
+                borderRadius: 6,
+                barThickness: 24
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false
+                }
+            },
+            scales: { 
+                x: { 
+                    grid: { display: false },
+                    ticks: { color: COLORS.gray }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                }
+            }
+        }
+    });
+
+    // 4. CHART COMPARATIVO (Line Chart)
+    new Chart(document.getElementById('chartComparativo'), {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai'],
+            datasets: [{
+                label: 'Minha Carteira',
+                data: [10, 12, 11, 15, 18],
+                borderColor: COLORS.chartGreen,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            },
+            {
+                label: 'IBOV',
+                data: [10, 10.5, 9, 11, 12],
+                borderColor: COLORS.gray,
+                borderDash: [5, 5],
+                tension: 0.4,
+                borderWidth: 1.5,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: { 
+                legend: { 
+                    position: 'top', 
+                    align: 'end',
+                    labels: {
+                        color: COLORS.white,
+                        padding: 15,
+                        boxWidth: 12
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: COLORS.gray }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                }
+            }
+        }
+    });
+
+    // 5. CHART FLUXO (Stacked Bar)
+    new Chart(document.getElementById('chartFluxo'), {
+        type: 'bar',
+        data: {
+            labels: ['Jan', 'Fev', 'Mar', 'Abr'],
+            datasets: [{
+                label: 'Aporte',
+                data: [5000, 3000, 4000, 6000],
+                backgroundColor: COLORS.primary,
+                borderRadius: 6
+            },
+            {
+                label: 'Retirada',
+                data: [0, 1000, 0, 500],
+                backgroundColor: COLORS.danger,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        color: COLORS.white,
+                        padding: 15,
+                        boxWidth: 12
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: { 
+                x: { 
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: { color: COLORS.gray }
+                }, 
+                y: { 
+                    stacked: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                }
+            }
+        }
+    });
+
+    // 6. CHART RADAR
+    new Chart(document.getElementById('chartRadar'), {
+        type: 'radar',
+        data: {
+            labels: ['Valuation', 'Momento', 'Qualidade', 'Risco', 'Div.'],
+            datasets: [{
+                label: 'PETR4',
+                data: [80, 90, 70, 60, 95],
+                backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                borderColor: COLORS.primary,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: COLORS.primary,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: COLORS.white }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                r: {
+                    angleLines: { color: 'rgba(255,255,255,0.05)' },
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    pointLabels: { color: COLORS.white, font: { size: 11 } },
+                    ticks: { 
+                        display: true,
+                        color: COLORS.gray,
+                        backdropColor: 'transparent'
+                    }
+                }
+            }
+        }
+    });
+
+    // 7. Bubble Chart
+    new Chart(document.getElementById('chartBubble'), {
+        type: 'bubble',
+        data: {
+            datasets: [{
+                label: 'Ativos',
+                data: [
+                    { x: 20, y: 30, r: 15 },
+                    { x: 40, y: 10, r: 10 },
+                    { x: 30, y: 50, r: 20 },
+                    { x: 25, y: 25, r: 12 }
+                ],
+                backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                borderColor: COLORS.chartGreen,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                x: { 
+                    title: { 
+                        display: true, 
+                        text: 'Risco',
+                        color: COLORS.white
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                },
+                y: { 
+                    title: { 
+                        display: true, 
+                        text: 'Retorno (%)',
+                        color: COLORS.white
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                }
+            }
+        }
+    });
+
+    // 8. Scatter Chart
+    new Chart(document.getElementById('chartScatter'), {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Ativos',
+                data: [
+                    { x: 0.1, y: 5 }, { x: 0.5, y: 15 }, { x: 0.8, y: 8 },
+                    { x: 0.3, y: 20 }, { x: 0.6, y: 12 }, { x: 0.2, y: 7 }
+                ],
+                backgroundColor: COLORS.secondary,
+                borderColor: COLORS.secondary,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                x: { 
+                    title: { 
+                        display: true, 
+                        text: 'Volatilidade',
+                        color: COLORS.white
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                },
+                y: { 
+                    title: { 
+                        display: true, 
+                        text: 'Rentabilidade (%)',
+                        color: COLORS.white
+                    },
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                }
+            }
+        }
+    });
+
+    // 9. Horizontal Bar Chart
+    new Chart(document.getElementById('chartHorizontalBar'), {
+        type: 'bar',
+        data: {
+            labels: ['ATIVO A', 'ATIVO B', 'ATIVO C', 'ATIVO D', 'ATIVO E'],
+            datasets: [{
+                label: 'Peso na Carteira (%)',
+                data: [25, 20, 15, 10, 8],
+                backgroundColor: COLORS.primary,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false
+                }
+            },
+            scales: {
+                x: { 
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                },
+                y: { 
+                    grid: { display: false },
+                    ticks: { color: COLORS.white }
+                }
+            }
+        }
+    });
+
+    // 10. Pie Chart
+    new Chart(document.getElementById('chartPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Nacional', 'Internacional (EUA)', 'Internacional (EUR)'],
+            datasets: [{
+                data: [60, 30, 10],
+                backgroundColor: [
+                    COLORS.primary,
+                    COLORS.chartGreen,
+                    COLORS.secondary
+                ],
+                borderWidth: 0,
+                hoverOffset: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { 
+                    position: 'right', 
+                    labels: { 
+                        boxWidth: 12,
+                        padding: 15,
+                        color: COLORS.white
+                    } 
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            }
+        }
+    });
+
+    // 11. Stacked Bar Chart
+    new Chart(document.getElementById('chartStackedBar'), {
+        type: 'bar',
+        data: {
+            labels: ['Jan', 'Fev', 'Mar', 'Abr'],
+            datasets: [
+                {
+                    label: 'Ações',
+                    data: [1000, 1200, 800, 1500],
+                    backgroundColor: COLORS.primary,
+                    borderRadius: 4
+                },
+                {
+                    label: 'FIIs',
+                    data: [500, 600, 700, 400],
+                    backgroundColor: COLORS.chartGreen,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Crypto',
+                    data: [200, 300, 100, 500],
+                    backgroundColor: COLORS.warning,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { 
+                    position: 'top', 
+                    align: 'end',
+                    labels: {
+                        color: COLORS.white,
+                        padding: 15,
+                        boxWidth: 12
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 16, 20, 0.9)',
+                    titleColor: COLORS.white,
+                    bodyColor: COLORS.white,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    padding: 12
+                }
+            },
+            scales: {
+                x: { 
+                    stacked: true, 
+                    grid: { display: false },
+                    ticks: { color: COLORS.gray }
+                },
+                y: { 
+                    stacked: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                    ticks: { color: COLORS.gray }
+                }
+            }
+        }
+    });
+
+</script>
+
+</body>
+</html>

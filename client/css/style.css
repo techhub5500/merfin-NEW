@@ -15,9 +15,12 @@
 /* === 1. TYPOGRAPHY SYSTEM === */
 body {
     font-family: 'Inter', sans-serif;
-    /* Imagem de fundo local, cobrindo toda a tela, centralizada e fixa */
-    background: url('../imagens/view-1.jpg') no-repeat center center fixed;
+    /* Imagem de fundo agora é carregada dinamicamente via JavaScript (main.js) */
+    background: linear-gradient(180deg, #000000 0%, #050505 100%);
     background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: #e5e7eb;
     min-height: 100vh;
     position: relative;
@@ -114,9 +117,9 @@ body::before {
     /* MUDANÇA 1: Fundo mais opaco para garantir contraste do texto */
     background: rgba(15, 16, 20, 0.45); 
     
-    /* MUDANÇA 2: Blur mais agressivo para "apagar" os galhos das árvores */
-    backdrop-filter: blur(40px) saturate(200%);
-    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    /* MUDANÇA 2: Blur reduzido para melhorar performance GPU (80% reduction) */
+    backdrop-filter: blur(8px) saturate(200%);
+    -webkit-backdrop-filter: blur(8px) saturate(200%);
     
     /* MUDANÇA 3: Borda mais definida */
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -127,9 +130,11 @@ body::before {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.45), /* Sombra mais forte para separar do fundo */
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    transition: all var(--transition-default);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     flex-direction: column;
+    will-change: transform; /* Otimização de performance */
+    contain: layout style; /* Isolamento de renderização */
 }
 
 .card:hover {
@@ -137,7 +142,6 @@ body::before {
     box-shadow:
         0 20px 20px rgba(0, 0, 0, 0.65),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    border-color: var(--card-border-strong);
 }
 
 /* Prevent the message card from moving when hovering/focusing the input */
@@ -853,9 +857,9 @@ body.sidebar-collapsed .message-wrapper {
     /* MUDANÇA PRINCIPAL: Fundo neutro escuro e forte (85% opaco) para leitura */
     background: rgba(10, 12, 16, 0.85); 
     
-    /* Blur forte para suavizar a água atrás */
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    /* Blur reduzido para melhorar performance (80% reduction) */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     
     /* Padding e layout mantidos */
     padding: 0.4rem 0.72rem 0.6rem;
@@ -1253,8 +1257,8 @@ body.sidebar-collapsed .message-wrapper {
     height: auto;
     width: var(--sidebar-expanded);
     background: rgba(15, 16, 20, 0.35);
-    backdrop-filter: blur(40px) saturate(200%);
-    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    backdrop-filter: blur(8px) saturate(200%);
+    -webkit-backdrop-filter: blur(8px) saturate(200%);
     
     /* MUDANÇA: Borda mais definida e border-radius generoso */
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1266,7 +1270,8 @@ body.sidebar-collapsed .message-wrapper {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.45), /* Sombra mais forte para separar do fundo */
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    transition: all var(--transition-default);
+    transition: width 0.2s ease;
+    will-change: width; /* Otimização de performance */
 }
 
 .sidebar__inner {
@@ -1300,11 +1305,10 @@ body.sidebar-collapsed .message-wrapper {
 }
 
 .sidebar__link[aria-current="page"] {
-    background: none !important;
-    background-color: transparent !important;
-    background-image: none !important;
+    background: rgba(96, 165, 250, 0.06) !important;
     box-shadow: none !important;
-    border-left: 3px solid var(--color-chart-green);
+    border-left: none;
+    border-radius: var(--border-radius-sm);
 }
 
 .sidebar__link-icon {
@@ -1537,8 +1541,8 @@ body.sidebar-collapsed .sidebar__toggle-icon {
     display: flex;
     flex-direction: column;
     background: rgba(11, 11, 14, 0.15);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(4px) saturate(180%);
+    -webkit-backdrop-filter: blur(4px) saturate(180%);
     border-radius: 24px;
     border: 0.5px solid rgba(144, 144, 144, 0.11);
     overflow: hidden;
