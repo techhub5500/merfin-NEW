@@ -172,6 +172,7 @@ body::before {
     gap: 1rem;
     padding-left: 1.0rem;
     padding-right: 1.0rem;
+
 }
 
 /* Card sub-elements */
@@ -785,9 +786,12 @@ body::before {
 .message-wrapper {
     position: fixed;
     bottom: 20px;
-    left: var(--sidebar-expanded);
-    width: calc(100% - var(--sidebar-expanded));
+    left: 0;
+    right: 0;
+    width: auto;
     max-width: 87.5rem;
+    margin: 0 auto;
+    padding: 0 20px;
     z-index: 100;
     opacity: 1;
     display: flex;
@@ -797,10 +801,11 @@ body::before {
     gap: 1rem;
 }
 
-/* When sidebar is collapsed, align message wrapper accordingly */
+/* Message wrapper is auto-centered with margin: 0 auto */
 body.sidebar-collapsed .message-wrapper {
-    left: var(--sidebar-collapsed);
-    width: calc(100% - var(--sidebar-collapsed));
+    left: 0;
+    right: 0;
+    width: auto;
 }
 
 /* Narrow the message card and center it (desktop), full width on small screens */
@@ -1233,25 +1238,27 @@ body.sidebar-collapsed .message-wrapper {
     --sidebar-collapsed: var(--sidebar-collapsed-width, 60px);
 }
 
-/* App content wrapper is shifted by the sidebar width to avoid overlap */
+/* App content wrapper com espaço para sidebar flutuante */
 .app-content {
-    margin-left: var(--sidebar-expanded);
-    width: calc(100% - var(--sidebar-expanded));
+    margin-left: 220px;
+    width: calc(100% - 220px);
     transition: margin-left var(--transition-fast), width var(--transition-fast);
 }
 
 .sidebar {
     position: fixed;
-    left: 0;
-    top: 0;
-    height: 100vh;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: auto;
     width: var(--sidebar-expanded);
-    background: rgba(15, 16, 20, 0.15);
+    background: rgba(15, 16, 20, 0.35);
     backdrop-filter: blur(40px) saturate(200%);
     -webkit-backdrop-filter: blur(40px) saturate(200%);
     
-    /* MUDANÇA 3: Borda mais definida */
+    /* MUDANÇA: Borda mais definida e border-radius generoso */
     border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 28px;
     display: flex;
     align-items: flex-start;
     z-index: 3;
@@ -1351,9 +1358,8 @@ body.sidebar-collapsed .message-wrapper {
     transition: transform var(--transition-fast); 
 }
 
-/* Logout button placed at the end of the sidebar */
+/* Logout button placed after nav items in the sidebar */
 .sidebar__logout {
-    margin-top: auto;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1364,6 +1370,8 @@ body.sidebar-collapsed .message-wrapper {
     color: var(--text-primary);
     cursor: pointer;
     transition: background var(--transition-default), transform var(--transition-fast);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 4px;
 }
 
 .sidebar__logout:hover,
@@ -1385,8 +1393,8 @@ body.sidebar-collapsed .sidebar {
 }
 
 body.sidebar-collapsed .app-content { 
-    margin-left: var(--sidebar-collapsed);
-    width: calc(100% - var(--sidebar-collapsed)); 
+    margin-left: 100px;
+    width: calc(100% - 100px); 
 }
 
 body.sidebar-collapsed .sidebar__link-label { 
@@ -1400,14 +1408,15 @@ body.sidebar-collapsed .sidebar__toggle-icon {
 }
 
 @media (max-width: 768px) {
-    /* keep sidebar compact on small screens */
+    /* keep sidebar compact and floating on small screens */
     .app-content { 
-        margin-left: var(--sidebar-collapsed);
-        width: calc(100% - var(--sidebar-collapsed)); 
+        margin-left: 80px;
+        width: calc(100% - 80px);
     }
     
     .sidebar { 
-        width: var(--sidebar-collapsed); 
+        width: var(--sidebar-collapsed);
+        left: 10px; /* Reduce margin on small screens */
     }
     
     .sidebar__link-label { 

@@ -507,7 +507,80 @@ class InvestmentDashboardApp {
         // Initialize New Chat Button
         this.initNewChatButton();
 
+        // Initialize Invest Card Tabs
+        this.initInvestCardTabs();
+
+        // Initialize Sidebar Subpages
+        this.initSidebarSubpages();
+
         console.log('[Investment Dashboard] Application initialized successfully');
+    }
+
+    /**
+     * Initialize invest card tabs functionality
+     */
+    initInvestCardTabs() {
+        const tabContainers = document.querySelectorAll('.invest-card__tabs');
+        
+        tabContainers.forEach(container => {
+            const tabs = container.querySelectorAll('.invest-tab');
+            const card = container.closest('.invest-card');
+            const panels = card ? card.querySelectorAll('.invest-tab-panel') : [];
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active from all tabs
+                    tabs.forEach(t => {
+                        t.classList.remove('active');
+                        t.setAttribute('aria-selected', 'false');
+                    });
+                    
+                    // Add active to clicked tab
+                    tab.classList.add('active');
+                    tab.setAttribute('aria-selected', 'true');
+                    
+                    // Show corresponding panel
+                    const targetPanel = tab.dataset.tab;
+                    panels.forEach(panel => {
+                        if (panel.dataset.panel === targetPanel) {
+                            panel.classList.remove('hidden');
+                        } else {
+                            panel.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+        });
+    }
+
+    /**
+     * Initialize sidebar subpages functionality
+     */
+    initSidebarSubpages() {
+        const sublinks = document.querySelectorAll('.sidebar__sublink');
+        const hash = window.location.hash;
+        
+        // Set active subpage based on URL hash
+        sublinks.forEach(link => {
+            link.classList.remove('sidebar__sublink--active');
+            
+            const subpage = link.dataset.subpage;
+            if ((hash === '' || hash === '#') && subpage === 'dashboard') {
+                link.classList.add('sidebar__sublink--active');
+            } else if (hash === '#carteira' && subpage === 'carteira') {
+                link.classList.add('sidebar__sublink--active');
+            } else if (hash === '#fiscal' && subpage === 'fiscal') {
+                link.classList.add('sidebar__sublink--active');
+            }
+        });
+        
+        // Handle subpage clicks
+        sublinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                sublinks.forEach(l => l.classList.remove('sidebar__sublink--active'));
+                link.classList.add('sidebar__sublink--active');
+            });
+        });
     }
 
     /**

@@ -1,19 +1,132 @@
 {
-  "agent_name": "ResearchAgent",
-  "version": "0.1.0",
-  "description": "Executa consultas externas: notícias, APIs públicas e dados de mercado.",
-  "actions": {
-    "queryExternal": {
-      "summary": "Busca e agrega resultados de fontes externas com base em uma query.",
-      "params": { "query": "string", "limit": "number (optional)" },
-      "exampleRequest": { "query": "inflação Brasil 2026", "limit": 5 },
-      "exampleResponse": { "results": [] }
+  "name": "ResearchAgent",
+  "version": "1.0.0",
+  "type": "executor",
+  "description": "Executor especializado em coleta inteligente de dados externos de mercado financeiro brasileiro via Brapi, Tavily e Serper. Opera com GPT-5 mini (reasoning low, verbosity low) apenas para casos ambíguos (~30%).",
+  "capabilities": [
+    "Análise semântica híbrida (regex 70% + IA seletiva 30%)",
+    "Roteamento inteligente multi-fonte com decision tree",
+    "Execução paralela e sequencial conforme necessidade",
+    "Sistema de fallback hierárquico (4 níveis)",
+    "Cache inteligente com fingerprinting (~75% hit rate)",
+    "Circuit breaker por API (3 falhas → open 2min)",
+    "Logging de 3 níveis (CRITICAL/DECISION/VERBOSE)",
+    "Validação estrutural de respostas",
+    "TTL dinâmico por tipo de dado"
+  ],
+  "contract": {
+    "operations": [
+      {
+        "name": "pesquisa_mercado_financeiro",
+        "description": "Coleta dados estruturados, notícias e contexto qualitativo sobre ativos financeiros brasileiros",
+        "required_params": [
+          {
+            "name": "objetivo",
+            "type": "string",
+            "description": "Descrição da pesquisa desejada (ex: 'Qual o preço da PETR4?')"
+          }
+        ],
+        "optional_params": [
+          {
+            "name": "contexto",
+            "type": "string",
+            "description": "Contexto adicional para melhorar a pesquisa"
+          },
+          {
+            "name": "tickers",
+            "type": "string[]",
+            "description": "Lista de tickers específicos (ex: ['PETR4', 'VALE3'])"
+          },
+          {
+            "name": "periodo",
+            "type": "string",
+            "description": "Período temporal: 'ontem', 'hoje', 'semana', 'mes', 'ano', 'atual'"
+          },
+          {
+            "name": "profundidade",
+            "type": "string",
+            "enum": ["basica", "media", "profunda"],
+            "default": "media",
+            "description": "Nível de profundidade da pesquisa"
+          },
+          {
+            "name": "priorizar_velocidade",
+            "type": "boolean",
+            "default": false,
+            "description": "Se true, prioriza cache e fontes mais rápidas"
+          },
+          {
+            "name": "fontes_preferidas",
+            "type": "string[]",
+            "description": "Forçar uso de fontes específicas: ['BRAPI', 'TAVILY', 'SERPER']"
+          }
+        ],
+        "returns": {
+          "dados_consolidados": "object - Dados mesclados de todas as fontes",
+          "fontes_usadas": "string[] - Lista de fontes consultadas",
+          "advertencias": "string[] - Avisos sobre fallbacks, dados antigos",
+          "metadados": "object - total_fontes, fontes_primarias, fontes_fallback, tempo_total_ms",
+          "timestamp": "string - ISO8601"
+        },
+        "exampleRequest": {
+          "objetivo": "A Petrobras caiu 3% ontem, por que?",
+          "tickers": ["PETR4"],
+          "profundidade": "media"
+        },
+        "exampleResponse": {
+          "dados_consolidados": {
+            "dados_estruturados": { "symbol": "PETR4", "regularMarketPrice": 38.50 },
+            "contexto_qualitativo": { "resposta_ia": "A queda está relacionada a..." }
+          },
+          "fontes_usadas": ["BRAPI", "TAVILY"],
+          "advertencias": [],
+          "metadados": { "total_fontes": 2, "tempo_total_ms": 1850 },
+          "timestamp": "2026-01-30T18:30:00.000Z"
+        }
+      }
+    ]
+  },
+  "decision_tree": {
+    "BRAPI": {
+      "when": ["Tickers identificados", "Keywords: preço, cotação, P/L, ROE, dividendo", "Moedas ou índices"],
+      "provides": "Dados estruturados, cotações, fundamentalistas"
     },
-    "fetchMarketData": {
-      "summary": "Retorna preços e séries históricas para um símbolo.",
-      "params": { "symbol": "string", "range": "string (optional)" },
-      "exampleRequest": { "symbol": "PETR4.SA", "range": "1y" },
-      "exampleResponse": { "series": [] }
+    "TAVILY": {
+      "when": ["Keywords: por que, motivo, análise", "Busca de contexto ou notícias"],
+      "provides": "Contexto qualitativo, resposta IA, fontes"
+    },
+    "SERPER": {
+      "when": ["Keywords factuais: sede, fundação, CEO", "Fallback para outras fontes"],
+      "provides": "Knowledge graph, resultados web"
     }
+  },
+  "fallback_hierarchy": [
+    { "level": 1, "strategy": "Cache recente", "max_age": "24h (dados) / 6h (notícias)" },
+    { "level": 2, "strategy": "Fonte alternativa", "mappings": "BRAPI→SERPER, TAVILY→SERPER" },
+    { "level": 3, "strategy": "Cache antigo", "max_age": "48h (dados) / 7d (notícias)" },
+    { "level": 4, "strategy": "Erro estruturado com diagnóstico" }
+  ],
+  "ttl_strategy": {
+    "preco_tempo_real": "5h",
+    "noticias": "6h",
+    "fundamentalista": "24h",
+    "fato_trivial": "72h"
+  },
+  "dependencies": {
+    "external_apis": ["Brapi", "Tavily", "Serper"],
+    "env_vars": ["BRAPI_API_KEY", "TAVILY_API_KEY", "SERPER_API_KEY", "OPENAI_API_KEY"],
+    "internal": ["BaseAgent (../shared/base-agent.js)"]
+  },
+  "performance_targets": {
+    "avg_response_time_ms": 2500,
+    "cache_hit_rate": "70%",
+    "ai_usage_rate": "<35%",
+    "log_lines_per_request": "<30"
+  },
+  "files": {
+    "main": "research-agent.js",
+    "components": ["request-analyzer.js", "source-router.js", "cache-manager.js", "data-validator.js", "research-logger.js"],
+    "api_clients": ["api-clients/brapi-client.js", "api-clients/tavily-client.js", "api-clients/serper-client.js", "api-clients/circuit-breaker.js"],
+    "utils": ["utils/query-normalizer.js", "utils/entity-extractor.js"]
   }
 }

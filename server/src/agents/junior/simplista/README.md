@@ -22,6 +22,8 @@ Este agente é responsável por fornecer respostas rápidas e diretas a pergunta
 - Próximas contas
 - Quais meus planos
 
+o agente simplis consulta o finance bridge construido para responder perguntas que ele decida que precisa de dados internos.
+
 ### ❌ Não é usado para:
 - Análises profundas ("por que isso aconteceu?")
 - Recomendações ("o que devo fazer?")
@@ -67,7 +69,7 @@ Aqui estão 25 exemplos típicos de queries que o Agente Simplista processa:
 24. "Qual meu score de crédito atual?"
 25. "Quanto gastei em lazer nos últimos 3 meses?"
 
-**Novos exemplos baseados em análise de queries aparentemente complexas mas essencialmente simples:**
+**Exemplos baseados em análise de queries aparentemente complexas mas essencialmente simples:**
 
 26. "Quanto tenho investido no total?" (soma de investimentos)
 27. "Qual meu patrimônio líquido?" (ativos - passivos)
@@ -109,9 +111,9 @@ Aqui estão 25 exemplos típicos de queries que o Agente Simplista processa:
 O Agente Simplista segue um processo direto e eficiente:
 
 ### 📥 ETAPA 1 — Recebimento e Classificação
-- Recebe query do Agente Junior via Message Bus
+- Recebe query do Agente Junior 
 - Identifica tipo de informação solicitada (saldo, gastos, dívidas, etc.)
-- Determina filtros necessários (período, categoria, etc.)
+- Determina filtros necessários (período, categoria, etc.) (FINANCIAL BRIGDE)
 
 ### 🔍 ETAPA 2 — Consulta aos Dados Internos
 - Acessa Sistema de Acesso a Dados Internos
@@ -124,7 +126,6 @@ O Agente Simplista segue um processo direto e eficiente:
 - Prepara resposta estruturada
 
 ### 📤 ETAPA 4 — Resposta Enriquecida e Diálogo
-- Retorna resposta informativa ao Junior
 - Inclui leve interpretação e sugestões rasas
 - **Enriquecimento com Dados Externos:** Pode consultar Serper e Brapi diretamente para dados de mercado
 - Sempre oferece aprofundamento
@@ -135,13 +136,8 @@ O Agente Simplista segue um processo direto e eficiente:
 
 ## 8. 💾 Sistema de Memória
 
-O Agente Simplista recebe a **Memória do Sistema (Contexto de Chat)** na sua integralidade automaticamente, incluindo:
+O Agente Simplista recebe a **Memória do Sistema (Contexto de Chat)** na sua integralidade automaticamente, conforme a visao geral do agente junior em **server\src\agents\junior\junior\README.md**:
 
-- **Working Memory (volátil):** Variáveis de execução e diálogos ativos
-- **Episodic Memory (por chat):** Histórico persistente da conversa
-- **Long-Term Memory (perfil):** Perfil permanente do usuário
-
-**Uso:** Utiliza o contexto para personalizar respostas simples e manter continuidade em diálogos de esclarecimento. Não recebe Memória Interna (processos dos agentes), pois opera de forma independente e direta.
 
 ---
 
@@ -151,7 +147,7 @@ O Agente Simplista possui **acesso direto ao Serper e Brapi** (parte do Agente d
 
 - **Quando usar:** Queries simples que se beneficiam de dados externos (ex.: cotações, indicadores fundamentalistas básicos)
 - **APIs acessíveis:** Serper (busca geral) e Brapi (dados financeiros brasileiros)
-- **Acesso direto:** Pode consultar sem passar pelo Agente de Pesquisa completo
+- **Acesso direto:** Pode consultar sem passar pelo Agente de Pesquisa externa
 - **Integração:** Dados incorporados na resposta informativa
 - **Limitações:** Apenas para informações factuais simples, não análises profundas
 
@@ -197,7 +193,7 @@ O Agente Simplista pode manter um diálogo limitado com o usuário para esclarec
 
 ### 📝 Exemplo de Diálogo
 
-**Usuário:** "Quanto gastei?"
+**Usuário:** "Quanto gastei no mes de?"
 
 **Simplista:** Query muito vaga, precisa de período
 **Pergunta:** "Em qual período? Este mês, último mês ou outro?"
@@ -276,18 +272,13 @@ O Agente Simplista possui **acesso direto ao Sistema de Acesso a Dados Internos*
 O Agente Simplista é chamado diretamente pelo Agente Junior para queries simples:
 
 - **Chamado por:** Agente Junior (único caminho)
-- **Como estruturar requisição:** Via Message Bus com query simples e contexto mínimo
-- **Integração:** Fornece respostas rápidas que o Junior repassa diretamente ao usuário
+- **Como estruturar requisição:** com query simples e contexto 
+- **Integração:** Fornece respostas rápidas
 - **Cenários comuns:** Consultas operacionais diárias, verificações rápidas de status financeiro
 
 **Importante:** Se a query evoluir para análise complexa, o Simplista deve redirecionar para o sistema de coordenadores através do Junior.
 
 Este agente garante que queries básicas sejam respondidas com máxima eficiência, liberando os agentes coordenadores para tarefas que realmente exigem raciocínio avançado.
 
-## Memória e Contexto
 
-- O Agente Simplista recebe um contexto unificado via `context-builder`: `workingMemory` (sessão), `episodicSummary` (histórico de chat relevante) e `prompt_current`.
-- Uso prático: utilizar `episodicSummary` para entender diálogos recentes (ex.: período solicitado) e `workingMemory` para diálogos ativos marcados pelo Junior.
-- Regras de acesso: Simplista pode ler `workingMemory` e `episodicSummary` e consultar LTM via `profile-manager` apenas quando autorizado por coordenadores; NÃO repassa memória completa ao Agente Matemático nem ao Agente de Pesquisa Externa.
-- Privacidade: sempre trate dados retornados como sensíveis; não logar PII sem anonimização.
 

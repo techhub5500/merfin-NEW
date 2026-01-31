@@ -27,7 +27,7 @@
     <!-- Lucide icons para sidebar -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
-<body class="invest-bg">
+<body class="invest-bg invest-page">
 
     <!-- Sidebar (fixed left) -->
     <aside class="sidebar" id="sidebar" role="complementary" aria-label="Menu de navegação lateral">
@@ -44,15 +44,38 @@
                     <i data-lucide="bar-chart-2" class="sidebar__link-icon" aria-hidden="true"></i>
                     <span class="sidebar__link-label">Finanças</span>
                 </a>
-                <a href="invest.html" class="sidebar__link" aria-current="page">
-                    <i data-lucide="trending-up" class="sidebar__link-icon" aria-hidden="true"></i>
-                    <span class="sidebar__link-label">Investimentos</span>
-                </a>
+                
+                <!-- Item Investimentos com subpáginas -->
+                <div class="sidebar__group sidebar__group--invest">
+                    <a href="invest.html" class="sidebar__link" aria-current="page">
+                        <i data-lucide="trending-up" class="sidebar__link-icon" aria-hidden="true"></i>
+                        <span class="sidebar__link-label">Investimentos</span>
+                    </a>
+                    <!-- Subpáginas de Investimentos -->
+                    <div class="sidebar__subpages" id="invest-subpages">
+                        <a href="invest.html" class="sidebar__sublink sidebar__sublink--active" data-subpage="dashboard">
+                            <i data-lucide="layout-dashboard" class="sidebar__sublink-icon" aria-hidden="true"></i>
+                            <span class="sidebar__sublink-label">Dashboard</span>
+                        </a>
+                        <a href="invest.html#carteira" class="sidebar__sublink" data-subpage="carteira">
+                            <i data-lucide="wallet" class="sidebar__sublink-icon" aria-hidden="true"></i>
+                            <span class="sidebar__sublink-label">Carteira Detalhada</span>
+                        </a>
+                        <a href="invest.html#fiscal" class="sidebar__sublink" data-subpage="fiscal">
+                            <i data-lucide="file-text" class="sidebar__sublink-icon" aria-hidden="true"></i>
+                            <span class="sidebar__sublink-label">Fiscal e Eventos</span>
+                        </a>
+                    </div>
+                </div>
+                
                 <a href="profile.html" class="sidebar__link">
                     <i data-lucide="user" class="sidebar__link-icon" aria-hidden="true"></i>
                     <span class="sidebar__link-label">Perfil</span>
                 </a>
             </nav>
+            <button id="sidebar-logout" class="sidebar__logout" type="button" aria-label="Sair da plataforma">
+                <i data-lucide="log-out" class="sidebar__logout-icon" aria-hidden="true"></i>
+            </button>
         </div>
     </aside>
 
@@ -81,67 +104,61 @@
             </div>
         </div>
 
-        <div class="column-gap">
-            <div class="card equal-height-top">
-                <h3>Pesquisa de Mercado</h3>
-                <div class="search-bar">🔍 Buscar ativo ou setor...</div>
-                <div class="market-item">
-                    <span>AAPL (Apple)</span>
-                    <span class="value-pos">+1.24%</span>
+        <!-- Card Superior Unificado -->
+        <div class="card invest-card invest-card--top">
+            <nav class="invest-card__tabs" role="tablist" aria-label="Opções do card superior">
+                <button class="invest-tab active" role="tab" aria-selected="true" data-tab="mercado">Mercado</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="setores">Setores</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="indices">Índices</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="crypto">Crypto</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="alertas">Alertas</button>
+            </nav>
+            <div class="invest-card__content" id="invest-card-top-content">
+                <!-- Conteúdo dinâmico baseado na tab selecionada -->
+                <div class="invest-tab-panel" data-panel="mercado">
+                    <p class="invest-placeholder">Pesquisa de mercado e cotações em tempo real</p>
                 </div>
-                <div class="market-item">
-                    <span>BTC (Bitcoin)</span>
-                    <span class="value-neg">-0.82%</span>
+                <div class="invest-tab-panel hidden" data-panel="setores">
+                    <p class="invest-placeholder">Análise por setores da economia</p>
                 </div>
-            </div>
-
-            <div class="card equal-height-bottom">
-                <h3>Calendário de Dividendos</h3>
-                <div class="calendar-controls">
-                    <button id="prev-week" class="calendar-btn" aria-label="Semana anterior">‹</button>
-                    <div id="calendar-title" class="calendar-title" aria-live="polite"></div>
-                    <button id="next-week" class="calendar-btn" aria-label="Próxima semana">›</button>
+                <div class="invest-tab-panel hidden" data-panel="indices">
+                    <p class="invest-placeholder">Principais índices do mercado</p>
                 </div>
-
-                <div class="calendar-grid" id="calendar-grid" role="grid" aria-label="Calendário semanal">
-                    <!-- Conteúdo gerado por JavaScript: 7 células representando a semana -->
+                <div class="invest-tab-panel hidden" data-panel="crypto">
+                    <p class="invest-placeholder">Criptomoedas e blockchain</p>
                 </div>
-
-                <div class="calendar-details hidden" id="calendar-details">
-                    <strong id="calendar-details-date"></strong>
-                    <div id="calendar-details-events"></div>
-                </div>
-
-                <div class="info-row">
-                    <div class="ticker-badge">AAPL</div>
-                    <span>Recebimento: $144.99</span>
+                <div class="invest-tab-panel hidden" data-panel="alertas">
+                    <p class="invest-placeholder">Alertas e notificações personalizadas</p>
                 </div>
             </div>
         </div>
 
-        <div class="column-gap">
-            <div class="card equal-height-top">
-                <div class="card-header">
-                    <h3>Registro Rápido de Ativos</h3>
-                    <button class="invest-profile-btn" aria-label="Perfil de investidor">Perfil de investidor</button>
+        <!-- Card Inferior Unificado -->
+        <div class="card invest-card invest-card--bottom">
+            <nav class="invest-card__tabs" role="tablist" aria-label="Opções do card inferior">
+                <button class="invest-tab active" role="tab" aria-selected="true" data-tab="carteira">Carteira</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="dividendos">Dividendos</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="transacoes">Transações</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="metas">Metas</button>
+                <button class="invest-tab" role="tab" aria-selected="false" data-tab="relatorios">Relatórios</button>
+            </nav>
+            <div class="invest-card__content" id="invest-card-bottom-content">
+                <!-- Conteúdo dinâmico baseado na tab selecionada -->
+                <div class="invest-tab-panel" data-panel="carteira">
+                    <p class="invest-placeholder">Composição e alocação da carteira</p>
                 </div>
-                <div class="progress-group">
-                    <div class="progress-label"><span>Ações</span><span>$2,234 of $5,000</span></div>
-                    <div class="progress-bar"><div class="progress-fill" style="width: 44%"></div></div>
+                <div class="invest-tab-panel hidden" data-panel="dividendos">
+                    <p class="invest-placeholder">Calendário e histórico de dividendos</p>
                 </div>
-                <div class="progress-group">
-                    <div class="progress-label"><span>Crypto</span><span>$1,534 of $5,000</span></div>
-                    <div class="progress-bar"><div class="progress-fill" style="width: 30%"></div></div>
+                <div class="invest-tab-panel hidden" data-panel="transacoes">
+                    <p class="invest-placeholder">Histórico de compras e vendas</p>
                 </div>
-            </div>
-
-            <div class="card equal-height-bottom">
-                <h3>Transações Recentes</h3>
-                <ul class="recent-list">
-                    <li class="recent-item"><span>Compra PETR4</span><span class="value-neg">-$200.99</span></li>
-                    <li class="recent-item"><span>Div. Apple</span><span class="value-pos">+$129.99</span></li>
-                    <li class="recent-item"><span>Compra BTC</span><span class="value-neg">-$134.99</span></li>
-                </ul>
+                <div class="invest-tab-panel hidden" data-panel="metas">
+                    <p class="invest-placeholder">Metas de investimento e progresso</p>
+                </div>
+                <div class="invest-tab-panel hidden" data-panel="relatorios">
+                    <p class="invest-placeholder">Relatórios e análises de performance</p>
+                </div>
             </div>
         </div>
 

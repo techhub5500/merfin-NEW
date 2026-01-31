@@ -884,15 +884,14 @@ Retorne APENAS um JSON válido, sem markdown:
   }
 
   /**
-   * Roteia para Agente Simplista (STUB)
+   * Roteia para Agente Simplista
    * Política: READ_WRITE - Carrega contexto para consulta e salva a interação
-   * @todo Implementar integração real com Agente Simplista
    * @param {Object} params - Parâmetros da mensagem
-   * @returns {Promise<Object>} - Resposta stub
+   * @returns {Promise<Object>} - Resposta do Simplista
    */
   async routeToSimplista(params) {
     const { message, chatId, userId, sessionId } = params;
-    console.log('[JuniorAgent] 🟡 [STUB] Roteando para Simplista');
+    console.log('[JuniorAgent] 🟡 Roteando para Simplista');
 
     try {
       // Carregar memória para incluir contexto (READ_WRITE policy)
@@ -904,39 +903,62 @@ Retorne APENAS um JSON válido, sem markdown:
         recentWindowSize: memory.recentWindow?.length || 0
       });
 
-      const stubResponse = `[MODO TESTE] Recebi sua consulta: "${message}".
+      // Importação lazy do SimplistaAgent
+      const { getSimplistaAgent } = require('../simplista');
+      const simplistaAgent = getSimplistaAgent();
 
-📊 Em produção, o Agente Simplista faria o seguinte:
-1. Consultaria seus dados financeiros no banco de dados
-2. Calcularia o valor solicitado (saldo, total de gastos, etc.)
-3. Retornaria o resultado de forma clara
+      // Preparar contexto de memória para o Simplista
+      const memoryContext = {
+        summary: memory.cumulativeSummary || '',
+        recent: memory.recentWindow || []
+      };
 
-${hasContext ? '✅ Contexto da conversa disponível para referência.' : '⚠️ Sem contexto anterior disponível.'}
+      // Executar o Simplista
+      const result = await simplistaAgent.execute({
+        userId,
+        memory: memoryContext,
+        message
+      });
 
-Por enquanto, estou em modo de teste e não tenho acesso aos dados reais.`;
+      // Extrair resposta
+      const responseText = result.resposta || result.response || 'Não consegui processar sua consulta.';
 
       // Salvar na memória (READ_WRITE policy)
-      await this._updateMemory(memory, message, stubResponse, true);
+      await this._updateMemory(memory, message, responseText, true);
       
       console.log('[JuniorAgent] 💾 Interação Simplista salva na memória');
 
+      // Verificar se Simplista solicitou transição para outro agente
+      if (result.metadata?.transitionFlag) {
+        console.log(`[JuniorAgent] 🔄 Simplista solicitou transição para: ${result.metadata.transitionFlag}`);
+        
+        if (result.metadata.transitionFlag === 'COMPLEXA') {
+          return await this.processComplexQuery(params);
+        } else if (result.metadata.transitionFlag === 'LANCAMENTO') {
+          return await this.routeToLancador(params);
+        }
+      }
+
       return {
-        response: stubResponse,
+        response: responseText,
         sessionId,
         timestamp: new Date().toISOString(),
         metadata: { 
           agente: 'simplista', 
-          status: 'stub', 
+          status: 'active', 
           hasContext,
           fluxo: 'simplista',
-          memoryPolicy: 'READ_WRITE'
+          memoryPolicy: 'READ_WRITE',
+          tempoExecucao: result.metadata?.tempoExecucao,
+          fontesConsultadas: result.metadata?.fontesConsultadas || [],
+          ofereceuAprofundamento: result.metadata?.ofereceuAprofundamento || false
         }
       };
 
     } catch (error) {
-      console.error('[JuniorAgent] ❌ Erro no stub do Simplista:', error.message);
+      console.error('[JuniorAgent] ❌ Erro no Simplista:', error.message);
       return {
-        response: 'Desculpe, houve um erro ao processar sua consulta.',
+        response: 'Desculpe, houve um erro ao processar sua consulta. Pode tentar novamente?',
         sessionId,
         timestamp: new Date().toISOString(),
         error: error.message
