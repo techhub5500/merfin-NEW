@@ -1582,20 +1582,55 @@ class BackgroundImageManager {
     }
 
     /**
-     * Aplica a imagem ao body
+     * Aplica a imagem ao body com transição suave
      * @param {string} dataURL - Data URL da imagem
+     * @param {boolean} immediate - Se true, aplica sem fade (para cache)
      */
-    applyBackground(dataURL) {
+    applyBackground(dataURL, immediate = false) {
         if (!dataURL) return;
         
         try {
-            document.body.style.backgroundImage = `url('${dataURL}')`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundPosition = 'center center';
-            document.body.style.backgroundRepeat = 'no-repeat';
-            document.body.style.backgroundAttachment = 'fixed';
+            // Se for do cache ou immediate, aplicar instantaneamente
+            if (immediate) {
+                document.body.style.backgroundImage = `url('${dataURL}')`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center center';
+                document.body.style.backgroundRepeat = 'no-repeat';
+                document.body.style.backgroundAttachment = 'fixed';
+                document.body.style.opacity = '1';
+                console.log('[BackgroundImageManager] ✅ Imagem aplicada instantaneamente (cache)');
+                return;
+            }
             
-            console.log('[BackgroundImageManager] Imagem de fundo aplicada com sucesso');
+            // Pré-carregar a imagem em memória para renderização mais rápida
+            const img = new Image();
+            img.onload = () => {
+                // Aplicar com fade suave
+                document.body.style.transition = 'opacity 0.3s ease-in-out';
+                document.body.style.opacity = '0.95';
+                
+                setTimeout(() => {
+                    document.body.style.backgroundImage = `url('${dataURL}')`;
+                    document.body.style.backgroundSize = 'cover';
+                    document.body.style.backgroundPosition = 'center center';
+                    document.body.style.backgroundRepeat = 'no-repeat';
+                    document.body.style.backgroundAttachment = 'fixed';
+                    
+                    setTimeout(() => {
+                        document.body.style.opacity = '1';
+                        console.log('[BackgroundImageManager] ✅ Imagem aplicada com fade');
+                    }, 50);
+                }, 100);
+            };
+            
+            img.onerror = () => {
+                console.error('[BackgroundImageManager] ❌ Erro ao pré-carregar imagem');
+                // Aplicar mesmo assim
+                document.body.style.backgroundImage = `url('${dataURL}')`;
+            };
+            
+            img.src = dataURL;
+            
         } catch (error) {
             console.error('[BackgroundImageManager] Erro ao aplicar background:', error);
         }
@@ -1612,8 +1647,8 @@ class BackgroundImageManager {
             // Verificar cache primeiro
             const cached = this.getFromCache(page);
             if (cached) {
-                console.log('[BackgroundImageManager] ✅ Imagem carregada do cache');
-                this.applyBackground(cached.dataURL);
+                console.log('[BackgroundImageManager] ⚡ Imagem carregada do cache (instantâneo)');
+                this.applyBackground(cached.dataURL, true); // immediate = true para cache
                 return;
             }
             
@@ -1623,7 +1658,7 @@ class BackgroundImageManager {
             if (imageData && imageData.dataURL) {
                 console.log('[BackgroundImageManager] ✅ Imagem carregada da API');
                 this.saveToCache(page, imageData);
-                this.applyBackground(imageData.dataURL);
+                this.applyBackground(imageData.dataURL, false); // fade suave na primeira carga
             } else {
                 console.warn('[BackgroundImageManager] ⚠️ Nenhuma imagem disponível, mantendo estilo padrão');
             }
@@ -1657,6 +1692,55 @@ class BackgroundImageManager {
         await this.loadBackground();
     }
 }
+
+// ============================================================================
+// EARLY BACKGROUND LOADING - Executa imediatamente para carregamento instantâneo
+// ============================================================================
+
+// Função para carregar imagem do cache instantaneamente (antes do DOM estar pronto)
+(function earlyBackgroundLoad() {
+    try {
+        // Detectar página
+        const pathname = window.location.pathname;
+        const href = window.location.href;
+        let page = 'index';
+        
+        if (pathname.includes('invest.html') || href.includes('invest.html')) {
+            page = 'invest';
+        } else if (pathname.includes('dash.html') || href.includes('dash.html')) {
+            page = 'dash';
+        } else if (pathname.includes('index.html') || pathname === '/' || href === window.location.origin + '/') {
+            page = 'index';
+        }
+        
+        // Tentar carregar do cache
+        const cacheKey = `bg_image_cache_${page}`;
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+            try {
+                const cacheData = JSON.parse(cached);
+                const now = Date.now();
+                const cacheAge = now - (cacheData.timestamp || 0);
+                const cacheExpiration = 24 * 60 * 60 * 1000; // 24 horas
+                
+                // Se o cache for válido, aplicar IMEDIATAMENTE
+                if (cacheAge < cacheExpiration && cacheData.dataURL) {
+                    console.log('[EarlyLoad] ⚡⚡⚡ Aplicando imagem do cache INSTANTANEAMENTE');
+                    document.body.style.backgroundImage = `url('${cacheData.dataURL}')`;
+                    document.body.style.backgroundSize = 'cover';
+                    document.body.style.backgroundPosition = 'center center';
+                    document.body.style.backgroundRepeat = 'no-repeat';
+                    document.body.style.backgroundAttachment = 'fixed';
+                }
+            } catch (e) {
+                console.warn('[EarlyLoad] Erro ao parsear cache:', e.message);
+            }
+        }
+    } catch (error) {
+        console.error('[EarlyLoad] Erro no carregamento antecipado:', error);
+    }
+})();
 
 // ============================================================================
 // APPLICATION BOOTSTRAP

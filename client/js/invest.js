@@ -510,10 +510,178 @@ class InvestmentDashboardApp {
         // Initialize Invest Card Tabs
         this.initInvestCardTabs();
 
+        // Initialize Rotating Header (Arrows & Drag)
+        this.initRotatingHeader();
+
+        // Initialize Custom Selectors
+        this.initSelectors();
+
         // Initialize Sidebar Subpages
         this.initSidebarSubpages();
 
+        // Initialize Alocação Drill-Down
+        this.initDrillDown();
+
+        // Initialize Metas Financeiras
+        this.initMetas();
+
+        // Initialize Consultoria IA
+        this.initConsultoriaIA();
+
+        // Expose test functions
+        this.exposeTestFunctions();
+
+        // Listen for hash changes to simulate subpages
+        window.addEventListener('hashchange', () => this.handleHashChange());
+        this.handleHashChange(); // Run on initial load
+
         console.log('[Investment Dashboard] Application initialized successfully');
+    }
+
+    /**
+     * Handle hash changes to update the dashboard view
+     * Answers the user's doubt: subpages can be independent!
+     */
+    handleHashChange() {
+        const hash = window.location.hash || '#dashboard';
+        const subpage = hash.replace('#', '');
+        
+        console.log(`[Subpage] Navigating to: ${subpage}`);
+        
+        // Example logic: auto-select a tab based on subpage
+        // This makes "independent" pages possible within the same file
+        if (subpage === 'carteira') {
+            this.activateTab('carteira');
+        } else if (subpage === 'fiscal') {
+            this.activateTab('dividendos'); // Example mapping
+        } else {
+            this.activateTab('patrimonio');
+        }
+    }
+
+    /**
+     * Helper to activate a specific tab programmatically
+     */
+    activateTab(tabId) {
+        const tab = document.querySelector(`.invest-tab[data-tab="${tabId}"]`);
+        if (tab) tab.click();
+    }
+
+    /**
+     * Initialize rotating header with dragging and arrows
+     */
+    initRotatingHeader() {
+        const container = document.querySelector('#invest-main-tabs');
+        const btnPrev = document.querySelector('#tab-prev');
+        const btnNext = document.querySelector('#tab-next');
+
+        if (!container) return;
+
+        // Scroll with buttons
+        if (btnPrev) {
+            btnPrev.addEventListener('click', () => {
+                container.scrollBy({ left: -200, behavior: 'smooth' });
+            });
+        }
+
+        if (btnNext) {
+            btnNext.addEventListener('click', () => {
+                container.scrollBy({ left: 200, behavior: 'smooth' });
+            });
+        }
+
+        // Drag to scroll logic
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        container.addEventListener('mousedown', (e) => {
+            isDown = true;
+            container.classList.add('active');
+            startX = e.pageX - container.offsetLeft;
+            scrollLeft = container.scrollLeft;
+        });
+
+        container.addEventListener('mouseleave', () => {
+            isDown = false;
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDown = false;
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - container.offsetLeft;
+            const walk = (x - startX) * 2; // Scroll speed
+            container.scrollLeft = scrollLeft - walk;
+        });
+    }
+
+    /**
+     * Initialize custom dropdown selectors
+     */
+    initSelectors() {
+        const selectors = document.querySelectorAll('.custom-selector');
+
+        selectors.forEach(sel => {
+            const header = sel.querySelector('.selector-header');
+            const dropdown = sel.querySelector('.selector-dropdown');
+            const options = sel.querySelectorAll('.selector-option');
+
+            if (!header || !dropdown) return;
+
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Close other selectors
+                document.querySelectorAll('.selector-dropdown').forEach(d => {
+                    if (d !== dropdown) d.classList.add('hidden');
+                });
+
+                dropdown.classList.toggle('hidden');
+            });
+
+            options.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const value = opt.dataset.value;
+                    const selectorId = sel.id;
+
+                    // Update header text
+                    header.querySelector('span').textContent = opt.textContent;
+                    
+                    // Update active state
+                    options.forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    
+                    dropdown.classList.add('hidden');
+                    console.log(`[Selector] ${opt.textContent} selecionado (value: ${value})`);
+
+                    // Integration with Invest Data Manager
+                    if (window.investData) {
+                        if (selectorId.includes('time-selector')) {
+                            window.investData.setFilter('time', value);
+                        } else if (selectorId.includes('view-selector')) {
+                            window.investData.setFilter('view', value);
+                        } else if (selectorId.includes('index-selector')) {
+                            window.investData.setFilter('index', value);
+                        } else if (selectorId.includes('news-filter-scope')) {
+                            window.investData.setFilter('scope', value);
+                        } else if (selectorId.includes('news-filter-sentiment')) {
+                            window.investData.setFilter('sentiment', value);
+                        }
+                    }
+                });
+            });
+        });
+
+        // Close dropdowns on document click
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.selector-dropdown').forEach(d => {
+                d.classList.add('hidden');
+            });
+        });
     }
 
     /**
@@ -526,6 +694,7 @@ class InvestmentDashboardApp {
             const tabs = container.querySelectorAll('.invest-tab');
             const card = container.closest('.invest-card');
             const panels = card ? card.querySelectorAll('.invest-tab-panel') : [];
+            const selectorGroups = card ? card.querySelectorAll('.selector-group') : [];
             
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -539,6 +708,9 @@ class InvestmentDashboardApp {
                     tab.classList.add('active');
                     tab.setAttribute('aria-selected', 'true');
                     
+                    // Center the active tab in the scrolling view
+                    tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    
                     // Show corresponding panel
                     const targetPanel = tab.dataset.tab;
                     panels.forEach(panel => {
@@ -548,9 +720,184 @@ class InvestmentDashboardApp {
                             panel.classList.add('hidden');
                         }
                     });
+
+                    // Show corresponding selector group
+                    selectorGroups.forEach(group => {
+                        if (group.id === `selectors-${targetPanel}`) {
+                            group.classList.remove('hidden');
+                        } else {
+                            group.classList.add('hidden');
+                        }
+                    });
+
+                    // Update Invest Data Manager state
+                    if (window.investData) {
+                        window.investData.setActiveTab(targetPanel);
+                    }
                 });
             });
         });
+    }
+
+    /**
+     * Initialize drill-down functionality for Alocação
+     */
+    initDrillDown() {
+        const btnBack = document.querySelector('#btn-back-alocacao');
+        if (btnBack) {
+            btnBack.addEventListener('click', () => {
+                const mainView = document.querySelector('#alocacao-main-view');
+                const detailsView = document.querySelector('#alocacao-details-view');
+                
+                if (mainView && detailsView) {
+                    detailsView.classList.add('hidden');
+                    mainView.classList.remove('hidden');
+                }
+            });
+        }
+    }
+
+    /**
+     * Initialize Metas Financeiras (Modal and Form)
+     */
+    initMetas() {
+        const btnOpen = document.getElementById('open-meta-modal');
+        const btnClose = document.getElementById('close-meta-modal');
+        const modal = document.getElementById('meta-modal');
+        const form = document.getElementById('meta-form');
+        const errorEl = document.getElementById('form-error');
+
+        if (!btnOpen || !modal) return;
+
+        // Open Modal
+        btnOpen.addEventListener('click', () => {
+            modal.classList.remove('hidden');
+            if (form) form.reset();
+            if (errorEl) errorEl.classList.add('hidden');
+        });
+
+        // Close Modal
+        btnClose.addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+
+        // Form Submit
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const newMeta = {
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    target: formData.get('target'),
+                    deadline: formData.get('deadline'),
+                    allocation: formData.get('allocation'),
+                    priority: formData.get('priority')
+                };
+
+                // Simple validation
+                if (!newMeta.title || !newMeta.target || !newMeta.allocation) {
+                    if (errorEl) {
+                        errorEl.textContent = 'Preencha os campos obrigatórios.';
+                        errorEl.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                if (window.investData) {
+                    const result = window.investData.addMeta(newMeta);
+                    if (result.success) {
+                        modal.classList.add('hidden');
+                        form.reset();
+                    } else {
+                        if (errorEl) {
+                            errorEl.textContent = result.message;
+                            errorEl.classList.remove('hidden');
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    initConsultoriaIA() {
+        const btnSend = document.getElementById('btn-ai-query-send');
+        const input = document.getElementById('ai-query-input');
+        const container = document.querySelector('.ai-query-results');
+        const chips = document.querySelectorAll('.suggestion-chip');
+
+        if (!btnSend || !input) return;
+
+        const handleSend = () => {
+            const query = input.value.trim();
+            if (!query) return;
+
+            // Show loading state
+            btnSend.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btnSend.disabled = true;
+
+            // Mock AI response
+            setTimeout(() => {
+                btnSend.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                btnSend.disabled = false;
+                
+                if (container) {
+                    container.innerHTML = `
+                        <div class="ai-response fade-in" style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 15px; border-left: 3px solid #facc15; margin-top: 15px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: #facc15;">
+                                <i class="fas fa-robot"></i>
+                                <strong style="font-size: 13px;">Análise IA</strong>
+                            </div>
+                            <p style="font-size: 13px; color: rgba(255,255,255,0.8); line-height: 1.5; margin: 0;">
+                                Analisando sua solicitação sobre "<strong>${query}</strong>"... 
+                                <br><br>
+                                Com base nos seus dividendos recentes e na alocação atual de PETR4 e IVVB11, recomendo focar no aporte de ativos de infraestrutura (como KLBN11) para atingir sua meta de Aposentadoria 15% mais rápido. 
+                                <br><br>
+                                <span style="color: #4ade80;">✔ Gráfico gerado e enviado para sua área de relatórios.</span>
+                            </p>
+                        </div>
+                    `;
+                }
+                input.value = '';
+                
+                // Initialize icons if any were added
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            }, 1500);
+        };
+
+        btnSend.addEventListener('click', handleSend);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        // Chip interaction
+        chips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                input.value = chip.textContent;
+                input.focus();
+            });
+        });
+    }
+
+    /**
+     * Define global test functions
+     */
+    exposeTestFunctions() {
+        window.populaDadosInvest = (config) => {
+            if (window.investData) {
+                window.investData.populateData(config);
+                console.log('%c[Test] Dados de investimento populados via console', 'color: #ffcc00; font-weight: bold;');
+            } else {
+                console.error('[Test] InvestDataManager não encontrado');
+            }
+        };
     }
 
     /**

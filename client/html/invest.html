@@ -29,6 +29,9 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/invest.css">
     
+    <!-- Chart.js para gráficos de investimento -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <!-- Lucide icons para sidebar -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
@@ -109,60 +112,319 @@
             </div>
         </div>
 
-        <!-- Card Superior Unificado -->
-        <div class="card invest-card invest-card--top">
-            <nav class="invest-card__tabs" role="tablist" aria-label="Opções do card superior">
-                <button class="invest-tab active" role="tab" aria-selected="true" data-tab="mercado">Mercado</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="setores">Setores</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="indices">Índices</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="crypto">Crypto</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="alertas">Alertas</button>
-            </nav>
-            <div class="invest-card__content" id="invest-card-top-content">
+        <div class="card invest-card invest-card--main">
+            <div class="invest-card__nav-container">
+                <button class="nav-arrow nav-arrow--left" id="tab-prev" aria-label="Anterior">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <nav class="invest-card__tabs" id="invest-main-tabs" role="tablist">
+                    <button class="invest-tab active" role="tab" aria-selected="true" data-tab="patrimonio">Patrimônio</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="comparar">Comparar</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="alocacao">Alocação por classe</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="crypto">Crypto</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="noticias">Notícias</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="carteira">Carteira</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="dividendos">Dividendos</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="transacoes">Transações</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="metas">Metas</button>
+                    <button class="invest-tab" role="tab" aria-selected="false" data-tab="relatorios">Relatórios</button>
+                </nav>
+                <button class="nav-arrow nav-arrow--right" id="tab-next" aria-label="Próximo">
+                    <i data-lucide="chevron-right"></i>
+                </button>
+            </div>
+
+            <div class="invest-card__selectors">
+                <!-- Selectors are managed dynamically by invest.js based on active tab -->
+                <div id="selectors-patrimonio" class="selector-group">
+                    <div class="custom-selector" id="time-selector-patrimonio">
+                        <div class="selector-header">
+                            <span>Tudo</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option" data-value="1M">1M</div>
+                            <div class="selector-option" data-value="6M">6M</div>
+                            <div class="selector-option" data-value="1Y">1Y</div>
+                            <div class="selector-option active" data-value="Tudo">Tudo</div>
+                        </div>
+                    </div>
+                    <div class="custom-selector" id="view-selector-patrimonio">
+                        <div class="selector-header">
+                            <span>Patrimônio Bruto</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option active" data-value="bruto">Patrimônio Bruto</div>
+                            <div class="selector-option" data-value="liquido">Patrimônio Líquido</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="selectors-comparar" class="selector-group hidden">
+                    <div class="custom-selector" id="time-selector-comparar">
+                        <div class="selector-header">
+                            <span>YTD</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option" data-value="MTD" title="Do início do mês até a data de hoje">MTD</div>
+                            <div class="selector-option active" data-value="YTD" title="Do início do ano até a data de hoje">YTD</div>
+                            <div class="selector-option" data-value="12M">12M</div>
+                            <div class="selector-option" data-value="24M">24M</div>
+                        </div>
+                    </div>
+                    <div class="custom-selector" id="index-selector-comparar">
+                        <div class="selector-header">
+                            <span>IBOV</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option" data-value="CDI">CDI</div>
+                            <div class="selector-option" data-value="IPCA">IPCA</div>
+                            <div class="selector-option active" data-value="IBOV">IBOV</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="selectors-alocacao" class="selector-group hidden">
+                    <div class="custom-selector" id="time-selector-alocacao">
+                        <div class="selector-header">
+                            <span>Presente</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option active" data-value="presente">Presente</div>
+                            <div class="selector-option" data-value="mensal">Mensal</div>
+                            <div class="selector-option" data-value="trimestral">Trimestral</div>
+                            <div class="selector-option" data-value="semestral">Semestral</div>
+                            <div class="selector-option" data-value="anual">Anual</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="selectors-noticias" class="selector-group hidden">
+                    <div class="custom-selector" id="news-filter-scope">
+                        <div class="selector-header">
+                            <span>Minha Carteira</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option active" data-value="carteira">Minha Carteira</div>
+                            <div class="selector-option" data-value="mercado">Mercado Geral</div>
+                        </div>
+                    </div>
+                    <div class="custom-selector" id="news-filter-sentiment">
+                        <div class="selector-header">
+                            <span>Todos Sentimentos</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="selector-dropdown hidden">
+                            <div class="selector-option active" data-value="all">Todos Sentimentos</div>
+                            <div class="selector-option" data-value="positive">Positivo 🟢</div>
+                            <div class="selector-option" data-value="neutral">Neutro ⚪</div>
+                            <div class="selector-option" data-value="negative">Negativo 🔴</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="invest-card__content" id="invest-main-content">
                 <!-- Conteúdo dinâmico baseado na tab selecionada -->
-                <div class="invest-tab-panel" data-panel="mercado">
-                    <p class="invest-placeholder">Pesquisa de mercado e cotações em tempo real</p>
+                <div class="invest-tab-panel" data-panel="patrimonio">
+                    <div class="chart-wrapper">
+                        <canvas id="patrimonioChart"></canvas>
+                    </div>
                 </div>
-                <div class="invest-tab-panel hidden" data-panel="setores">
-                    <p class="invest-placeholder">Análise por setores da economia</p>
+                <div class="invest-tab-panel hidden" data-panel="comparar">
+                    <div class="chart-wrapper">
+                        <canvas id="compararChart"></canvas>
+                    </div>
                 </div>
-                <div class="invest-tab-panel hidden" data-panel="indices">
-                    <p class="invest-placeholder">Principais índices do mercado</p>
+                <div class="invest-tab-panel hidden" data-panel="alocacao">
+                    <!-- Donut View -->
+                    <div id="alocacao-main-view" class="fade-in">
+                        <div class="chart-wrapper donut-container">
+                            <canvas id="alocacaoDonutChart"></canvas>
+                            <div id="alocacao-total-center" class="donut-center-text">
+                                <span class="label">Total</span>
+                                <span class="value">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Details View (Horizontal Bars + Metrics) -->
+                    <div id="alocacao-details-view" class="hidden fade-in">
+                        <div class="details-nav">
+                            <button id="btn-back-alocacao" class="btn-breadcrumb">
+                                <i data-lucide="chevron-left"></i>
+                                <span id="breadcrumb-text">Carteira > Classe</span>
+                            </button>
+                        </div>
+                        <div class="details-grid">
+                            <div class="details-chart-col">
+                                <h3>Ranking de Ativos</h3>
+                                <div id="assets-ranking-container" class="ranking-list">
+                                    <!-- Dynamic horizontal bars -->
+                                </div>
+                            </div>
+                            <div class="details-metrics-col">
+                                <h3>Métricas da Classe</h3>
+                                <div class="metric-card glass">
+                                    <span class="m-label">PM vs Atual</span>
+                                    <span id="metric-performance" class="m-value">--</span>
+                                </div>
+                                <div class="metric-card glass">
+                                    <span class="m-label">Proventos (12M)</span>
+                                    <span id="metric-dividends" class="m-value">R$ 0,00</span>
+                                </div>
+                                <div class="metric-card glass">
+                                    <span class="m-label">Risco</span>
+                                    <span id="metric-risk" class="m-badge">Médio</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="invest-tab-panel hidden" data-panel="metas">
+                    <div class="metas-container">
+                        <div class="metas-header">
+                            <div class="metas-summary glass">
+                                <div class="summary-item">
+                                    <span class="label">Alocação Total</span>
+                                    <span id="total-allocation-value" class="value">0%</span>
+                                    <div class="mini-progress"><div id="total-allocation-bar" class="fill"></div></div>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="label">Metas Ativas</span>
+                                    <span id="active-goals-count" class="value">0/10</span>
+                                </div>
+                                <button class="btn-add-meta" id="open-meta-modal">
+                                    <i data-lucide="plus"></i>
+                                    Nova Meta
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="metas-grid" class="metas-grid">
+                            <!-- Metas serão carregadas dinamicamente aqui -->
+                            <div class="meta-empty-state">
+                                <i data-lucide="target"></i>
+                                <p>Você ainda não possui metas cadastradas.</p>
+                                <span>Defina seus objetivos para que a IA ajude você a chegar lá.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="invest-tab-panel hidden" data-panel="noticias">
+                    <div class="news-container">
+                        <div id="news-grid" class="news-grid">
+                            <!-- Notícias serão carregadas dinamicamente aqui -->
+                            <div class="news-empty-state">
+                                <i data-lucide="newspaper"></i>
+                                <p>Carregando as últimas notícias...</p>
+                                <span>Aguarde enquanto buscamos fatos relevantes para sua carteira.</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="invest-tab-panel hidden" data-panel="crypto">
                     <p class="invest-placeholder">Criptomoedas e blockchain</p>
                 </div>
-                <div class="invest-tab-panel hidden" data-panel="alertas">
-                    <p class="invest-placeholder">Alertas e notificações personalizadas</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Card Inferior Unificado -->
-        <div class="card invest-card invest-card--bottom">
-            <nav class="invest-card__tabs" role="tablist" aria-label="Opções do card inferior">
-                <button class="invest-tab active" role="tab" aria-selected="true" data-tab="carteira">Carteira</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="dividendos">Dividendos</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="transacoes">Transações</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="metas">Metas</button>
-                <button class="invest-tab" role="tab" aria-selected="false" data-tab="relatorios">Relatórios</button>
-            </nav>
-            <div class="invest-card__content" id="invest-card-bottom-content">
-                <!-- Conteúdo dinâmico baseado na tab selecionada -->
-                <div class="invest-tab-panel" data-panel="carteira">
+                <div class="invest-tab-panel hidden" data-panel="carteira">
                     <p class="invest-placeholder">Composição e alocação da carteira</p>
                 </div>
                 <div class="invest-tab-panel hidden" data-panel="dividendos">
-                    <p class="invest-placeholder">Calendário e histórico de dividendos</p>
+                    <div class="dividend-container">
+                        <!-- Top Ranking de Dividendos -->
+                        <div class="dividend-ranking-card">
+                            <div class="card-header">
+                                <h3>Maiores Pagadores (Ranking)</h3>
+                                <p>Distribuição de proventos por ativo nos últimos 12 meses</p>
+                            </div>
+                            <div id="dividendos-ranking-container" class="ranking-grid">
+                                <!-- Cada card terá sua própria tabela de detalhes oculta abaixo dele -->
+                                <!-- Preenchido via JS -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="invest-tab-panel hidden" data-panel="transacoes">
-                    <p class="invest-placeholder">Histórico de compras e vendas</p>
-                </div>
-                <div class="invest-tab-panel hidden" data-panel="metas">
-                    <p class="invest-placeholder">Metas de investimento e progresso</p>
+                    <div class="ai-query-wrapper">
+                        <div class="ai-query-header">
+                            <div class="ai-sparkles">
+                                <i data-lucide="sparkles"></i>
+                            </div>
+                            <h2>Consultoria IA Personalizada</h2>
+                            <p>Peça para a inteligência artificial analisar sua carteira, criar gráficos sob demanda ou projetar cenários futuros.</p>
+                        </div>
+                        
+                        <div class="ai-query-form">
+                            <div class="query-input-group">
+                                <textarea id="ai-query-input" placeholder="Ex: 'Crie um gráfico comparando meus dividendos de PETR4 com o IBOV nos últimos 6 meses'"></textarea>
+                                <button id="btn-ai-query-send" class="btn-ai-send">
+                                    <i data-lucide="send"></i>
+                                </button>
+                            </div>
+                            <div class="query-suggestions">
+                                <span class="suggestion-chip">Analise meu risco atual</span>
+                                <span class="suggestion-chip">Projete dividendos para 2026</span>
+                                <span class="suggestion-chip">Comparar com CDI</span>
+                            </div>
+                        </div>
+
+                        <div class="ai-query-results">
+                            <!-- Resultados da IA aparecerão aqui -->
+                        </div>
+                    </div>
                 </div>
                 <div class="invest-tab-panel hidden" data-panel="relatorios">
                     <p class="invest-placeholder">Relatórios e análises de performance</p>
+                </div>
+            </div>
+
+            <!-- Modal de Cadastro de Meta -->
+            <div id="meta-modal" class="modal-overlay hidden">
+                <div class="modal-content glass">
+                    <div class="modal-header">
+                        <h3>Cadastrar Nova Meta</h3>
+                        <button class="btn-close-modal" id="close-meta-modal"><i data-lucide="x"></i></button>
+                    </div>
+                    <form id="meta-form" class="meta-form">
+                        <div class="form-group">
+                            <label for="meta-title">Título da Meta</label>
+                            <input type="text" id="meta-title" name="title" placeholder="Ex: Reserva de Emergência" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="meta-desc">Descrição / Contexto para a IA</label>
+                            <textarea id="meta-desc" name="description" placeholder="Descreva por que esta meta é importante..." rows="3"></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="meta-value">Valor Alvo (R$)</label>
+                                <input type="number" id="meta-value" name="target" placeholder="0,00" required step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="meta-deadline">Prazo (Data Alvo)</label>
+                                <input type="date" id="meta-deadline" name="deadline" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="meta-allocation">Alocação do Patrimônio (%)</label>
+                                <input type="number" id="meta-allocation" name="allocation" placeholder="Ex: 20" required min="1" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label for="meta-priority">Prioridade</label>
+                                <select id="meta-priority" name="priority">
+                                    <option value="Alta">Alta</option>
+                                    <option value="Média" selected>Média</option>
+                                    <option value="Baixa">Baixa</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="form-error" class="form-error hidden"></div>
+                        <button type="submit" class="btn-save-meta">Salvar Meta</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -215,6 +477,7 @@
         </div>
 
         <script type="module" src="../js/main.js"></script>
+        <script type="module" src="../js/invest-data.js"></script>
         <script type="module" src="../js/invest.js"></script>
 </body>
 </html>
